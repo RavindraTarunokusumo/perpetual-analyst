@@ -14,39 +14,39 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Session: Phase 2 — Source Ingestion + Retrieval (future)
+## Session: Phase 2 — Source Ingestion + Retrieval (completed in phase-2-cli-and-ingestion)
 
 ### Task 6 — Thesis lifecycle
 - [x] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire) — (memory.py already)
 - [x] Enforce ≤7 active theses per topic (raise on 8th) — (memory.py already)
-- [x] Stale-flagging query: `get_stale_theses()` — theses untouched >30 days
-- [x] Render thesis fragment with confidence % and stale markers — `render_thesis_fragment()`
+- [x] Stale-flagging query: `get_stale_theses()` — theses untouched >30 days — 59f806b
+- [x] Render thesis fragment with confidence % and stale markers — `render_thesis_fragment()` — 59f806b
 
 ### Task 7 — RSS ingestion + triage
-- [x] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
-- [x] Implement `analyst/triage.py`: triage model batch call — score (0–1) + 2-line summary per item
-- [x] Mark triaged items `status='analyzed'` or `status='skipped'`
+- [x] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting — 8fcf423
+- [x] Implement `analyst/triage.py`: triage model batch call — score (0–1) + 2-line summary per item — 8fcf423
+- [x] Mark triaged items `status='analyzed'` or `status='skipped'` — 8fcf423
 
 ### Task 8 — Retrieval
-- [x] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
-- [x] Recency weighting in FTS queries (30-day obs boost, 14-day item boost)
-- [x] Wire "Related prior observations" and "Related prior items" blocks into `assemble_context`
+- [x] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5 — 89955e3
+- [x] Recency weighting in FTS queries (30-day obs boost, 14-day item boost) — 89955e3
+- [x] Wire "Related prior observations" and "Related prior items" blocks into `assemble_context` — 89955e3
 
 ---
 
-## Session: Phase 3 — Automated Delivery (future)
+## Session: Phase 3 — Automated Delivery (completed in phase-2-cli-and-ingestion)
 
 ### Task 9 — Report assembly + rendering
-- [ ] Implement `report/assemble.py`: merge topic sections, build exec summary
-- [ ] Implement `report/render.py`: `[item:N]` → footnote conversion
-- [ ] Write `analyst/prompts/digest.md` for Telegram digest generation
-- [ ] Write `reports` DB row + markdown file to `data/reports/`
+- [x] Implement `report/assemble.py`: merge topic sections, build exec summary — b1192f2
+- [x] Implement `report/render.py`: `[item:N]` → footnote conversion (batched IN query) — b1192f2
+- [x] Write `analyst/prompts/digest.md` for Telegram digest generation — b1192f2
+- [x] Write `reports` DB row + markdown file to `data/reports/` — b1192f2
 
 ### Task 10 — Telegram delivery + scheduler
-- [ ] Implement `delivery/telegram.py`: HTML digest ≤3,000 chars + document attach
-- [ ] Retry logic for undelivered reports (check `delivered_at IS NULL`)
-- [ ] Implement `daily_run.py` orchestrator: ingest→triage→analyze-per-topic→assemble→deliver with per-stage error isolation
-- [ ] Document cron / Windows Task Scheduler entry in `docs/commands.md`
+- [x] Implement `delivery/telegram.py`: HTML digest ≤3,000 chars + document attach — c2adc41
+- [x] Retry logic for undelivered reports (check `delivered_at IS NULL`) — c2adc41
+- [x] Implement `daily_run.py` orchestrator: ingest→triage→analyze-per-topic→assemble→deliver with per-stage error isolation — c2adc41
+- [x] Document cron / Windows Task Scheduler entry in `docs/commands.md` — (see docs/commands.md)
 
 ---
 
