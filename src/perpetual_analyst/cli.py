@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
+import sys
 
 import typer
 from dotenv import load_dotenv
 
 from perpetual_analyst.store.db import init_db
 from perpetual_analyst.store.models import Topic
+
+_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 
 load_dotenv()
 
@@ -58,22 +62,25 @@ def topic_add(
     brief: str = typer.Option(None, help="One-paragraph analyst brief"),
 ) -> None:
     """Register a new topic and create its inbox source."""
+    if not _SLUG_RE.match(slug):
+        typer.echo(f"Invalid slug '{slug}' — must match [a-z0-9][a-z0-9_-]{{0,62}}", err=True)
+        raise typer.Exit(1)
     conn = _db()
     try:
-        cur = conn.execute(
-            "INSERT INTO topics (slug, name, brief) VALUES (?, ?, ?)",
-            (slug, name, brief),
-        )
-        topic_id = cur.lastrowid
-        src_cur = conn.execute(
-            "INSERT INTO sources (type, name, active) VALUES ('inbox', ?, 1)",
-            (f"inbox:{slug}",),
-        )
-        conn.execute(
-            "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
-            (topic_id, src_cur.lastrowid),
-        )
-        conn.commit()
+        with conn:
+            cur = conn.execute(
+                "INSERT INTO topics (slug, name, brief, user_id) VALUES (?, ?, ?, 1)",
+                (slug, name, brief),
+            )
+            topic_id = cur.lastrowid
+            src_cur = conn.execute(
+                "INSERT INTO sources (type, name, active) VALUES ('inbox', ?, 1)",
+                (f"inbox:{slug}",),
+            )
+            conn.execute(
+                "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
+                (topic_id, src_cur.lastrowid),
+            )
         typer.echo(f"Added topic '{slug}'.")
     except sqlite3.IntegrityError:
         typer.echo(f"Topic '{slug}' already exists.", err=True)
@@ -173,6 +180,9 @@ def run(
     if not topics:
         typer.echo("No active topics.")
         return
+
+    if dry_run and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     client = None if dry_run else make_client()
 

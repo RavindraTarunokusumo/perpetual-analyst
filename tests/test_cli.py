@@ -54,6 +54,17 @@ def test_topic_add_duplicate(tmp_db):
     assert result.exit_code == 1
 
 
+def test_topic_add_invalid_slug(tmp_db):
+    result = runner.invoke(app, ["topic", "add", "My Topic!", "--name", "Bad Slug"])
+    assert result.exit_code == 1
+    assert "Invalid slug" in result.output
+
+
+def test_topic_add_path_traversal_slug(tmp_db):
+    result = runner.invoke(app, ["topic", "add", "../etc", "--name", "Traversal"])
+    assert result.exit_code == 1
+
+
 def test_topic_list_empty(tmp_db):
     result = runner.invoke(app, ["topic", "list"])
     assert result.exit_code == 0
@@ -131,13 +142,23 @@ def test_run_unknown_topic(tmp_db):
     assert result.exit_code == 1
 
 
-def test_run_dry_run_no_items(tmp_db):
+def test_run_dry_run_no_items(tmp_db, monkeypatch):
+    from unittest.mock import MagicMock
+
+    import perpetual_analyst.cli as cli_mod
+
+    # make_client must never be called for dry-run
+    monkeypatch.setattr(cli_mod, "_db", cli_mod._db)
+    make_client_mock = MagicMock(side_effect=AssertionError("make_client called in dry-run"))
+    monkeypatch.setattr("perpetual_analyst.analyst.agent.make_client", make_client_mock)
+
     runner.invoke(app, ["topic", "add", "ai-safety", "--name", "AI Safety"])
     result = runner.invoke(app, ["run", "--topic", "ai-safety", "--dry-run"])
     assert result.exit_code == 0, result.output
     # dry-run prints assembled prompt messages
     assert "[SYSTEM]" in result.output
     assert "0 item(s)" in result.output
+    make_client_mock.assert_not_called()
 
 
 # ── report ─────────────────────────────────────────────────────────────────────
