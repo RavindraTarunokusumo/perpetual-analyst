@@ -61,8 +61,13 @@ def topic_add(
                 (topic_id, src_cur.lastrowid),
             )
         typer.echo(f"Added topic '{slug}'.")
-    except sqlite3.IntegrityError:
-        typer.echo(f"Topic '{slug}' already exists.", err=True)
+    except sqlite3.IntegrityError as exc:
+        msg = (
+            f"Topic '{slug}' already exists."
+            if "UNIQUE" in str(exc).upper()
+            else f"DB error: {exc}"
+        )
+        typer.echo(msg, err=True)
         raise typer.Exit(1)
 
 

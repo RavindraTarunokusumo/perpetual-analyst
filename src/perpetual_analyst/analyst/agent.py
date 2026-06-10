@@ -123,14 +123,15 @@ def run_topic(
         return None
 
     extra = {"thinking": {"type": "adaptive"}} if settings.analyst.thinking else {}
-    response = client.beta.chat.completions.parse(
+    response = client.chat.completions.create(
         model=settings.analyst.id,
         messages=messages,
-        response_format=TopicAnalysis,
+        response_format={"type": "json_object"},
         extra_body=extra,
     )
 
-    result: TopicAnalysis = response.parsed
+    raw = response.choices[0].message.content or "{}"
+    result = TopicAnalysis.model_validate_json(raw)
     used = (
         response.usage.total_tokens
         if response.usage

@@ -16,7 +16,7 @@ def tmp_db(tmp_path, monkeypatch):
     db_path = str(tmp_path / "test.db")
     monkeypatch.setenv("ANALYST_DB_PATH", db_path)
     conn = init_db(db_path)
-    conn.execute("INSERT INTO users (id, telegram_chat_id) VALUES (1, 'test-chat-id')")
+    conn.execute("INSERT OR REPLACE INTO users (id, telegram_chat_id) VALUES (1, 'test-chat-id')")
     conn.commit()
     conn.close()
     return db_path
