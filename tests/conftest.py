@@ -57,7 +57,7 @@ def sample_items(db: sqlite3.Connection, sample_topic: Topic, sample_source: int
 
 
 @pytest.fixture
-def mock_openrouter(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+def mock_openrouter() -> MagicMock:
     canned_result = TopicAnalysis(
         report_section_markdown="## Test Topic\n\nNothing significant today.",
         new_observations=[
@@ -81,9 +81,5 @@ def mock_openrouter(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
     client_mock = MagicMock()
     client_mock.beta.chat.completions.parse.return_value = response_mock
-
-    import perpetual_analyst.analyst.agent as agent_module
-
-    monkeypatch.setattr(agent_module, "make_client", lambda: client_mock)
 
     return client_mock

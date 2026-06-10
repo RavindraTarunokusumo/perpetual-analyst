@@ -70,7 +70,7 @@ def apply_thesis_update(update: ThesisUpdate, topic_id: int, conn: sqlite3.Conne
                 update.statement,
                 update.change_rationale,
                 update.confidence,
-                update.new_status,
+                "active",
             ),
         )
         thesis_id = cur.lastrowid
@@ -104,7 +104,11 @@ def build_memory_context(topic_id: int, conn: sqlite3.Connection, token_budget: 
     used = 0
     for obs in observations:
         line = f"[{obs.kind.upper()}] (importance {obs.importance}) {obs.content}"
-        if used + len(line) + 1 > char_budget:
+        remaining = char_budget - used
+        if remaining <= 0:
+            break
+        if len(line) > remaining:
+            parts.append(line[:remaining])
             break
         parts.append(line)
         used += len(line) + 1

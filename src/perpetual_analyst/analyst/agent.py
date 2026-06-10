@@ -22,6 +22,7 @@ load_dotenv()
 
 _system_prompt: str | None = None
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "analyst_system.md"
+_ITEM_TEXT_LIMIT = 3000  # chars per item; caps large PDFs without truncating short items
 
 
 def load_system_prompt() -> str:
@@ -32,9 +33,14 @@ def load_system_prompt() -> str:
 
 
 def make_client() -> openai.OpenAI:
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "OPENROUTER_API_KEY is not set — add it to .env or set it in the environment"
+        )
     return openai.OpenAI(
         base_url="https://openrouter.ai/api/v1",
-        api_key=os.environ["OPENROUTER_API_KEY"],
+        api_key=api_key,
     )
 
 
@@ -60,10 +66,14 @@ def assemble_context(
         or "(no active theses)"
     )
 
-    items_text = "\n\n".join(
-        f"[item:{item.id}] {item.title or '(untitled)'}\n{item.raw_text or '(no text)'}"
-        for item in items
-    ) or "(no new items today)"
+    items_text = (
+        "\n\n".join(
+            f"[item:{item.id}] {item.title or '(untitled)'}\n"
+            f"{(item.raw_text or '(no text)')[:_ITEM_TEXT_LIMIT]}"
+            for item in items
+        )
+        or "(no new items today)"
+    )
 
     user_content = (
         f"## Topic brief\n{topic.brief or '(no brief)'}\n\n"
@@ -105,8 +115,14 @@ def run_topic(
     )
 
     result: TopicAnalysis = response.parsed
-    used = response.usage.total_tokens if response.usage else len(str(messages)) // CHARS_PER_TOKEN
-    print(f"[agent] topic={topic.slug} tokens={used} nothing_significant={result.nothing_significant}")
+    used = (
+        response.usage.total_tokens
+        if response.usage
+        else sum(len(m["content"]) for m in messages) // CHARS_PER_TOKEN
+    )
+    print(
+        f"[agent] topic={topic.slug} tokens={used} nothing_significant={result.nothing_significant}"
+    )
 
     apply_all_memory_writes(topic.id, result, conn)
     return result
