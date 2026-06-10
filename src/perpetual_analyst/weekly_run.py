@@ -30,8 +30,6 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
     conn = init_db(db_path)
     settings = load_settings()
 
-    client = None if dry_run else make_client()
-
     if topic_slug:
         row = conn.execute("SELECT * FROM topics WHERE slug = ?", (topic_slug,)).fetchone()
         topics: list[Topic] = [Topic.from_row(row)] if row else []
@@ -43,11 +41,17 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
         print("[weekly_run] No active topics — nothing to do.")
         return
 
+    # Build the client only once there is work to do (avoids requiring the API key for a no-op run).
+    client = None if dry_run else make_client()
+
     successes = 0
     failures = 0
 
     for topic in topics:
         try:
+            # Expiry commits in its own transaction, separate from the review write-bundle below.
+            # This is intentional: expiry is idempotent pure-SQL, so a later review failure does
+            # not need to roll it back. The atomic bundle (Invariant 5) is apply_weekly_review.
             expired = expire_observations(conn, topic.id)
             print(f"[weekly_run] topic={topic.slug} expired={expired}")
 
