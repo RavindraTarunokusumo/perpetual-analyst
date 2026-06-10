@@ -2,6 +2,31 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-06-11 — Phase 4 compaction session (workflow/harness)
+
+### What worked well
+
+**Front-loading project gotchas into each subagent prompt eliminated rework.** Five implementer subagents (Sonnet) shipped clean, green commits with zero correction loops because each prompt embedded the project-specific traps verbatim: the portable `create()` + `model_validate_json()` pattern (not `.beta.parse()`), "no `ge`/`le` on numeric Pydantic fields," the PowerShell single-quoted here-string rule for commit messages, and "run pre-commit only on your touched files." When the controller curates these upfront, the implementer doesn't rediscover them.
+
+**A whole-branch final review caught a cross-task gap the per-task reviews could not.** Each task passed its own review, but only the final reviewer over the full diff spotted that the weekly path rebuilt the daily message shape without the cache breakpoint — an inconsistency that's invisible when reviewing tasks in isolation. The final-review step in subagent-driven-development earns its keep specifically for cross-cutting consistency.
+
+**Gating outward-facing spend with a single question fit auto mode.** The live API smoke test and the PR merge were both real, hard-to-reverse actions; one `AskUserQuestion` each kept momentum while leaving the cost/irreversibility decisions with the user.
+
+### What to improve
+
+**After deleting a worktree, the shared `.venv` editable install is left dangling.** The root `.venv` had `pip install -e .` pointed at the *previous* (now-deleted) worktree, so pytest failed with `ModuleNotFoundError: perpetual_analyst` until I re-ran `pip install -e .` from the new worktree. Rule: the Preamble (Step 1) for any session that uses a fresh worktree should reinstall the editable package from that worktree before running tests.
+
+**`/simplify` can propose behavior-changing "simplifications" — verify before applying.** One cleanup agent suggested collapsing the `render_thesis_trail` start/end search into a single pass, but the proposed form changed the semantics (per-row `confidence_before`/`after` mixing instead of "earliest non-null before across all rows"). Treat `/simplify` findings as candidates: confirm behavior-preservation against the original logic before editing, and skip the ones that don't hold.
+
+**GitNexus was indexed against `main` (Phase 1) the entire session, making impact analysis useless on the feature branch.** The index predated Phase 2/3/4 symbols, so `gitnexus_impact` on `assemble_context`/`run_topic` would have returned a stale, misleading blast radius. I verified callers by reading files directly and noted the staleness instead. Also, the `PostToolUse` hook reprinted "GitNexus index is stale" on *every* Bash call — pure noise once acknowledged. When the index is older than the working branch's base, skip the GitNexus MUST-DO impact step and say so; don't act on a stale graph.
+
+### Patterns established this session
+
+- Reinstall the editable package (`pip install -e .`) from the new worktree at session start — the shared `.venv` may point at a deleted one.
+- Curate project-specific gotchas into subagent prompts; don't rely on the implementer to rediscover them.
+- Keep a final whole-branch review even when every task was individually reviewed — it catches cross-task drift.
+- Validate `/simplify` suggestions for behavior-preservation before applying.
+
 ## 2026-06-10 — Phase 1 implementation session
 
 ### What worked well
