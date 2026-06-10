@@ -1,0 +1,5 @@
+Task: Fix Windows dry-run Unicode encoding
+Summary: Reconfigure stdout to utf-8 before dry-run print to avoid cp1252 UnicodeEncodeError on Windows. Also commits ruff-format auto-fixes on test files.
+Docs: N/A
+TODO: N/A (bug fix)
+Validation: ruff (passed), pytest 48/48, manual dry-run smoke test
