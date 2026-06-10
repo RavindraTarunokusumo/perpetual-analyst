@@ -167,9 +167,9 @@ Stored verbatim. Is part of tomorrow's analyst context.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | INTEGER PK | |
-| `user_id` | INTEGER FK → users | |
+| `user_id` | INTEGER FK → users | Always 1 — single-user MVP |
 | `report_date` | TEXT UNIQUE | YYYY-MM-DD |
-| `digest_text` | TEXT | What went to Telegram (HTML, ≤3,000 chars) |
+| `digest_text` | TEXT | What went to Telegram (HTML, ≤3,000 chars, unclosed tags stripped) |
 | `full_markdown` | TEXT | Full report |
 | `delivered_at` | TEXT | NULL until Telegram send succeeds |
 | `created_at` | TEXT | |
@@ -196,11 +196,12 @@ Stored verbatim. Is part of tomorrow's analyst context.
 | State | Module that owns writes |
 |---|---|
 | `items` inserts | `ingestion/` modules via `store.db.insert_item()` — never bare INSERT |
-| `items.triage_*`, `items.status` | `analyst/triage.py` |
+| `items.triage_*`, `items.status` | `analyst/triage.py` — UPDATEs only; caller owns `conn.commit()` |
 | `dossiers`, `observations`, `theses`, `thesis_updates` | `analyst/memory.py` via `apply_all_memory_writes()` — single `with conn:` transaction after agent call |
-| `reports` | `report/assemble.py` |
-| `reports.delivered_at` | `delivery/telegram.py` |
+| `reports` | `report/assemble.py` — upserts on `report_date` conflict; `user_id` always 1 |
+| `reports.delivered_at` | `delivery/telegram.py` — set only on confirmed Telegram success |
 | `sources.last_fetched_at`, `sources.fetch_error_count` | `ingestion/rss.py` |
+| `sources` (inbox) inserts | `ingestion/inbox.py` via `get_or_create_inbox_source()` — canonical helper; never duplicated inline |
 
 ## Persistence Invariants
 

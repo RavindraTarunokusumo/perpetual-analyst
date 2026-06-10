@@ -66,6 +66,23 @@ result: TopicAnalysis = response.parsed
 
 Items are always triaged (Haiku) before the analyst sees them. The analyst never receives raw unscored items. Items with `triage_score < 0.2` are marked `status='skipped'` and never enter the analyst context.
 
+`triage_items` does NOT call `conn.commit()` — it only executes UPDATEs. The caller (e.g. `run_topic`) owns the transaction and commits after all writes are complete. This is consistent with the transactional memory write invariant.
+
+## Datetime Filter Pattern
+
+In `fetch_rss`, the since-last-fetch filter compares entry publish time against `source.last_fetched_at` by parsing both as UTC-naive `datetime` objects via `_parse_as_utc_naive()`. String comparison is not used because feed datetime strings can have different formats and timezone suffixes.
+
+```python
+pub_dt = _parse_as_utc_naive(published_iso)
+last_dt = _parse_as_utc_naive(source.last_fetched_at)
+if pub_dt is not None and last_dt is not None and pub_dt <= last_dt:
+    continue
+```
+
+## Shared Inbox Source Helper Pattern
+
+`get_or_create_inbox_source(conn, topic_id, topic_slug) -> int` in `ingestion/inbox.py` is the canonical path for creating or looking up the inbox source for a topic. Both `cli.py` and `daily_run.py` call this function — never duplicate the INSERT/SELECT inline.
+
 ## Deduplication Pattern
 
 Item ingestion must always go through `store.db.insert_item(conn, source_id, content_hash, ...)`. This is the only safe insertion path — it executes `INSERT OR IGNORE` and returns `True` if inserted, `False` if the `content_hash` already exists. Never write a bare `INSERT INTO items` in ingestion code.

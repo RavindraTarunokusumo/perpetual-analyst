@@ -16,6 +16,7 @@ from perpetual_analyst.analyst.memory import (
 )
 from perpetual_analyst.analyst.schemas import TopicAnalysis
 from perpetual_analyst.config import Settings
+from perpetual_analyst.retrieval.search import related_items, related_observations
 from perpetual_analyst.store.models import Item, Topic
 
 load_dotenv()
@@ -75,12 +76,27 @@ def assemble_context(
         or "(no new items today)"
     )
 
+    # Related prior context via FTS5 search
+    query_text = " ".join(item.raw_text[:200] for item in items[:3] if item.raw_text)
+    if query_text:
+        rel_obs = related_observations(query_text, topic.id, conn, k=5)
+        rel_items = related_items(query_text, topic.id, conn, k=3)
+        rel_obs_text = "\n".join(f"[obs:{o.id}] {o.content}" for o in rel_obs) or "(none)"
+        rel_items_text = (
+            "\n".join(f"[item:{i.id}] {i.title or '(untitled)'}" for i in rel_items) or "(none)"
+        )
+    else:
+        rel_obs_text = "(none)"
+        rel_items_text = "(none)"
+
     user_content = (
         f"## Topic brief\n{topic.brief or '(no brief)'}\n\n"
         f"## Dossier\n{dossier}\n\n"
         f"## Active theses\n{theses_text}\n\n"
         f"## Yesterday's report section\n{yesterday_section}\n\n"
         f"## Prior observations\n{observations_text or '(no prior observations)'}\n\n"
+        f"## Related prior observations\n{rel_obs_text}\n\n"
+        f"## Related prior items\n{rel_items_text}\n\n"
         f"## Today's items\n{items_text}"
     )
 
