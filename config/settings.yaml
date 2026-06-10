@@ -1,0 +1,7 @@
+models:
+  analyst:
+    id: "anthropic/claude-opus-4-8"
+    thinking: true
+  triage:
+    id: "deepseek/deepseek-v4-flash"
+    thinking: false
