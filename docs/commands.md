@@ -49,6 +49,15 @@ analyst report show
 
 # Show report for a specific date
 analyst report show --date 2026-06-10
+
+# Run weekly memory compaction for all active topics
+analyst weekly
+
+# Run weekly compaction for a specific topic only
+analyst weekly --topic ai-frontier-labs
+
+# Dry-run: print what the weekly review would do, skip writes
+analyst weekly --topic ai-frontier-labs --dry-run
 ```
 
 ## Daily Pipeline (Direct)
@@ -57,6 +66,14 @@ analyst report show --date 2026-06-10
 python -m perpetual_analyst.daily_run
 python -m perpetual_analyst.daily_run --dry-run
 python -m perpetual_analyst.daily_run --topic ai-frontier-labs
+```
+
+## Weekly Compaction (Direct)
+
+```bash
+python -m perpetual_analyst.weekly_run
+python -m perpetual_analyst.weekly_run --dry-run
+python -m perpetual_analyst.weekly_run --topic ai-frontier-labs
 ```
 
 ## Testing
@@ -102,16 +119,23 @@ SELECT count(*) FROM observations;
 
 ## Scheduler
 
-**Linux/macOS cron** (run daily at 7am):
+**Linux/macOS cron** (daily at 7am + weekly compaction on Sundays at 8am):
 ```
 0 7 * * * cd /path/to/perpetual-analyst && .venv/bin/python -m perpetual_analyst.daily_run >> logs/daily.log 2>&1
+0 8 * * 0 cd /path/to/perpetual-analyst && .venv/bin/python -m perpetual_analyst.weekly_run >> logs/weekly.log 2>&1
 ```
 
 **Windows Task Scheduler** (basic via PowerShell):
 ```powershell
+# Daily run
 $action = New-ScheduledTaskAction -Execute "python" -Argument "-m perpetual_analyst.daily_run" -WorkingDirectory "C:\path\to\perpetual-analyst"
 $trigger = New-ScheduledTaskTrigger -Daily -At "07:00"
 Register-ScheduledTask -TaskName "PerpetualAnalyst" -Action $action -Trigger $trigger
+
+# Weekly compaction (Sundays at 8am)
+$wAction = New-ScheduledTaskAction -Execute "python" -Argument "-m perpetual_analyst.weekly_run" -WorkingDirectory "C:\path\to\perpetual-analyst"
+$wTrigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek Sunday -At "08:00"
+Register-ScheduledTask -TaskName "PerpetualAnalystWeekly" -Action $wAction -Trigger $wTrigger
 ```
 
 ## Environment Variables

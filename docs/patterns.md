@@ -18,13 +18,16 @@ The context assembler in `analyst/agent.py` follows this fixed order for prompt 
 
 [semi-stable — changes weekly]
 3. dossier (~1.5K token budget)
-4. active theses (≤7, with last update each)
+4. active theses (≤7, with last update each; stale theses marked `(stale)` by `render_thesis_fragment`)
+5. thesis history (`## Thesis history` section via `render_thesis_trail` — confidence trajectory per thesis, e.g. `confidence 0.60→0.80 over N update(s)`)
 
 [daily-volatile — not cached]
-5. last 7 days digest lines
+6. last 7 days digest lines
 6. yesterday's full topic section
 7. active observations (importance-sorted, hard-truncated to ~3K tokens)
 8. today's triaged items + related prior context
+
+`agent.with_cache_control` attaches an ephemeral `cache_control` breakpoint to the stable system prompt. This helper is applied on both the daily (`run_topic`) and weekly (`run_weekly_review`) model calls so the stable prefix is consistently cached.
 ```
 
 The context assembler **must** truncate by importance/recency to enforce budgets. It must never exceed `MAX_MEMORY_TOKENS` (set in config or constants). Do not rely on the model to self-limit.
@@ -46,6 +49,15 @@ def apply_all_memory_writes(topic_id: int, result: TopicAnalysis, conn: sqlite3.
 ```
 
 If any write fails, `with conn:` rolls back the entire bundle. Never write observations, thesis updates, or dossier edits outside of this function.
+
+## Weekly Compaction Write Pattern
+
+The weekly run uses two separate write paths with different transactional boundaries:
+
+1. `expire_observations(topic_id, conn)` — pure SQL UPDATE, commits on its own. It is idempotent and safe to re-run.
+2. `apply_weekly_review(topic_id, result, conn)` — single `with conn:` bundle: rewrites the dossier, marks promoted observation IDs `status='promoted'`, and appends the self-review note. All three writes commit together or roll back together.
+
+The weekly run never touches `theses` or `thesis_updates`. That write path belongs exclusively to `apply_all_memory_writes` in the daily run, preserving the "theses never silently edited" invariant.
 
 ## Structured Output Pattern
 

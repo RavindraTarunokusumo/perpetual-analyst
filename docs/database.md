@@ -178,9 +178,9 @@ Stored verbatim. Is part of tomorrow's analyst context.
 
 | Tier | Table | Lifetime | Budget | Written by |
 |---|---|---|---|---|
-| Dossier (durable understanding) | `dossiers` | Permanent, rewritten | ~1.5K tokens | Analyst (full rewrite when changed) |
-| Theses (positions) | `theses` + `thesis_updates` | Until retired | ≤7 active per topic | Analyst, with audit trail |
-| Observations (working memory) | `observations` | 30–90 days unless promoted | ~3K tokens injected per run | Analyst, append-only |
+| Dossier (durable understanding) | `dossiers` | Permanent, rewritten | ~1.5K tokens | Daily analyst (edits) + weekly compaction (full rewrite + appended self-review note) |
+| Theses (positions) | `theses` + `thesis_updates` | Until retired | ≤7 active per topic | Daily analyst only, with audit trail; weekly run never edits theses |
+| Observations (working memory) | `observations` | 30–90 days unless promoted; rows never deleted | ~3K tokens injected per run | Daily analyst (append); weekly compaction (`expire_observations` → `expired`; `apply_weekly_review` → `promoted`) |
 
 ## Migration Rules
 
@@ -197,7 +197,8 @@ Stored verbatim. Is part of tomorrow's analyst context.
 |---|---|
 | `items` inserts | `ingestion/` modules via `store.db.insert_item()` — never bare INSERT |
 | `items.triage_*`, `items.status` | `analyst/triage.py` — UPDATEs only; caller owns `conn.commit()` |
-| `dossiers`, `observations`, `theses`, `thesis_updates` | `analyst/memory.py` via `apply_all_memory_writes()` — single `with conn:` transaction after agent call |
+| `dossiers`, `observations`, `theses`, `thesis_updates` | `analyst/memory.py` via `apply_all_memory_writes()` — single `with conn:` transaction after daily agent call |
+| `observations.status` (expiry), `dossiers` (rewrite + note), `observations.status` (promotion) | `analyst/compaction.py` — `expire_observations()` commits separately (idempotent SQL); `apply_weekly_review()` writes dossier rewrite + promoted IDs in one `with conn:` transaction |
 | `reports` | `report/assemble.py` — upserts on `report_date` conflict; `user_id` always 1 |
 | `reports.delivered_at` | `delivery/telegram.py` — set only on confirmed Telegram success |
 | `sources.last_fetched_at`, `sources.fetch_error_count` | `ingestion/rss.py` |

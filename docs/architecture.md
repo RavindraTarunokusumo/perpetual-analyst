@@ -50,7 +50,8 @@ The triage step exists to protect the analyst's context: the expensive model see
 ## Entry Points
 
 - `daily_run.py` — main orchestrator; called by cron/Task Scheduler as `python -m perpetual_analyst.daily_run`
-- `cli.py` — typer CLI app, installed as `analyst` script; `analyst topic add`, `analyst source add`, `analyst run --topic x --dry-run`
+- `weekly_run.py` — weekly compaction orchestrator; `python -m perpetual_analyst.weekly_run [--dry-run] [--topic <slug>]`
+- `cli.py` — typer CLI app, installed as `analyst` script; `analyst topic add`, `analyst source add`, `analyst run --topic x --dry-run`, `analyst weekly [--dry-run] [--topic <slug>]`
 
 ## Module Boundaries
 
@@ -62,9 +63,10 @@ The only module that calls the Anthropic API for reasoning (except `triage.py` w
 |---|---|
 | `agent.py` | `make_client() -> openai.OpenAI` (OpenRouter); `assemble_context(topic, items, conn, prompt, settings) -> list[dict]`; `run_topic(topic, items, conn, client, settings, dry_run=False) -> TopicAnalysis \| None` — calls `client.beta.chat.completions.parse()`, persists memory writes transactionally |
 | `memory.py` | CRUD for dossier/observations/theses; `build_memory_context(topic_id, conn, token_budget=3000)` returning char-budget-truncated prompt text; `apply_all_memory_writes(topic_id, result, conn)` atomic bundle |
-| `theses.py` | `get_stale_theses(topic_id, conn, days=30)` — single SQL query with `coalesce(updated_at, created_at)` comparison; `render_thesis_fragment(topic_id, conn)` — `is_stale` computed in DB, returns markdown list with `(stale)` markers |
+| `theses.py` | `get_stale_theses(topic_id, conn, days=30)` — single SQL query with `coalesce(updated_at, created_at)` comparison; `render_thesis_fragment(topic_id, conn)` — `is_stale` computed in DB, returns markdown list with `(stale)` markers; `render_thesis_trail(topic_id, conn)` — per-thesis confidence history from `thesis_updates` rendered as `confidence 0.60→0.80 over N update(s)` |
+| `compaction.py` | `expire_observations(topic_id, conn)` — pure SQL, no model call; sets `status='expired'` for importance-1 observations older than 30 days and importance-2 older than 90 days; `run_weekly_review(topic, conn, client, settings, dry_run=False)` — single weekly model call returning `WeeklyReviewOutput`; `apply_weekly_review(topic_id, result, conn)` — transactional write: dossier rewrite + promoted observation IDs + appends <200-word self-review note to dossier |
 | `triage.py` | `triage_items(items, topic_brief, client, settings, conn)` — Haiku batch call scoring items 0–1; items with score < 0.2 marked `status='skipped'` and filtered out; **does NOT call `conn.commit()`** — caller owns the transaction; graceful degradation (returns all items unchanged on API failure) |
-| `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate` |
+| `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate`, `WeeklyReviewOutput` (fields: `dossier_rewrite`, `promoted_observation_ids`, `notes`) |
 | `prompts/analyst_system.md` | Finalized 12-rule system prompt with context template and JSON output schema |
 | `prompts/weekly_review.md` | Self-review / memory compaction prompt |
 | `prompts/digest.md` | Telegram digest generation prompt |
@@ -72,11 +74,17 @@ The only module that calls the Anthropic API for reasoning (except `triage.py` w
 **Context assembly order (caching-friendly, stable first, volatile last):**
 
 ```
+[stable — cache breakpoint after system prompt]
 system prompt → topic brief → dossier → active theses (+ last update each)
+→ thesis history (confidence trajectory per thesis from thesis_updates)
+
+[volatile]
 → last 7 days digest lines → yesterday's topic section
 → active observations (importance-sorted, budgeted)
 → today's triaged items with related-prior-context attached
 ```
+
+`assemble_context` attaches an ephemeral `cache_control` breakpoint (via `agent.with_cache_control`) to the stable system prompt; the same helper is used on both the daily (`run_topic`) and weekly (`run_weekly_review`) model calls.
 
 ### `ingestion/`
 
@@ -115,8 +123,8 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 
 ## Background Jobs
 
-- **Daily run:** orchestrated by `daily_run.py` called by cron/Task Scheduler
-- **Weekly compaction (Phase 4):** separate prompt + run; promotes observations → dossier; expires stale observations; flags untouched theses; writes self-review note to dossier
+- **Daily run:** orchestrated by `daily_run.py`; one analyst model call per active topic.
+- **Weekly compaction:** orchestrated by `weekly_run.py`; one model call per active topic (distinct cadence from the daily run, not an additional daily call). Steps per topic: (1) `expire_observations` — pure SQL, no model, marks importance-1/>30d and importance-2/>90d observations `expired`; (2) `run_weekly_review` — model call over dossier + active observations + active theses, returns `WeeklyReviewOutput`; (3) `apply_weekly_review` — rewrites dossier, marks promoted observations `status='promoted'`, appends self-review note. The weekly run does **not** edit or retire theses — that remains exclusively in the daily run to preserve the audit-trail invariant.
 
 ## External Integrations
 

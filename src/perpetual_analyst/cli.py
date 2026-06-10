@@ -139,6 +139,17 @@ def source_list(
 
 
 @app.command()
+def weekly(
+    topic: str = typer.Option(None, help="Topic slug to compact (default: all active)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print prompt, skip API calls"),
+) -> None:
+    """Run the weekly memory-compaction pass."""
+    from perpetual_analyst.weekly_run import main as weekly_main
+
+    weekly_main(dry_run=dry_run, topic_slug=topic)
+
+
+@app.command()
 def run(
     topic: str = typer.Option(None, help="Topic slug to run (default: all active)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print prompt, skip API calls"),

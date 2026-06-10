@@ -5,6 +5,40 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
+## Session: phase-4-compaction (active)
+
+Phase 4 — Memory & thesis maturity (SPEC §12). Branch off `phase-1-analyst-prototype`.
+The weekly compaction is a **separate weekly run** (one analyst call/topic/week) — a distinct
+cadence from the daily call, consistent with Invariant #1 (no daily critic loop).
+
+### Task A — Observation expiry (structural, no model)
+- [x] `analyst/compaction.py::expire_observations(conn, topic_id=None) -> int`: importance-1 active obs older than 30d and importance-2 older than 90d → `status='expired'`; importance-3 never expires; returns count — ef0674c
+- [x] Tests: expiry boundaries (29/31d for imp-1, 89/91d for imp-2), imp-3 immunity, already-expired/promoted skipped — ef0674c
+
+### Task B — Promotion: schema + model call + transactional apply
+- [x] `analyst/schemas.py::WeeklyReviewOutput` (dossier_rewrite, promoted_observation_ids, notes) — 2e0819d
+- [x] Fill in `analyst/prompts/weekly_review.md` (promotion + self-review note, JSON output contract) — 2e0819d
+- [x] `compaction.py::run_weekly_review(topic, conn, client, settings, dry_run) -> WeeklyReviewOutput | None` (create()+model_validate_json, mirrors run_topic) — cdbdec6
+- [x] `compaction.py::apply_weekly_review(topic_id, output, conn)`: transactional (`with conn:`) dossier rewrite + mark promoted obs `status='promoted'` — cdbdec6
+- [x] Tests with mock client + transactional-rollback test — cdbdec6
+
+### Task C — Weekly run orchestrator + CLI
+- [x] `weekly_run.py`: per active topic → expire_observations, run_weekly_review, apply_weekly_review; log structural stale-thesis flags via `get_stale_theses`; `--dry-run`, `--topic` — 272d667
+- [x] `cli.py::weekly` command mirroring `run` — bfc86bc
+- [x] Tests for orchestrator (dry-run skips client, error isolation per topic) — 272d667
+
+### Task D — Surface stale flags + thesis audit trail in daily context
+- [x] `analyst/theses.py::render_thesis_trail(topic_id, conn)`: from `thesis_updates`, render `confidence 0.60→0.80 over N updates` — 1e6495a
+- [x] `agent.py::assemble_context`: replace manual theses_text with `render_thesis_fragment` (stale markers) + append per-thesis trail — f4be42e
+- [x] Tests: stale marker present in context, trail string format — 1e6495a, f4be42e
+
+### Task E — Prompt-caching pass (stable prefix ordering)
+- [x] Reorder `assemble_context` user message: stable prefix first (brief, dossier, active theses), volatile last (yesterday's report, related context, today's items) — f0cecc4
+- [x] Attach `cache_control` breakpoint(s) for OpenRouter/Anthropic prompt caching on the stable prefix — f0cecc4
+- [x] Tests: assert ordering and cache_control presence — f0cecc4
+
+---
+
 ## Session: phase-2-cli-and-ingestion (active)
 
 ### Task 5 — CLI

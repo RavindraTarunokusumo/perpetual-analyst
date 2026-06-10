@@ -11,10 +11,10 @@ from perpetual_analyst.analyst.memory import (
     CHARS_PER_TOKEN,
     apply_all_memory_writes,
     build_memory_context,
-    get_active_theses,
     get_dossier,
 )
 from perpetual_analyst.analyst.schemas import TopicAnalysis
+from perpetual_analyst.analyst.theses import render_thesis_fragment, render_thesis_trail
 from perpetual_analyst.config import Settings
 from perpetual_analyst.retrieval.search import related_items, related_observations
 from perpetual_analyst.store.models import Item, Topic
@@ -53,7 +53,6 @@ def assemble_context(
     settings: Settings,
 ) -> list[dict]:
     dossier = get_dossier(topic.id, conn) or "(no dossier yet)"
-    theses = get_active_theses(topic.id, conn)
     observations_text = build_memory_context(topic.id, conn, token_budget=3000)
 
     row = conn.execute(
@@ -62,10 +61,8 @@ def assemble_context(
     ).fetchone()
     yesterday_section = row["full_markdown"] if row else "(no prior report)"
 
-    theses_text = (
-        "\n".join(f"[thesis:{t.id}] (confidence {t.confidence:.2f}) {t.statement}" for t in theses)
-        or "(no active theses)"
-    )
+    theses_text = render_thesis_fragment(topic.id, conn)
+    thesis_trail_text = render_thesis_trail(topic.id, conn)
 
     items_text = (
         "\n\n".join(
@@ -89,10 +86,12 @@ def assemble_context(
         rel_obs_text = "(none)"
         rel_items_text = "(none)"
 
+    # Stable prefix first (cache-friendly), volatile content last
     user_content = (
         f"## Topic brief\n{topic.brief or '(no brief)'}\n\n"
         f"## Dossier\n{dossier}\n\n"
         f"## Active theses\n{theses_text}\n\n"
+        f"## Thesis history\n{thesis_trail_text}\n\n"
         f"## Yesterday's report section\n{yesterday_section}\n\n"
         f"## Prior observations\n{observations_text or '(no prior observations)'}\n\n"
         f"## Related prior observations\n{rel_obs_text}\n\n"
@@ -104,6 +103,34 @@ def assemble_context(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
+
+
+def with_cache_control(messages: list[dict]) -> list[dict]:
+    """Return a copy of messages with an ephemeral cache_control breakpoint on the system
+    prompt, so OpenRouter/Anthropic can cache the stable prefix across runs.
+
+    The OpenAI-style string content is converted to a single text content-block carrying
+    cache_control. Non-system messages are passed through unchanged. Shared by the daily
+    (run_topic) and weekly (run_weekly_review) call paths.
+    """
+    result = []
+    for msg in messages:
+        if msg["role"] == "system":
+            result.append(
+                {
+                    **msg,
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": msg["content"],
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                }
+            )
+        else:
+            result.append(dict(msg))
+    return result
 
 
 def run_topic(
@@ -123,9 +150,10 @@ def run_topic(
         return None
 
     extra = {"thinking": {"type": "adaptive"}} if settings.analyst.thinking else {}
+    api_messages = with_cache_control(messages)
     response = client.chat.completions.create(
         model=settings.analyst.id,
-        messages=messages,
+        messages=api_messages,
         response_format={"type": "json_object"},
         extra_body=extra,
     )
