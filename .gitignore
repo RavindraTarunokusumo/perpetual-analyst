@@ -14,3 +14,4 @@ data/reports/*.md
 *.log
 logs/
 inbox/**/.processed/
+.worktree/
