@@ -1,0 +1,5 @@
+Task: Implement CLI commands
+Summary: Wired all analyst CLI commands (topic/source/run/report) via typer. Deferred make_client() until after topic check to avoid requiring API key for dry-run. Added ANALYST_DB_PATH env var for test DB isolation.
+Docs: N/A
+TODO: Phase 2 Session / Task 5 (cli.py)
+Validation: ruff (passed), pytest 48/48, pre-commit (clean on touched files)
