@@ -31,29 +31,33 @@ The context assembler **must** truncate by importance/recency to enforce budgets
 
 ## Transactional Memory Write Pattern
 
-After a successful `client.messages.parse()` call, all memory writes must land in one database transaction:
+After a successful analyst call, all memory writes must land in one database transaction via `apply_all_memory_writes(topic_id, result, conn)`:
 
 ```python
-with db.transaction():
-    memory.apply_observation_writes(result.new_observations)
-    theses.apply_thesis_updates(result.thesis_updates)
-    if result.dossier_edits:
-        memory.update_dossier(topic_id, result.dossier_edits)
+# analyst/memory.py
+def apply_all_memory_writes(topic_id: int, result: TopicAnalysis, conn: sqlite3.Connection) -> None:
+    with conn:  # sqlite3 context manager — commits on exit, rolls back on exception
+        for obs in result.new_observations:
+            insert_observation(topic_id, obs, conn)
+        for update in result.thesis_updates:
+            apply_thesis_update(update, topic_id, conn)
+        if result.dossier_edits is not None:
+            update_dossier(topic_id, result.dossier_edits, conn)
 ```
 
-If any write fails, the transaction rolls back. The report section is not written to `reports` until all memory writes succeed.
+If any write fails, `with conn:` rolls back the entire bundle. Never write observations, thesis updates, or dossier edits outside of this function.
 
 ## Structured Output Pattern
 
-Use `client.messages.parse()` with a Pydantic model for all analyst calls. Never parse JSON manually from message text.
+Use `client.beta.chat.completions.parse()` (OpenRouter/openai SDK) with a Pydantic model for all analyst calls. Never parse JSON manually from message text. Inject adaptive thinking via `extra_body` when `settings.analyst.thinking` is true.
 
 ```python
-response = client.messages.parse(
-    model="claude-opus-4-8",
-    thinking={"type": "adaptive"},
-    output_config={"effort": "high"},
-    messages=[...],
+extra = {"thinking": {"type": "adaptive"}} if settings.analyst.thinking else {}
+response = client.beta.chat.completions.parse(
+    model=settings.analyst.id,
+    messages=messages,
     response_format=TopicAnalysis,
+    extra_body=extra,
 )
 result: TopicAnalysis = response.parsed
 ```
@@ -64,7 +68,16 @@ Items are always triaged (Haiku) before the analyst sees them. The analyst never
 
 ## Deduplication Pattern
 
-Item ingestion always uses `INSERT OR IGNORE INTO items (...) WHERE content_hash = ?`. The fetcher computes `content_hash = sha256(raw_text.strip())` before inserting. Duplicate content from different URLs is silently ignored.
+Item ingestion must always go through `store.db.insert_item(conn, source_id, content_hash, ...)`. This is the only safe insertion path — it executes `INSERT OR IGNORE` and returns `True` if inserted, `False` if the `content_hash` already exists. Never write a bare `INSERT INTO items` in ingestion code.
+
+```python
+from perpetual_analyst.store.db import insert_item
+
+inserted = insert_item(conn, source_id=src.id, content_hash=sha256_hex, title=title, raw_text=text)
+# inserted is False → duplicate, silently skip
+```
+
+The fetcher computes `content_hash = sha256(raw_text.strip().encode()).hexdigest()` before calling `insert_item`. Duplicate content from different URLs is silently ignored.
 
 ## Error Isolation Pattern
 

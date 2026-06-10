@@ -89,7 +89,7 @@ The next `analyst run` will pick them up.
 
 Initialize (also called automatically by `daily_run.py`):
 ```bash
-python -c "from perpetual_analyst.store.db import init_db; init_db()"
+python -c "from perpetual_analyst.store.db import init_db; init_db('data/analyst.db')"
 ```
 
 Inspect the DB:
@@ -118,7 +118,7 @@ Register-ScheduledTask -TaskName "PerpetualAnalyst" -Action $action -Trigger $tr
 
 Required:
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+OPENROUTER_API_KEY=sk-or-...
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
 ```

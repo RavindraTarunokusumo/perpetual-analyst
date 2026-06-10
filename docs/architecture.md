@@ -60,12 +60,12 @@ The only module that calls the Anthropic API for reasoning (except `triage.py` w
 
 | File | Responsibility |
 |---|---|
-| `agent.py` | Assemble context (caching-friendly order), call `claude-opus-4-8` via `client.messages.parse()`, persist returned memory writes transactionally |
-| `memory.py` | CRUD for dossier/observations/theses; `build_memory_context(topic_id, token_budget)` returning truncated prompt-ready text |
+| `agent.py` | `make_client() -> openai.OpenAI` (OpenRouter); `assemble_context(topic, items, conn, prompt, settings) -> list[dict]`; `run_topic(topic, items, conn, client, settings, dry_run=False) -> TopicAnalysis \| None` — calls `client.beta.chat.completions.parse()`, persists memory writes transactionally |
+| `memory.py` | CRUD for dossier/observations/theses; `build_memory_context(topic_id, conn, token_budget=3000)` returning char-budget-truncated prompt text; `apply_all_memory_writes(topic_id, result, conn)` atomic bundle |
 | `theses.py` | Apply `ThesisUpdate`s (create/revise/retire); enforce ≤7 active; stale-flagging; render thesis fragment |
-| `triage.py` | Haiku batch call — score (0–1) + 2-line summary per item; mark `status` on items |
+| `triage.py` | Triage model batch call — score (0–1) + 2-line summary per item; mark `status` on items |
 | `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate` |
-| `prompts/analyst_system.md` | 12 behavioral rules; stable prefix for prompt caching |
+| `prompts/analyst_system.md` | Finalized 12-rule system prompt with context template and JSON output schema |
 | `prompts/weekly_review.md` | Self-review / memory compaction prompt |
 | `prompts/digest.md` | Telegram digest generation prompt |
 
@@ -97,8 +97,8 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 
 | File | Responsibility |
 |---|---|
-| `db.py` | SQLite connection, `init_db()` running the full DDL + FTS5 virtual tables + triggers |
-| `models.py` | Typed dataclasses (or Pydantic) for each DB row type |
+| `db.py` | `init_db(path="data/analyst.db") -> sqlite3.Connection` — runs full DDL, FTS5 virtual tables (`items_fts`, `observations_fts`), and sync triggers; `insert_item(conn, source_id, content_hash, ...) -> bool` — only safe insertion path, enforces dedupe invariant |
+| `models.py` | `@dataclass` row models with `from_row(cls, row)` classmethod: `User`, `Topic`, `Source`, `Item`, `Dossier`, `Thesis`, `ThesisUpdate`, `Observation`, `Report` |
 
 ### `report/`
 
@@ -122,7 +122,7 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 
 | Service | Auth | Env var | Failure behavior |
 |---|---|---|---|
-| Anthropic API | API key | `ANTHROPIC_API_KEY` | Abort topic run; log error; continue other topics |
+| OpenRouter API | API key | `OPENROUTER_API_KEY` | Abort topic run; log error; continue other topics |
 | Telegram Bot API | Bot token | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Store report; retry on next run (`delivered_at IS NULL` check) |
 
 ## Tech Stack
@@ -130,14 +130,16 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 | Concern | Choice |
 |---|---|
 | Language | Python 3.12 |
-| LLM (analyst) | `claude-opus-4-8`, adaptive thinking, structured output via `client.messages.parse()` |
-| LLM (triage) | `claude-haiku-4-5`, batch call |
+| LLM API | OpenRouter via `openai.OpenAI(base_url="https://openrouter.ai/api/v1")` — not the Anthropic SDK |
+| LLM (analyst) | `anthropic/claude-opus-4-8`, adaptive thinking via `extra_body={"thinking": {"type": "adaptive"}}`, structured output via `client.beta.chat.completions.parse()` |
+| LLM (triage) | `deepseek/deepseek-v4-flash`, no thinking |
+| Model config | `config/settings.yaml` → `Settings.analyst` / `Settings.triage` (`ModelConfig(id, thinking)`) |
 | Storage | SQLite + FTS5, single file `data/analyst.db` |
 | Embeddings (Phase 2+) | sqlite-vec + Voyage AI `voyage-3.5` — only if FTS proves insufficient |
 | Fetching | feedparser, httpx, trafilatura, pypdf |
 | Telegram | python-telegram-bot (send-only V1) |
 | Scheduling | OS cron / Windows Task Scheduler |
-| Config | `config/topics.yaml`, `config/sources.yaml`, `.env` |
+| Config | `config/settings.yaml`, `.env` |
 | CLI | typer |
 
 ## Invariants

@@ -81,7 +81,7 @@ Fetched documents. The analyst's raw material.
 ```sql
 CREATE VIRTUAL TABLE items_fts USING fts5(title, raw_text, content='items', content_rowid='id');
 ```
-Sync triggers (`AFTER INSERT/UPDATE/DELETE ON items`) must be created to keep `items_fts` in sync with `items`.
+Sync triggers (`items_fts_ai`, `items_fts_au`, `items_fts_ad`) are created by `init_db()` to keep `items_fts` in sync with `items` on INSERT, UPDATE, and DELETE.
 
 ### `chunks`
 
@@ -153,6 +153,7 @@ Working memory. Append-only; expires on TTL unless promoted.
 ```sql
 CREATE VIRTUAL TABLE observations_fts USING fts5(content, content='observations', content_rowid='id');
 ```
+Sync triggers (`observations_fts_ai`, `observations_fts_au`, `observations_fts_ad`) are created by `init_db()` alongside the `items_fts` triggers.
 
 **TTL rules (Phase 4 compaction):**
 - importance 1 → expires after 30 days
@@ -194,9 +195,9 @@ Stored verbatim. Is part of tomorrow's analyst context.
 
 | State | Module that owns writes |
 |---|---|
-| `items` inserts | `ingestion/` modules |
+| `items` inserts | `ingestion/` modules via `store.db.insert_item()` — never bare INSERT |
 | `items.triage_*`, `items.status` | `analyst/triage.py` |
-| `dossiers`, `observations`, `theses`, `thesis_updates` | `analyst/memory.py`, `analyst/theses.py` (all in one transaction after agent call) |
+| `dossiers`, `observations`, `theses`, `thesis_updates` | `analyst/memory.py` via `apply_all_memory_writes()` — single `with conn:` transaction after agent call |
 | `reports` | `report/assemble.py` |
 | `reports.delivered_at` | `delivery/telegram.py` |
 | `sources.last_fetched_at`, `sources.fetch_error_count` | `ingestion/rss.py` |
