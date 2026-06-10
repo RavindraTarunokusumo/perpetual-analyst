@@ -12,15 +12,15 @@ The weekly compaction is a **separate weekly run** (one analyst call/topic/week)
 cadence from the daily call, consistent with Invariant #1 (no daily critic loop).
 
 ### Task A — Observation expiry (structural, no model)
-- [ ] `analyst/compaction.py::expire_observations(conn, topic_id=None) -> int`: importance-1 active obs older than 30d and importance-2 older than 90d → `status='expired'`; importance-3 never expires; returns count
-- [ ] Tests: expiry boundaries (29/31d for imp-1, 89/91d for imp-2), imp-3 immunity, already-expired/promoted skipped
+- [x] `analyst/compaction.py::expire_observations(conn, topic_id=None) -> int`: importance-1 active obs older than 30d and importance-2 older than 90d → `status='expired'`; importance-3 never expires; returns count — ef0674c
+- [x] Tests: expiry boundaries (29/31d for imp-1, 89/91d for imp-2), imp-3 immunity, already-expired/promoted skipped — ef0674c
 
 ### Task B — Promotion: schema + model call + transactional apply
-- [ ] `analyst/schemas.py::WeeklyReviewOutput` (dossier_rewrite, promoted_observation_ids, notes)
-- [ ] Fill in `analyst/prompts/weekly_review.md` (promotion + self-review note, JSON output contract)
-- [ ] `compaction.py::run_weekly_review(topic, conn, client, settings, dry_run) -> WeeklyReviewOutput | None` (create()+model_validate_json, mirrors run_topic)
-- [ ] `compaction.py::apply_weekly_review(topic_id, output, conn)`: transactional (`with conn:`) dossier rewrite + mark promoted obs `status='promoted'`
-- [ ] Tests with mock client + transactional-rollback test
+- [x] `analyst/schemas.py::WeeklyReviewOutput` (dossier_rewrite, promoted_observation_ids, notes) — 2e0819d
+- [x] Fill in `analyst/prompts/weekly_review.md` (promotion + self-review note, JSON output contract) — 2e0819d
+- [x] `compaction.py::run_weekly_review(topic, conn, client, settings, dry_run) -> WeeklyReviewOutput | None` (create()+model_validate_json, mirrors run_topic) — cdbdec6
+- [x] `compaction.py::apply_weekly_review(topic_id, output, conn)`: transactional (`with conn:`) dossier rewrite + mark promoted obs `status='promoted'` — cdbdec6
+- [x] Tests with mock client + transactional-rollback test — cdbdec6
 
 ### Task C — Weekly run orchestrator + CLI
 - [ ] `weekly_run.py`: per active topic → expire_observations, run_weekly_review, apply_weekly_review; log structural stale-thesis flags via `get_stale_theses`; `--dry-run`, `--topic`
