@@ -1,0 +1,5 @@
+Task: Code review fixes (Opus 4.8 review)
+Summary: Slug validation, atomic transaction, user_id wiring, stdout.reconfigure moved to CLI boundary, strengthened dry-run test.
+Docs: N/A
+TODO: phase-2-cli-and-ingestion / Task 5 (post-review fixes)
+Validation: ruff (passed), pytest 80/80 (excl. in-progress subagent retrieval tests)
