@@ -15,7 +15,6 @@ from perpetual_analyst.analyst.memory import (
     update_dossier,
 )
 from perpetual_analyst.analyst.schemas import NewObservation, ThesisUpdate, TopicAnalysis
-from perpetual_analyst.store.models import Observation, Thesis
 
 
 def test_dossier_roundtrip(db: sqlite3.Connection, sample_topic) -> None:
@@ -34,7 +33,9 @@ def test_dossier_upsert(db: sqlite3.Connection, sample_topic) -> None:
 
 
 def test_insert_observation(db: sqlite3.Connection, sample_topic) -> None:
-    obs = NewObservation(kind="signal", content="GPT-5 rumoured.", importance=3, source_item_ids=[1, 2])
+    obs = NewObservation(
+        kind="signal", content="GPT-5 rumoured.", importance=3, source_item_ids=[1, 2]
+    )
     row_id = insert_observation(sample_topic.id, obs, db)
     db.commit()
     assert row_id > 0
@@ -60,9 +61,23 @@ def test_build_memory_context_respects_budget(db: sqlite3.Connection, sample_top
 
 
 def test_build_memory_context_sorts_by_importance(db: sqlite3.Connection, sample_topic) -> None:
-    insert_observation(sample_topic.id, NewObservation(kind="fact", content="Minor note.", importance=1, source_item_ids=[]), db)
-    insert_observation(sample_topic.id, NewObservation(kind="signal", content="Critical signal.", importance=3, source_item_ids=[]), db)
-    insert_observation(sample_topic.id, NewObservation(kind="pattern", content="Notable pattern.", importance=2, source_item_ids=[]), db)
+    insert_observation(
+        sample_topic.id,
+        NewObservation(kind="fact", content="Minor note.", importance=1, source_item_ids=[]),
+        db,
+    )
+    insert_observation(
+        sample_topic.id,
+        NewObservation(kind="signal", content="Critical signal.", importance=3, source_item_ids=[]),
+        db,
+    )
+    insert_observation(
+        sample_topic.id,
+        NewObservation(
+            kind="pattern", content="Notable pattern.", importance=2, source_item_ids=[]
+        ),
+        db,
+    )
     db.commit()
 
     context = build_memory_context(sample_topic.id, db, token_budget=10000)
@@ -89,23 +104,35 @@ def test_apply_thesis_update_creates_new(db: sqlite3.Connection, sample_topic) -
     assert len(theses) == 1
     assert theses[0].confidence == 0.7
 
-    audit = db.execute("SELECT * FROM thesis_updates WHERE thesis_id = ?", (theses[0].id,)).fetchall()
+    audit = db.execute(
+        "SELECT * FROM thesis_updates WHERE thesis_id = ?", (theses[0].id,)
+    ).fetchall()
     assert len(audit) == 1
 
 
 def test_apply_thesis_update_writes_audit_trail(db: sqlite3.Connection, sample_topic) -> None:
     from perpetual_analyst.analyst.memory import apply_thesis_update
 
-    create = ThesisUpdate(thesis_id=None, statement="S", confidence=0.5, change_rationale="init", new_status="active")
+    create = ThesisUpdate(
+        thesis_id=None, statement="S", confidence=0.5, change_rationale="init", new_status="active"
+    )
     apply_thesis_update(create, sample_topic.id, db)
     db.commit()
     thesis_id = get_active_theses(sample_topic.id, db)[0].id
 
-    revise = ThesisUpdate(thesis_id=thesis_id, statement="S revised", confidence=0.8, change_rationale="new evidence", new_status="active")
+    revise = ThesisUpdate(
+        thesis_id=thesis_id,
+        statement="S revised",
+        confidence=0.8,
+        change_rationale="new evidence",
+        new_status="active",
+    )
     apply_thesis_update(revise, sample_topic.id, db)
     db.commit()
 
-    audit_rows = db.execute("SELECT * FROM thesis_updates WHERE thesis_id = ?", (thesis_id,)).fetchall()
+    audit_rows = db.execute(
+        "SELECT * FROM thesis_updates WHERE thesis_id = ?", (thesis_id,)
+    ).fetchall()
     assert len(audit_rows) == 2
     last = audit_rows[-1]
     assert last["confidence_before"] == pytest.approx(0.5)
@@ -117,15 +144,29 @@ def test_thesis_limit_enforced(db: sqlite3.Connection, sample_topic) -> None:
 
     for i in range(7):
         apply_thesis_update(
-            ThesisUpdate(thesis_id=None, statement=f"Thesis {i}", confidence=0.5, change_rationale="init", new_status="active"),
-            sample_topic.id, db
+            ThesisUpdate(
+                thesis_id=None,
+                statement=f"Thesis {i}",
+                confidence=0.5,
+                change_rationale="init",
+                new_status="active",
+            ),
+            sample_topic.id,
+            db,
         )
     db.commit()
 
     with pytest.raises(ValueError, match="active theses"):
         apply_thesis_update(
-            ThesisUpdate(thesis_id=None, statement="Eighth thesis", confidence=0.5, change_rationale="overflow", new_status="active"),
-            sample_topic.id, db
+            ThesisUpdate(
+                thesis_id=None,
+                statement="Eighth thesis",
+                confidence=0.5,
+                change_rationale="overflow",
+                new_status="active",
+            ),
+            sample_topic.id,
+            db,
         )
 
 
@@ -136,7 +177,13 @@ def test_apply_all_memory_writes_is_atomic(db: sqlite3.Connection, sample_topic)
             NewObservation(kind="fact", content="Atomic fact.", importance=2, source_item_ids=[])
         ],
         thesis_updates=[
-            ThesisUpdate(thesis_id=None, statement="Atomic thesis.", confidence=0.6, change_rationale="test", new_status="active")
+            ThesisUpdate(
+                thesis_id=None,
+                statement="Atomic thesis.",
+                confidence=0.6,
+                change_rationale="test",
+                new_status="active",
+            )
         ],
         dossier_edits="Updated dossier content.",
         open_questions=[],

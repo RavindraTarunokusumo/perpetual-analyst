@@ -1,15 +1,23 @@
 import sqlite3
+
 import pytest
-from perpetual_analyst.store.db import init_db
 
 
 def test_init_db_creates_all_tables(db: sqlite3.Connection) -> None:
     rows = db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     tables = {r[0] for r in rows}
     expected = {
-        "users", "topics", "sources", "topic_sources",
-        "items", "chunks", "dossiers", "theses", "thesis_updates",
-        "observations", "reports",
+        "users",
+        "topics",
+        "sources",
+        "topic_sources",
+        "items",
+        "chunks",
+        "dossiers",
+        "theses",
+        "thesis_updates",
+        "observations",
+        "reports",
     }
     assert expected.issubset(tables)
 
@@ -72,9 +80,7 @@ def test_insert_item_plain_raises_on_duplicate(db: sqlite3.Connection) -> None:
     import sqlite3 as _sqlite3
 
     db.execute("INSERT INTO sources (id, type) VALUES (1, 'inbox')")
-    db.execute(
-        "INSERT INTO items (source_id, content_hash, title) VALUES (1, 'duphash2', 'First')"
-    )
+    db.execute("INSERT INTO items (source_id, content_hash, title) VALUES (1, 'duphash2', 'First')")
     db.commit()
     with pytest.raises(_sqlite3.IntegrityError):
         db.execute(

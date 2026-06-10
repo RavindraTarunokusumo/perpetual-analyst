@@ -4,13 +4,9 @@ from pydantic import BaseModel, Field
 
 
 class NewObservation(BaseModel):
-    kind: str = Field(
-        description="One of: fact | signal | pattern | contradiction | question"
-    )
+    kind: str = Field(description="One of: fact | signal | pattern | contradiction | question")
     content: str = Field(description="The observation text.")
-    importance: int = Field(
-        description="1 = minor, 2 = notable, 3 = significant", ge=1, le=3
-    )
+    importance: int = Field(description="1 = minor, 2 = notable, 3 = significant", ge=1, le=3)
     source_item_ids: list[int] = Field(
         default_factory=list,
         description="Item IDs cited as evidence for this observation.",
@@ -57,8 +53,7 @@ class TopicAnalysis(BaseModel):
     dossier_edits: str | None = Field(
         default=None,
         description=(
-            "Full replacement dossier text if it changed. "
-            "None to leave the dossier unchanged."
+            "Full replacement dossier text if it changed. " "None to leave the dossier unchanged."
         ),
     )
     open_questions: list[str] = Field(
