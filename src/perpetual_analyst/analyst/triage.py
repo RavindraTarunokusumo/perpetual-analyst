@@ -38,7 +38,7 @@ def triage_items(
 
     items_payload = "\n".join(
         f"item_id={item.id} title={item.title or '(untitled)'} "
-        f"text={( item.raw_text or '')[:300]}"
+        f"text={(item.raw_text or '')[:300]}"
         for item in items
     )
     user_message = f"Topic brief: {topic_brief}\n\nItems:\n{items_payload}"

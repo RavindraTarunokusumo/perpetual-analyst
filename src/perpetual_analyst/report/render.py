@@ -24,18 +24,23 @@ def render_citations(markdown: str, conn: sqlite3.Connection) -> str:
 
     unique_ids = sorted(set(ids))
 
-    # Look up each item
+    # Batch-fetch all cited items in one query
+    placeholders = ",".join("?" * len(unique_ids))
+    rows = conn.execute(
+        f"SELECT id, title, url FROM items WHERE id IN ({placeholders})", unique_ids
+    ).fetchall()
+    found = {row["id"]: row for row in rows}
+
     footnotes: dict[int, str] = {}
     for item_id in unique_ids:
-        row = conn.execute("SELECT title, url FROM items WHERE id = ?", (item_id,)).fetchone()
+        row = found.get(item_id)
         if row is None:
             footnotes[item_id] = f"[^{item_id}]: (item {item_id})"
-        elif row["url"]:
-            title = row["title"] or f"item {item_id}"
-            footnotes[item_id] = f"[^{item_id}]: [{title}]({row['url']})"
         else:
             title = row["title"] or f"item {item_id}"
-            footnotes[item_id] = f"[^{item_id}]: {title}"
+            footnotes[item_id] = (
+                f"[^{item_id}]: [{title}]({row['url']})" if row["url"] else f"[^{item_id}]: {title}"
+            )
 
     # Replace inline tags
     result = _TAG_RE.sub(lambda m: f"[^{m.group(1)}]", markdown)

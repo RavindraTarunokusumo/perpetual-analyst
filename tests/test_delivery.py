@@ -3,12 +3,32 @@
 from __future__ import annotations
 
 import sqlite3
-from unittest.mock import patch
+import sys
+from contextlib import contextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from perpetual_analyst.delivery.telegram import retry_undelivered, send_report
 from perpetual_analyst.store.db import init_db
+
+
+@contextmanager
+def _mock_telegram(bot: AsyncMock):
+    """Context manager that injects a mock telegram module and restores sys.modules after."""
+    mock_mod = MagicMock()
+    mock_mod.Bot = MagicMock(return_value=bot)
+    mock_mod.InputFile = MagicMock(side_effect=lambda *a, **kw: MagicMock())
+    saved = {k: sys.modules[k] for k in list(sys.modules) if k.startswith("telegram")}
+    sys.modules["telegram"] = mock_mod
+    try:
+        yield mock_mod
+    finally:
+        for k in list(sys.modules):
+            if k.startswith("telegram"):
+                del sys.modules[k]
+        sys.modules.update(saved)
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -118,29 +138,13 @@ def test_retry_undelivered_skips_recent(db: sqlite3.Connection, monkeypatch) -> 
 
 def test_send_report_happy_path(db: sqlite3.Connection, monkeypatch) -> None:
     """send_report sends message + document and marks delivered_at."""
-    import sys
-    from unittest.mock import AsyncMock, MagicMock
-
     report_id = _insert_report(db, digest_text="<b>Test</b>", full_markdown="# Test")
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake-token")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "fake-chat-id")
 
     mock_bot = AsyncMock()
-    mock_bot.send_message = AsyncMock()
-    mock_bot.send_document = AsyncMock()
-    mock_telegram = MagicMock()
-    mock_telegram.Bot = MagicMock(return_value=mock_bot)
-    mock_telegram.InputFile = MagicMock(side_effect=lambda *a, **kw: MagicMock())
-
-    original_modules = {k: sys.modules[k] for k in list(sys.modules) if k.startswith("telegram")}
-    sys.modules["telegram"] = mock_telegram
-    try:
+    with _mock_telegram(mock_bot):
         send_report(report_id, db)
-    finally:
-        for k in list(sys.modules):
-            if k.startswith("telegram"):
-                del sys.modules[k]
-        sys.modules.update(original_modules)
 
     mock_bot.send_message.assert_awaited_once()
     mock_bot.send_document.assert_awaited_once()
@@ -154,8 +158,6 @@ def test_send_report_error_does_not_log_token(
 ) -> None:
     """On Telegram failure, the error logged by retry_undelivered must not contain the token."""
     import logging
-    import sys
-    from unittest.mock import AsyncMock, MagicMock
 
     _insert_report(db, created_offset="2 hours")
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "super-secret-token-xyz")
@@ -163,19 +165,7 @@ def test_send_report_error_does_not_log_token(
 
     mock_bot = AsyncMock()
     mock_bot.send_message = AsyncMock(side_effect=RuntimeError("network error"))
-    mock_telegram = MagicMock()
-    mock_telegram.Bot = MagicMock(return_value=mock_bot)
-    mock_telegram.InputFile = MagicMock()
-
-    original_modules = {k: sys.modules[k] for k in list(sys.modules) if k.startswith("telegram")}
-    sys.modules["telegram"] = mock_telegram
-    try:
-        with caplog.at_level(logging.ERROR):
-            retry_undelivered(db)
-    finally:
-        for k in list(sys.modules):
-            if k.startswith("telegram"):
-                del sys.modules[k]
-        sys.modules.update(original_modules)
+    with _mock_telegram(mock_bot), caplog.at_level(logging.ERROR):
+        retry_undelivered(db)
 
     assert "super-secret-token-xyz" not in caplog.text

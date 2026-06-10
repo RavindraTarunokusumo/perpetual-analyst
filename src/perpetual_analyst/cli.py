@@ -10,6 +10,7 @@ import sys
 import typer
 from dotenv import load_dotenv
 
+from perpetual_analyst.ingestion.inbox import get_or_create_inbox_source
 from perpetual_analyst.store.db import init_db
 from perpetual_analyst.store.models import Topic
 
@@ -31,28 +32,6 @@ app.add_typer(report_app, name="report")
 def _db() -> sqlite3.Connection:
     path = os.environ.get("ANALYST_DB_PATH", "data/analyst.db")
     return init_db(path)
-
-
-def _get_or_create_inbox_source(conn: sqlite3.Connection, topic_id: int, topic_slug: str) -> int:
-    row = conn.execute(
-        """SELECT s.id FROM sources s
-           JOIN topic_sources ts ON ts.source_id = s.id
-           WHERE ts.topic_id = ? AND s.type = 'inbox'""",
-        (topic_id,),
-    ).fetchone()
-    if row:
-        return row["id"]
-    cur = conn.execute(
-        "INSERT INTO sources (type, name, active) VALUES ('inbox', ?, 1)",
-        (f"inbox:{topic_slug}",),
-    )
-    source_id = cur.lastrowid
-    conn.execute(
-        "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
-        (topic_id, source_id),
-    )
-    conn.commit()
-    return source_id
 
 
 @topic_app.command("add")
@@ -188,7 +167,7 @@ def run(
 
     for t in topics:
         typer.echo(f"[run] topic={t.slug}")
-        source_id = _get_or_create_inbox_source(conn, t.id, t.slug)
+        source_id = get_or_create_inbox_source(conn, t.id, t.slug)
         items = scan_inbox(t.slug, t.id, source_id, conn)
         typer.echo(f"[run] {len(items)} item(s) from inbox")
         result = run_topic(t, items, conn, client, settings, dry_run=dry_run)

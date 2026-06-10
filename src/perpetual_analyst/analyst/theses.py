@@ -25,20 +25,22 @@ def render_thesis_fragment(topic_id: int, conn: sqlite3.Connection) -> str:
     Include "(stale)" marker for theses older than 30 days.
     Return '(no active theses)' if none.
     """
-    theses = conn.execute(
-        "SELECT * FROM theses WHERE topic_id = ? AND status = 'active'",
+    rows = conn.execute(
+        """SELECT *,
+               coalesce(updated_at, created_at) < datetime('now', '-30 days') AS is_stale
+           FROM theses WHERE topic_id = ? AND status = 'active'""",
         (topic_id,),
     ).fetchall()
 
-    if not theses:
+    if not rows:
         return "(no active theses)"
 
-    stale_ids = {t.id for t in get_stale_theses(topic_id, conn, days=30)}
     lines: list[str] = []
-    for row in theses:
-        thesis = Thesis.from_row(row)
+    for row in rows:
+        is_stale = bool(row["is_stale"])
+        thesis = Thesis(**{k: row[k] for k in row.keys() if k != "is_stale"})
         confidence_str = f"{thesis.confidence:.0%}" if thesis.confidence is not None else "N/A"
-        stale_marker = " (stale)" if thesis.id in stale_ids else ""
+        stale_marker = " (stale)" if is_stale else ""
         lines.append(
             f"- [thesis:{thesis.id}] (conf {confidence_str}) {thesis.statement}{stale_marker}"
         )
