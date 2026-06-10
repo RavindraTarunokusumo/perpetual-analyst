@@ -28,8 +28,8 @@ The guiding rule: **the Analyst Agent is the product; everything else is plumbin
    └─────────────────────────────────────────────┘
              ▲
    ┌─────────┴───────────┐
-   │ retrieval/          │  FTS5 keyword search (V1)
-   │  search.py          │  optional: embeddings.py (sqlite-vec) Phase 2+
+   │ retrieval/          │  FTS5 keyword search
+   │  search.py          │  optional: embeddings.py (sqlite-vec) if FTS insufficient
    └─────────────────────┘
 ```
 
@@ -62,8 +62,8 @@ The only module that calls the Anthropic API for reasoning (except `triage.py` w
 |---|---|
 | `agent.py` | `make_client() -> openai.OpenAI` (OpenRouter); `assemble_context(topic, items, conn, prompt, settings) -> list[dict]`; `run_topic(topic, items, conn, client, settings, dry_run=False) -> TopicAnalysis \| None` — calls `client.beta.chat.completions.parse()`, persists memory writes transactionally |
 | `memory.py` | CRUD for dossier/observations/theses; `build_memory_context(topic_id, conn, token_budget=3000)` returning char-budget-truncated prompt text; `apply_all_memory_writes(topic_id, result, conn)` atomic bundle |
-| `theses.py` | Apply `ThesisUpdate`s (create/revise/retire); enforce ≤7 active; stale-flagging; render thesis fragment |
-| `triage.py` | Triage model batch call — score (0–1) + 2-line summary per item; mark `status` on items |
+| `theses.py` | `get_stale_theses(topic_id, conn, days=30)` — single SQL query with `coalesce(updated_at, created_at)` comparison; `render_thesis_fragment(topic_id, conn)` — `is_stale` computed in DB, returns markdown list with `(stale)` markers |
+| `triage.py` | `triage_items(items, topic_brief, client, settings, conn)` — Haiku batch call scoring items 0–1; items with score < 0.2 marked `status='skipped'` and filtered out; **does NOT call `conn.commit()`** — caller owns the transaction; graceful degradation (returns all items unchanged on API failure) |
 | `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate` |
 | `prompts/analyst_system.md` | Finalized 12-rule system prompt with context template and JSON output schema |
 | `prompts/weekly_review.md` | Self-review / memory compaction prompt |
@@ -83,15 +83,15 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 | File | Responsibility |
 |---|---|
 | `base.py` | `Fetcher` protocol / abstract base |
-| `rss.py` | feedparser + trafilatura, since-last-fetch, error counting, writes `items` rows |
-| `inbox.py` | Scan `inbox/<topic-slug>/` for .md/.txt/.pdf; pypdf extraction; hash-dedupe |
+| `rss.py` | `fetch_rss(source, conn)` — feedparser + trafilatura; datetime-correct since-filter (both sides parsed as UTC-naive, not string compare); increments `fetch_error_count` and deactivates source at ≥5 errors |
+| `inbox.py` | `scan_inbox(topic_slug, topic_id, source_id, conn)` — scan `inbox/<topic-slug>/` for .md/.txt/.pdf; pypdf extraction; hash-dedupe; moves processed files to `.processed/`. `get_or_create_inbox_source(conn, topic_id, topic_slug) -> int` — canonical shared helper; used by both CLI and `daily_run` |
 | `extract.py` | trafilatura article text extraction helpers |
 
 ### `retrieval/`
 
 | File | Responsibility |
 |---|---|
-| `search.py` | `related_observations(text, topic, k)` and `related_items(text, topic, k)` via FTS5, recency-weighted. **No vector search in V1.** |
+| `search.py` | `related_observations(text, topic_id, conn, k=5)` and `related_items(text, topic_id, conn, k=3)` via FTS5; recency-boosted ordering (observations: last 30 days first; items: last 14 days first); gracefully returns `[]` on FTS parse error or empty text. **No vector search in V1.** |
 
 ### `store/`
 
@@ -104,14 +104,14 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 
 | File | Responsibility |
 |---|---|
-| `assemble.py` | Merge per-topic `TopicAnalysis.report_section_markdown` sections; build exec summary; write `reports` row |
-| `render.py` | `[item:N]` → numbered footnote links (title + URL); apply Markdown template; write `.md` file to `data/reports/` |
+| `assemble.py` | `assemble_report(topic_analyses, date, conn, client, settings, reports_dir)` — joins per-topic sections (calls `render_citations` per section), generates `digest_text` via OpenRouter, upserts `reports` row with `user_id=1`, writes `data/reports/brief-{date}.md`. Returns `report_id`. `digest_text` is HTML safely truncated to ≤3,000 chars with trailing unclosed tags stripped. |
+| `render.py` | `render_citations(markdown, conn)` — batch IN query to look up all `[item:N]` tags; replaces inline with `[^N]` and appends footnotes section. Items not found in DB fall back to `(item N)`. |
 
 ### `delivery/`
 
 | File | Responsibility |
 |---|---|
-| `telegram.py` | Send HTML digest (≤3,000 chars) + `.md` file attachment; retry undelivered reports (`delivered_at IS NULL`) |
+| `telegram.py` | `send_report(report_id, conn)` — reads report row, sends `digest_text` as HTML message and `full_markdown` as `.md` file attachment, sets `delivered_at` on success; re-raises on error so caller can retry. `retry_undelivered(conn)` — retries reports where `delivered_at IS NULL` and `created_at < now - 1 hour`. Uses `python-telegram-bot` async via `asyncio.run`. Token/chat_id from `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` env vars; never logged. |
 
 ## Background Jobs
 
@@ -135,7 +135,7 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 | LLM (triage) | `deepseek/deepseek-v4-flash`, no thinking |
 | Model config | `config/settings.yaml` → `Settings.analyst` / `Settings.triage` (`ModelConfig(id, thinking)`) |
 | Storage | SQLite + FTS5, single file `data/analyst.db` |
-| Embeddings (Phase 2+) | sqlite-vec + Voyage AI `voyage-3.5` — only if FTS proves insufficient |
+| Embeddings (future) | sqlite-vec + Voyage AI `voyage-3.5` — only if FTS proves insufficient |
 | Fetching | feedparser, httpx, trafilatura, pypdf |
 | Telegram | python-telegram-bot (send-only V1) |
 | Scheduling | OS cron / Windows Task Scheduler |

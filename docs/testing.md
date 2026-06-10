@@ -8,8 +8,8 @@ Testing includes both execution and planning. Run automated tests and use the `t
 
 - Activate the project environment: `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate`
 - Run commands from repo root
-- Mock Anthropic API calls — never make real API calls in tests
-- Mock Telegram sends
+- Mock OpenRouter/openai API calls — never make real API calls in tests
+- Mock `telegram.Bot` — never make real Telegram calls in tests
 - Use in-memory SQLite (`analyst.db` = `:memory:`) for all DB tests
 
 ## Test Layout
@@ -39,8 +39,8 @@ def db():
     conn.close()
 
 @pytest.fixture
-def mock_anthropic(monkeypatch):
-    """Stub client.messages.parse() to return a canned TopicAnalysis."""
+def mock_openai(monkeypatch):
+    """Stub openai.OpenAI client to return a canned TopicAnalysis (openai SDK via OpenRouter)."""
     ...
 ```
 
@@ -111,7 +111,7 @@ For meaningful changes, cover:
 
 - Keep tests deterministic — no random data, no real API calls, no network I/O
 - Use in-memory SQLite; never touch `data/analyst.db` in tests
-- Mock the Anthropic client at the boundary — test context assembly and result handling separately from the API call
+- Mock the OpenAI client (OpenRouter) at the boundary — test context assembly and result handling separately from the API call
 - Name tests by behavior: `test_memory_budget_truncates_importance_1_first`
 - Assert durable outcomes: DB row counts, field values, file existence
 - Never test implementation trivia (private method return values, internal variable names)
