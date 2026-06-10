@@ -1,0 +1,5 @@
+Task: Task 10 — delivery/telegram.py + daily_run.py
+Summary: delivery/telegram.py sends digest HTML and full markdown via async python-telegram-bot API, marks delivered_at on success, retries undelivered reports older than 1 hour. daily_run.py orchestrates the full pipeline: retry stale deliveries, scan inbox per topic, run_topic with per-topic error isolation, assemble+send report. Supports --dry-run and --topic flags.
+Docs: N/A
+TODO: Phase 3 / Task 10
+Validation: ruff (passed), pytest 70/70
