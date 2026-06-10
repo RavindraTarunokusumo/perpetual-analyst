@@ -38,16 +38,16 @@ def send_report(report_id: int, conn: sqlite3.Connection) -> None:
 
     async def _send() -> None:
         bot = Bot(token=token)
-        await bot.send_message(
-            chat_id=chat_id,
-            text=report.digest_text or "(no digest)",
-            parse_mode="HTML",
-        )
         filename = f"brief-{report.report_date}.md"
         doc_bytes = (report.full_markdown or "").encode("utf-8")
         await bot.send_document(
             chat_id=chat_id,
             document=InputFile(io.BytesIO(doc_bytes), filename=filename),
+        )
+        await bot.send_message(
+            chat_id=chat_id,
+            text=report.digest_text or "(no digest)",
+            parse_mode="HTML",
         )
 
     asyncio.run(_send())

@@ -140,8 +140,11 @@ def run(
 ) -> None:
     """Run the daily analyst pipeline."""
     from perpetual_analyst.analyst.agent import make_client, run_topic
+    from perpetual_analyst.analyst.triage import triage_items
     from perpetual_analyst.config import load_settings
     from perpetual_analyst.ingestion.inbox import scan_inbox
+    from perpetual_analyst.ingestion.rss import fetch_rss
+    from perpetual_analyst.store.models import Source
 
     conn = _db()
     settings = load_settings()
@@ -170,6 +173,22 @@ def run(
         source_id = get_or_create_inbox_source(conn, t.id, t.slug)
         items = scan_inbox(t.slug, t.id, source_id, conn)
         typer.echo(f"[run] {len(items)} item(s) from inbox")
+
+        rss_rows = conn.execute(
+            """SELECT s.* FROM sources s
+               JOIN topic_sources ts ON ts.source_id = s.id
+               WHERE ts.topic_id = ? AND s.type = 'rss' AND s.active = 1""",
+            (t.id,),
+        ).fetchall()
+        for rss_row in rss_rows:
+            rss_items = fetch_rss(Source.from_row(rss_row), conn)
+            items += rss_items
+            typer.echo(f"[run] {len(rss_items)} item(s) from rss source {rss_row['id']}")
+
+        if client is not None and items:
+            items = triage_items(items, t.brief or "", client, settings, conn)
+            typer.echo(f"[run] {len(items)} item(s) after triage")
+
         result = run_topic(t, items, conn, client, settings, dry_run=dry_run)
         if result is not None:
             typer.echo(f"[run] done — nothing_significant={result.nothing_significant}")

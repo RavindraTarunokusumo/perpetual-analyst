@@ -64,7 +64,7 @@ def assemble_report(
             {"role": "user", "content": full_markdown},
         ],
     )
-    digest_text = _truncate_html(response.choices[0].message.content)
+    digest_text = _truncate_html(response.choices[0].message.content or "")
 
     # 3. Upsert into reports table (user_id=1: single-user MVP)
     conn.execute(
