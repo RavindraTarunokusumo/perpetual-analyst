@@ -28,14 +28,14 @@ cadence from the daily call, consistent with Invariant #1 (no daily critic loop)
 - [x] Tests for orchestrator (dry-run skips client, error isolation per topic) — 272d667
 
 ### Task D — Surface stale flags + thesis audit trail in daily context
-- [ ] `analyst/theses.py::render_thesis_trail(topic_id, conn)`: from `thesis_updates`, render `confidence 0.60→0.80 over N updates`
-- [ ] `agent.py::assemble_context`: replace manual theses_text with `render_thesis_fragment` (stale markers) + append per-thesis trail
-- [ ] Tests: stale marker present in context, trail string format
+- [x] `analyst/theses.py::render_thesis_trail(topic_id, conn)`: from `thesis_updates`, render `confidence 0.60→0.80 over N updates` — 1e6495a
+- [x] `agent.py::assemble_context`: replace manual theses_text with `render_thesis_fragment` (stale markers) + append per-thesis trail — f4be42e
+- [x] Tests: stale marker present in context, trail string format — 1e6495a, f4be42e
 
 ### Task E — Prompt-caching pass (stable prefix ordering)
-- [ ] Reorder `assemble_context` user message: stable prefix first (brief, dossier, active theses), volatile last (yesterday's report, related context, today's items)
-- [ ] Attach `cache_control` breakpoint(s) for OpenRouter/Anthropic prompt caching on the stable prefix
-- [ ] Tests: assert ordering and cache_control presence
+- [x] Reorder `assemble_context` user message: stable prefix first (brief, dossier, active theses), volatile last (yesterday's report, related context, today's items) — f0cecc4
+- [x] Attach `cache_control` breakpoint(s) for OpenRouter/Anthropic prompt caching on the stable prefix — f0cecc4
+- [x] Tests: assert ordering and cache_control presence — f0cecc4
 
 ---
 
