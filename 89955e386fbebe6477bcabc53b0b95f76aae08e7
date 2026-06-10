@@ -1,0 +1,5 @@
+Task: Task 8 — retrieval/search.py + wire into assemble_context
+Summary: Implemented related_observations() and related_items() using FTS5 with recency boosting. Wired both into assemble_context() as new 'Related prior observations' and 'Related prior items' sections. Special-char stripping prevents FTS parse errors; empty query returns [] safely.
+Docs: N/A
+TODO: Phase 2 / Task 8
+Validation: ruff (passed), pytest 87/87
