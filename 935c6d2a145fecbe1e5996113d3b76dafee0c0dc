@@ -1,0 +1,4 @@
+Task: Task 5 — Inbox ingestion
+Summary: scan_inbox walks inbox/<slug>/, extracts txt/md/pdf, dedupes on content_hash via insert_item, moves all processed files to .processed/
+TODO: Phase 1 Task 5
+Validation: ruff, ruff-format, pytest tests/test_ingestion.py
