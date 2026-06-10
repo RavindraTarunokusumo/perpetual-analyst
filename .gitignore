@@ -15,3 +15,4 @@ data/reports/*.md
 logs/
 inbox/**/.processed/
 .worktree/
+.gitnexus/
