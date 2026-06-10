@@ -23,9 +23,9 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [x] Render thesis fragment with confidence % and stale markers — `render_thesis_fragment()`
 
 ### Task 7 — RSS ingestion + triage
-- [ ] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
-- [ ] Implement `analyst/triage.py`: Haiku batch call — score (0–1) + 2-line summary per item
-- [ ] Mark triaged items `status='analyzed'` or `status='skipped'`
+- [x] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
+- [x] Implement `analyst/triage.py`: triage model batch call — score (0–1) + 2-line summary per item
+- [x] Mark triaged items `status='analyzed'` or `status='skipped'`
 
 ### Task 8 — Retrieval
 - [ ] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
