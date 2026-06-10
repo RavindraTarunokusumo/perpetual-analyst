@@ -104,3 +104,17 @@ def test_scan_inbox_returns_empty_for_missing_dir(
     monkeypatch.chdir(tmp_path)
     items = scan_inbox("nonexistent-topic", sample_topic.id, sample_source, db)
     assert items == []
+
+
+def test_scan_inbox_rejects_path_traversal(
+    db: sqlite3.Connection, sample_topic, sample_source: int
+) -> None:
+    with pytest.raises(ValueError, match="Invalid topic_slug"):
+        scan_inbox("../../etc/passwd", sample_topic.id, sample_source, db)
+
+
+def test_scan_inbox_rejects_absolute_slug(
+    db: sqlite3.Connection, sample_topic, sample_source: int
+) -> None:
+    with pytest.raises(ValueError, match="Invalid topic_slug"):
+        scan_inbox("/etc/passwd", sample_topic.id, sample_source, db)

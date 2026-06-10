@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import sqlite3
 from pathlib import Path
+
+_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 
 from perpetual_analyst.store.db import insert_item
 from perpetual_analyst.store.models import Item
@@ -30,7 +33,14 @@ def scan_inbox(
     source_id: int,
     conn: sqlite3.Connection,
 ) -> list[Item]:
-    inbox_dir = Path("inbox") / topic_slug
+    if not _SLUG_RE.match(topic_slug):
+        raise ValueError(f"Invalid topic_slug: {topic_slug!r}")
+
+    inbox_base = Path("inbox").resolve()
+    inbox_dir = (inbox_base / topic_slug).resolve()
+    if not inbox_dir.is_relative_to(inbox_base):
+        raise ValueError(f"topic_slug escapes inbox: {topic_slug!r}")
+
     processed_dir = inbox_dir / ".processed"
 
     if not inbox_dir.exists():
