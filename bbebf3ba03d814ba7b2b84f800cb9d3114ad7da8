@@ -1,0 +1,5 @@
+Task: lock in doc-first delivery order
+Summary: Add ordering assertion test so the document-before-message fix can't silently revert
+Docs: N/A
+TODO: N/A
+Validation: ruff pass, 90 pytest pass
