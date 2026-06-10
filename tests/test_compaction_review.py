@@ -82,6 +82,17 @@ def test_run_weekly_review_returns_parsed_output(db, sample_topic, capsys):
     client.chat.completions.create.assert_called_once()
 
 
+def test_run_weekly_review_caches_system_prompt(db, sample_topic):
+    """Weekly system prompt must carry a cache_control breakpoint, like the daily path."""
+    client = _make_weekly_client(WeeklyReviewOutput())
+    run_weekly_review(sample_topic, db, client, _make_settings(), dry_run=False)
+
+    api_messages = client.chat.completions.create.call_args.kwargs["messages"]
+    sys_msg = next(m for m in api_messages if m["role"] == "system")
+    assert isinstance(sys_msg["content"], list)
+    assert sys_msg["content"][0]["cache_control"] == {"type": "ephemeral"}
+
+
 # ---------------------------------------------------------------------------
 # apply_weekly_review — dossier rewrite and observation promotion
 # ---------------------------------------------------------------------------

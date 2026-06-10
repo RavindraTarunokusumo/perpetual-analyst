@@ -6,10 +6,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from perpetual_analyst.analyst.agent import (
-    _with_cache_control,
     assemble_context,
     load_system_prompt,
     run_topic,
+    with_cache_control,
 )
 from perpetual_analyst.analyst.memory import get_active_observations
 from perpetual_analyst.config import ModelConfig, Settings
@@ -185,14 +185,14 @@ def test_assemble_context_stable_prefix_before_volatile(
 
 
 def test_with_cache_control_marks_system() -> None:
-    """_with_cache_control converts the system message content to a list with cache_control."""
+    """with_cache_control converts the system message content to a list with cache_control."""
     original_system = "You are a helpful analyst."
     original_user = "Analyse this."
     messages = [
         {"role": "system", "content": original_system},
         {"role": "user", "content": original_user},
     ]
-    result = _with_cache_control(messages)
+    result = with_cache_control(messages)
     # System message: content is now a list
     sys_msg = result[0]
     assert isinstance(sys_msg["content"], list)

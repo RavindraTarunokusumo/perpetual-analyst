@@ -7,6 +7,7 @@ from pathlib import Path
 
 import openai
 
+from perpetual_analyst.analyst.agent import with_cache_control
 from perpetual_analyst.analyst.memory import (
     get_active_observations,
     get_active_theses,
@@ -111,9 +112,10 @@ def run_weekly_review(
         return None
 
     extra = {"thinking": {"type": "adaptive"}} if settings.analyst.thinking else {}
+    # The weekly system prompt is stable across topics — cache it like the daily path.
     response = client.chat.completions.create(
         model=settings.analyst.id,
-        messages=messages,
+        messages=with_cache_control(messages),
         response_format={"type": "json_object"},
         extra_body=extra,
     )

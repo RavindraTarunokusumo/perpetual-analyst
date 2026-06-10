@@ -105,12 +105,13 @@ def assemble_context(
     ]
 
 
-def _with_cache_control(messages: list[dict]) -> list[dict]:
+def with_cache_control(messages: list[dict]) -> list[dict]:
     """Return a copy of messages with an ephemeral cache_control breakpoint on the system
     prompt, so OpenRouter/Anthropic can cache the stable prefix across runs.
 
     The OpenAI-style string content is converted to a single text content-block carrying
-    cache_control. Non-system messages are passed through unchanged.
+    cache_control. Non-system messages are passed through unchanged. Shared by the daily
+    (run_topic) and weekly (run_weekly_review) call paths.
     """
     result = []
     for msg in messages:
@@ -149,7 +150,7 @@ def run_topic(
         return None
 
     extra = {"thinking": {"type": "adaptive"}} if settings.analyst.thinking else {}
-    api_messages = _with_cache_control(messages)
+    api_messages = with_cache_control(messages)
     response = client.chat.completions.create(
         model=settings.analyst.id,
         messages=api_messages,
