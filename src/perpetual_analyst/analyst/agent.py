@@ -86,6 +86,7 @@ def assemble_context(
         rel_obs_text = "(none)"
         rel_items_text = "(none)"
 
+    # Stable prefix first (cache-friendly), volatile content last
     user_content = (
         f"## Topic brief\n{topic.brief or '(no brief)'}\n\n"
         f"## Dossier\n{dossier}\n\n"
@@ -102,6 +103,33 @@ def assemble_context(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
+
+
+def _with_cache_control(messages: list[dict]) -> list[dict]:
+    """Return a copy of messages with an ephemeral cache_control breakpoint on the system
+    prompt, so OpenRouter/Anthropic can cache the stable prefix across runs.
+
+    The OpenAI-style string content is converted to a single text content-block carrying
+    cache_control. Non-system messages are passed through unchanged.
+    """
+    result = []
+    for msg in messages:
+        if msg["role"] == "system":
+            result.append(
+                {
+                    **msg,
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": msg["content"],
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                }
+            )
+        else:
+            result.append(dict(msg))
+    return result
 
 
 def run_topic(
@@ -121,9 +149,10 @@ def run_topic(
         return None
 
     extra = {"thinking": {"type": "adaptive"}} if settings.analyst.thinking else {}
+    api_messages = _with_cache_control(messages)
     response = client.chat.completions.create(
         model=settings.analyst.id,
-        messages=messages,
+        messages=api_messages,
         response_format={"type": "json_object"},
         extra_body=extra,
     )

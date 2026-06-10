@@ -5,7 +5,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from perpetual_analyst.analyst.agent import assemble_context, load_system_prompt, run_topic
+from perpetual_analyst.analyst.agent import (
+    _with_cache_control,
+    assemble_context,
+    load_system_prompt,
+    run_topic,
+)
 from perpetual_analyst.analyst.memory import get_active_observations
 from perpetual_analyst.config import ModelConfig, Settings
 from perpetual_analyst.store.models import Topic
@@ -164,3 +169,58 @@ def test_assemble_context_thesis_history_heading(
     prompt = load_system_prompt()
     messages = assemble_context(sample_topic, sample_items, db, prompt, settings)
     assert "## Thesis history" in messages[1]["content"]
+
+
+def test_assemble_context_stable_prefix_before_volatile(
+    db: sqlite3.Connection, sample_topic: Topic, sample_items, settings: Settings
+) -> None:
+    """Stable sections must appear before volatile sections in the user message."""
+    prompt = load_system_prompt()
+    messages = assemble_context(sample_topic, sample_items, db, prompt, settings)
+    user_content = messages[1]["content"]
+    assert user_content.index("## Topic brief") < user_content.index(
+        "## Yesterday's report section"
+    )
+    assert user_content.index("## Active theses") < user_content.index("## Today's items")
+
+
+def test_with_cache_control_marks_system() -> None:
+    """_with_cache_control converts the system message content to a list with cache_control."""
+    original_system = "You are a helpful analyst."
+    original_user = "Analyse this."
+    messages = [
+        {"role": "system", "content": original_system},
+        {"role": "user", "content": original_user},
+    ]
+    result = _with_cache_control(messages)
+    # System message: content is now a list
+    sys_msg = result[0]
+    assert isinstance(sys_msg["content"], list)
+    assert len(sys_msg["content"]) == 1
+    part = sys_msg["content"][0]
+    assert part["type"] == "text"
+    assert part["text"] == original_system
+    assert part["cache_control"] == {"type": "ephemeral"}
+    # User message: unchanged
+    user_msg = result[1]
+    assert user_msg["content"] == original_user
+    # Originals untouched
+    assert messages[0]["content"] == original_system
+    assert messages[1]["content"] == original_user
+
+
+def test_run_topic_sends_cache_control(
+    db: sqlite3.Connection,
+    sample_topic: Topic,
+    sample_items,
+    settings: Settings,
+    mock_openrouter: MagicMock,
+) -> None:
+    """run_topic must pass the system message with a cache_control breakpoint to the API."""
+    run_topic(sample_topic, sample_items, db, mock_openrouter, settings, dry_run=False)
+    call_kwargs = mock_openrouter.chat.completions.create.call_args.kwargs
+    api_messages = call_kwargs["messages"]
+    sys_msg = next(m for m in api_messages if m["role"] == "system")
+    assert isinstance(sys_msg["content"], list)
+    part = sys_msg["content"][0]
+    assert part.get("cache_control") == {"type": "ephemeral"}
