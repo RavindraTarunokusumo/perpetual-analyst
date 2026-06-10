@@ -5,45 +5,6 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Session: Phase 1 — Analyst Prototype (2026-06-10)
-
-Phase 1 exit test: *feed it 5 days of hand-picked articles one day at a time; day-5 report must reference day-1 context.*
-
-### Task 1 — Project skeleton + DB layer
-- [ ] Write `pyproject.toml` with all dependencies
-- [ ] Create package layout under `src/perpetual_analyst/`
-- [ ] Implement `store/db.py`: connection, `init_db()` running the full §5 DDL
-- [ ] Add FTS5 `items_fts` and `observations_fts` virtual tables with triggers
-- [ ] Write `store/models.py`: typed dataclasses or Pydantic models for DB rows
-- [ ] Tests: schema creates clean, FTS triggers fire on insert/update/delete
-
-### Task 2 — Memory module
-- [ ] Implement `analyst/memory.py`: CRUD for dossier, observations, theses
-- [ ] Implement `thesis_updates` audit writes in same transaction as thesis change
-- [ ] Implement `build_memory_context(topic_id, token_budget)` — importance/recency sort, hard truncation
-- [ ] Tests with fake in-memory DB data covering budget enforcement
-
-### Task 3 — Analyst schemas + system prompt
-- [ ] Finalize `analyst/schemas.py`: `TopicAnalysis`, `NewObservation`, `ThesisUpdate` Pydantic models
-- [ ] Write `analyst/prompts/analyst_system.md` encoding all 12 behavioral rules from SPEC §7
-- [ ] Ensure `nothing_significant: bool` is in schema and prompt
-
-### Task 4 — Analyst agent call
-- [ ] Implement `analyst/agent.py`: assemble context in caching-friendly order
-- [ ] Wire `client.messages.parse()` with `claude-opus-4-8`, adaptive thinking
-- [ ] Persist all returned memory writes transactionally after successful parse
-- [ ] Implement `--dry-run` flag: print assembled prompt, skip API call
-- [ ] Manual test: one topic, one item, check DB rows written
-
-### Task 5 — Inbox ingestion
-- [ ] Implement `ingestion/inbox.py`: scan `inbox/<topic-slug>/` for .md/.txt/.pdf
-- [ ] Integrate `pypdf` for PDF text extraction
-- [ ] Hash-dedupe on `content_hash` (SHA-256 of text), write `items` rows
-- [ ] Mark ingested files as processed (rename or move to `inbox/<slug>/.processed/`)
-- [ ] End-to-end Phase 1 test: 3 docs → analyst run → report file + memory rows written
-
----
-
 ## Session: Phase 2 — Source Ingestion + Retrieval (future)
 
 ### Task 6 — Thesis lifecycle
