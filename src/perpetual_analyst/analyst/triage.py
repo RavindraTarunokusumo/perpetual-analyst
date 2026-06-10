@@ -77,5 +77,4 @@ def triage_items(
         if score >= 0.2:
             relevant.append(item)
 
-    conn.commit()
     return relevant

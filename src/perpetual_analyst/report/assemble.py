@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 
@@ -13,6 +14,14 @@ from perpetual_analyst.report.render import render_citations
 
 _DIGEST_PROMPT_PATH = Path(__file__).parent.parent / "analyst" / "prompts" / "digest.md"
 _DEFAULT_REPORTS_DIR = Path("data/reports")
+_UNCLOSED_TAG = re.compile(r"<[^>]*$")
+
+
+def _truncate_html(text: str, max_chars: int = 3000) -> str:
+    """Truncate to max_chars, then strip any trailing unclosed HTML tag."""
+    if len(text) <= max_chars:
+        return text
+    return _UNCLOSED_TAG.sub("", text[:max_chars])
 
 
 def assemble_report(
@@ -55,12 +64,12 @@ def assemble_report(
             {"role": "user", "content": full_markdown},
         ],
     )
-    digest_text = response.choices[0].message.content[:3000]
+    digest_text = _truncate_html(response.choices[0].message.content)
 
-    # 3. Upsert into reports table
+    # 3. Upsert into reports table (user_id=1: single-user MVP)
     conn.execute(
-        """INSERT INTO reports (report_date, full_markdown, digest_text)
-           VALUES (?, ?, ?)
+        """INSERT INTO reports (report_date, full_markdown, digest_text, user_id)
+           VALUES (?, ?, ?, 1)
            ON CONFLICT(report_date) DO UPDATE SET
                full_markdown = excluded.full_markdown,
                digest_text = excluded.digest_text""",

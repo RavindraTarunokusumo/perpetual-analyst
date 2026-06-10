@@ -91,10 +91,13 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
             logger.exception("[daily_run] topic=%s failed", topic.slug)
             failures += 1
 
-    # Assemble and deliver
+    # Assemble and deliver (isolated so a Telegram failure leaves the report for retry)
     if not dry_run and topic_analyses:
-        report_id = assemble_report(topic_analyses, str(date.today()), conn, client, settings)
-        send_report(report_id, conn)
+        try:
+            report_id = assemble_report(topic_analyses, str(date.today()), conn, client, settings)
+            send_report(report_id, conn)
+        except Exception:
+            logger.exception("[daily_run] assemble/deliver failed — report persisted for retry")
 
     print(f"[daily_run] done — topics={len(topics)} successes={successes} failures={failures}")
 

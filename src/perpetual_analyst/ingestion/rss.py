@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import sqlite3
+import time
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
 import feedparser
@@ -16,11 +18,20 @@ from perpetual_analyst.store.models import Item, Source
 logger = logging.getLogger(__name__)
 
 
+def _parse_as_utc_naive(s: str) -> datetime | None:
+    """Parse ISO 8601 or SQLite datetime string to a UTC-naive datetime for comparison."""
+    try:
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is not None:
+            return dt.astimezone(UTC).replace(tzinfo=None)
+        return dt
+    except ValueError:
+        return None
+
+
 def _entry_published_iso(entry: feedparser.FeedParserDict) -> str | None:
     """Return ISO 8601 string from a feedparser entry, or None."""
     if hasattr(entry, "published_parsed") and entry.published_parsed:
-        import time
-
         return time.strftime("%Y-%m-%dT%H:%M:%SZ", entry.published_parsed)
     if hasattr(entry, "published") and entry.published:
         try:
@@ -57,9 +68,11 @@ def fetch_rss(source: Source, conn: sqlite3.Connection) -> list[Item]:
         for entry in feed.entries:
             published_iso = _entry_published_iso(entry)
 
-            # Filter entries older than last_fetched_at when set
+            # Filter entries older than last_fetched_at when set (compare as datetimes)
             if source.last_fetched_at and published_iso:
-                if published_iso <= source.last_fetched_at:
+                pub_dt = _parse_as_utc_naive(published_iso)
+                last_dt = _parse_as_utc_naive(source.last_fetched_at)
+                if pub_dt is not None and last_dt is not None and pub_dt <= last_dt:
                     continue
 
             url = entry.get("link") or None
