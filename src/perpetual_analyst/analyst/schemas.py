@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class NewObservation(BaseModel):
     kind: str = Field(description="One of: fact | signal | pattern | contradiction | question")
     content: str = Field(description="The observation text.")
-    importance: int = Field(description="1 = minor, 2 = notable, 3 = significant", ge=1, le=3)
+    importance: int = Field(description="1 = minor, 2 = notable, 3 = significant")
     source_item_ids: list[int] = Field(
         default_factory=list,
         description="Item IDs cited as evidence for this observation.",
@@ -19,7 +19,7 @@ class ThesisUpdate(BaseModel):
         description="Existing thesis ID to update. None if proposing a new thesis.",
     )
     statement: str = Field(description="Full thesis statement.")
-    confidence: float = Field(description="New confidence value, 0–1.", ge=0.0, le=1.0)
+    confidence: float = Field(description="New confidence value, 0–1.")
     change_rationale: str = Field(
         description="Why confidence changed, or why this new thesis is proposed."
     )
