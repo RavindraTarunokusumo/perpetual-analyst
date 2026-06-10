@@ -1,10 +1,72 @@
-"""Scan inbox/<topic-slug>/ for .md/.txt/.pdf, extract text, hash-dedupe, write items."""
+from __future__ import annotations
 
-# TODO (Task 5): Implement
-# - scan_inbox(topic_slug: str, db: Connection) -> list[Item]
-#   - walk inbox/<topic-slug>/
-#   - extract text: pypdf for .pdf, plain read for .md/.txt
-#   - compute content_hash = sha256(raw_text.strip())
-#   - INSERT OR IGNORE INTO items (content_hash dedupes)
-#   - move processed files to inbox/<slug>/.processed/ to avoid re-ingestion
-#   - return list of newly inserted Item rows
+import hashlib
+import shutil
+import sqlite3
+from pathlib import Path
+
+from perpetual_analyst.store.db import insert_item
+from perpetual_analyst.store.models import Item
+
+
+def _extract_text(path: Path) -> str | None:
+    if path.suffix.lower() == ".pdf":
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(str(path))
+            return "\n".join(page.extract_text() or "" for page in reader.pages)
+        except Exception:
+            return None
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return None
+
+
+def scan_inbox(
+    topic_slug: str,
+    topic_id: int,
+    source_id: int,
+    conn: sqlite3.Connection,
+) -> list[Item]:
+    inbox_dir = Path("inbox") / topic_slug
+    processed_dir = inbox_dir / ".processed"
+
+    if not inbox_dir.exists():
+        return []
+
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    inserted: list[Item] = []
+
+    for path in sorted(inbox_dir.iterdir()):
+        if path.name.startswith(".") or path.is_dir():
+            continue
+        if path.suffix.lower() not in {".pdf", ".md", ".txt"}:
+            continue
+
+        raw_text = _extract_text(path)
+        if not raw_text or not raw_text.strip():
+            continue
+
+        content_hash = hashlib.sha256(raw_text.strip().encode()).hexdigest()
+
+        is_new = insert_item(
+            conn,
+            source_id=source_id,
+            content_hash=content_hash,
+            title=path.stem,
+            raw_text=raw_text,
+        )
+        conn.commit()
+
+        dest = processed_dir / path.name
+        shutil.move(str(path), str(dest))
+
+        if is_new:
+            row = conn.execute(
+                "SELECT * FROM items WHERE content_hash = ?", (content_hash,)
+            ).fetchone()
+            inserted.append(Item.from_row(row))
+
+    return inserted
