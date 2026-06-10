@@ -1,0 +1,149 @@
+# System Architecture
+
+## Overview
+
+One Python process, run on a schedule (cron / Windows Task Scheduler). Modules, not services.
+The guiding rule: **the Analyst Agent is the product; everything else is plumbing.**
+
+```
+                ┌────────────────────────────────────────────┐
+                │                daily_run.py                │
+                └────────────────────────────────────────────┘
+                      │              │                │
+              1. ingest        2. analyze        3. deliver
+                      │              │                │
+   ┌──────────────────▼──┐   ┌───────▼────────┐   ┌───▼─────────────┐
+   │ ingestion/          │   │ analyst/  ★    │   │ delivery/       │
+   │  fetchers (rss,     │   │  agent.py      │   │  telegram.py    │
+   │  file inbox, web)   │   │  memory.py     │   │  report_render  │
+   │  extract.py         │   │  theses.py     │   └─────────────────┘
+   │  dedupe.py          │   │  prompts/      │
+   └─────────┬───────────┘   │  triage.py     │
+             │               └───────┬────────┘
+             ▼                       ▼
+   ┌─────────────────────────────────────────────┐
+   │ store/  — SQLite (sqlite3 + FTS5)           │
+   │  items, chunks, topics, sources, theses,    │
+   │  observations, dossiers, reports            │
+   └─────────────────────────────────────────────┘
+             ▲
+   ┌─────────┴───────────┐
+   │ retrieval/          │  FTS5 keyword search (V1)
+   │  search.py          │  optional: embeddings.py (sqlite-vec) Phase 2+
+   └─────────────────────┘
+```
+
+## Data Flow
+
+```
+sources → fetch → extract/dedupe → items
+       → triage (Haiku: relevance score + 2-line summary per item)
+       → analyst run (Opus: reasoning over triaged items + memory context)
+       → TopicAnalysis (report section + memory writes)
+       → memory writes (observations, thesis updates, dossier edit)
+       → report assembly (multi-topic merge + exec summary)
+       → Telegram (HTML digest ≤3,000 chars + .md file attachment)
+```
+
+The triage step exists to protect the analyst's context: the expensive model sees 10–30 distilled items per topic, not 200 raw articles.
+
+## Entry Points
+
+- `daily_run.py` — main orchestrator; called by cron/Task Scheduler as `python -m perpetual_analyst.daily_run`
+- `cli.py` — typer CLI app, installed as `analyst` script; `analyst topic add`, `analyst source add`, `analyst run --topic x --dry-run`
+
+## Module Boundaries
+
+### `analyst/` ★ — The Product
+
+The only module that calls the Anthropic API for reasoning (except `triage.py` which calls Haiku for classification).
+
+| File | Responsibility |
+|---|---|
+| `agent.py` | Assemble context (caching-friendly order), call `claude-opus-4-8` via `client.messages.parse()`, persist returned memory writes transactionally |
+| `memory.py` | CRUD for dossier/observations/theses; `build_memory_context(topic_id, token_budget)` returning truncated prompt-ready text |
+| `theses.py` | Apply `ThesisUpdate`s (create/revise/retire); enforce ≤7 active; stale-flagging; render thesis fragment |
+| `triage.py` | Haiku batch call — score (0–1) + 2-line summary per item; mark `status` on items |
+| `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate` |
+| `prompts/analyst_system.md` | 12 behavioral rules; stable prefix for prompt caching |
+| `prompts/weekly_review.md` | Self-review / memory compaction prompt |
+| `prompts/digest.md` | Telegram digest generation prompt |
+
+**Context assembly order (caching-friendly, stable first, volatile last):**
+
+```
+system prompt → topic brief → dossier → active theses (+ last update each)
+→ last 7 days digest lines → yesterday's topic section
+→ active observations (importance-sorted, budgeted)
+→ today's triaged items with related-prior-context attached
+```
+
+### `ingestion/`
+
+| File | Responsibility |
+|---|---|
+| `base.py` | `Fetcher` protocol / abstract base |
+| `rss.py` | feedparser + trafilatura, since-last-fetch, error counting, writes `items` rows |
+| `inbox.py` | Scan `inbox/<topic-slug>/` for .md/.txt/.pdf; pypdf extraction; hash-dedupe |
+| `extract.py` | trafilatura article text extraction helpers |
+
+### `retrieval/`
+
+| File | Responsibility |
+|---|---|
+| `search.py` | `related_observations(text, topic, k)` and `related_items(text, topic, k)` via FTS5, recency-weighted. **No vector search in V1.** |
+
+### `store/`
+
+| File | Responsibility |
+|---|---|
+| `db.py` | SQLite connection, `init_db()` running the full DDL + FTS5 virtual tables + triggers |
+| `models.py` | Typed dataclasses (or Pydantic) for each DB row type |
+
+### `report/`
+
+| File | Responsibility |
+|---|---|
+| `assemble.py` | Merge per-topic `TopicAnalysis.report_section_markdown` sections; build exec summary; write `reports` row |
+| `render.py` | `[item:N]` → numbered footnote links (title + URL); apply Markdown template; write `.md` file to `data/reports/` |
+
+### `delivery/`
+
+| File | Responsibility |
+|---|---|
+| `telegram.py` | Send HTML digest (≤3,000 chars) + `.md` file attachment; retry undelivered reports (`delivered_at IS NULL`) |
+
+## Background Jobs
+
+- **Daily run:** orchestrated by `daily_run.py` called by cron/Task Scheduler
+- **Weekly compaction (Phase 4):** separate prompt + run; promotes observations → dossier; expires stale observations; flags untouched theses; writes self-review note to dossier
+
+## External Integrations
+
+| Service | Auth | Env var | Failure behavior |
+|---|---|---|---|
+| Anthropic API | API key | `ANTHROPIC_API_KEY` | Abort topic run; log error; continue other topics |
+| Telegram Bot API | Bot token | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Store report; retry on next run (`delivered_at IS NULL` check) |
+
+## Tech Stack
+
+| Concern | Choice |
+|---|---|
+| Language | Python 3.12 |
+| LLM (analyst) | `claude-opus-4-8`, adaptive thinking, structured output via `client.messages.parse()` |
+| LLM (triage) | `claude-haiku-4-5`, batch call |
+| Storage | SQLite + FTS5, single file `data/analyst.db` |
+| Embeddings (Phase 2+) | sqlite-vec + Voyage AI `voyage-3.5` — only if FTS proves insufficient |
+| Fetching | feedparser, httpx, trafilatura, pypdf |
+| Telegram | python-telegram-bot (send-only V1) |
+| Scheduling | OS cron / Windows Task Scheduler |
+| Config | `config/topics.yaml`, `config/sources.yaml`, `.env` |
+| CLI | typer |
+
+## Invariants
+
+- **No services.** One process, one SQLite file.
+- **One analyst call per topic per day.** See `AGENTS.md` invariants.
+- **Prompt caching:** stable system prompt is always the first content block.
+- **Error isolation:** one failing topic must not kill the daily run for other topics. Wrap each topic's analyst run in a try/except.
+- **No vectors in V1.** Add sqlite-vec only when a concrete FTS retrieval failure is observed.

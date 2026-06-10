@@ -1,0 +1,9 @@
+# config/topics.yaml
+# Managed via `analyst topic add` or edited directly.
+# Each topic is tracked independently; the analyst maintains separate memory per topic.
+
+topics:
+  - slug: example-topic
+    name: "Example Topic"
+    brief: "Brief description of what you care about — this seeds the analyst's dossier."
+    active: true

@@ -1,0 +1,14 @@
+# config/sources.yaml
+# Managed via `analyst source add` or edited directly.
+# Sources can be shared across multiple topics.
+
+sources:
+  - name: "Example RSS Feed"
+    type: rss
+    url: "https://example.com/feed.xml"
+    active: true
+    topics:
+      - example-topic
+
+# Source types: rss | inbox | web
+# inbox sources are implicit — drop files into inbox/<topic-slug>/
