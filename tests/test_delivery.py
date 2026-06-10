@@ -153,6 +153,24 @@ def test_send_report_happy_path(db: sqlite3.Connection, monkeypatch) -> None:
     assert row["delivered_at"] is not None
 
 
+def test_send_report_document_sent_before_message(db: sqlite3.Connection, monkeypatch) -> None:
+    """Document must be sent before message so a message-send failure leaves no duplicate digest."""
+    report_id = _insert_report(db, digest_text="<b>Test</b>", full_markdown="# Test")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "fake-chat-id")
+
+    call_order: list[str] = []
+
+    mock_bot = AsyncMock()
+    mock_bot.send_document = AsyncMock(side_effect=lambda **kw: call_order.append("document"))
+    mock_bot.send_message = AsyncMock(side_effect=lambda **kw: call_order.append("message"))
+
+    with _mock_telegram(mock_bot):
+        send_report(report_id, db)
+
+    assert call_order == ["document", "message"], f"Expected doc-first order, got {call_order}"
+
+
 def test_send_report_error_does_not_log_token(
     db: sqlite3.Connection, monkeypatch, caplog: pytest.LogCaptureFixture
 ) -> None:
