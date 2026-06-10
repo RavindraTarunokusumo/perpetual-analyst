@@ -75,3 +75,26 @@ class TopicAnalysis(BaseModel):
             "This is a first-class output — use it when warranted."
         ),
     )
+
+
+class WeeklyReviewOutput(BaseModel):
+    """Output of one weekly compaction/review run for one topic. See SPEC §8."""
+
+    dossier_rewrite: str | None = Field(
+        default=None,
+        description=(
+            "Full replacement dossier text incorporating promoted insights and a short self-review "
+            "note. None to leave the dossier unchanged."
+        ),
+    )
+    promoted_observation_ids: list[int] = Field(
+        default_factory=list,
+        description=(
+            "IDs of observations that proved durable and are now merged into the dossier; "
+            "they will be marked 'promoted'."
+        ),
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description="Optional short notes on what changed this week (for logging).",
+    )
