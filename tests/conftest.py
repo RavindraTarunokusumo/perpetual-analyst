@@ -75,11 +75,17 @@ def mock_openrouter() -> MagicMock:
     usage_mock = MagicMock()
     usage_mock.total_tokens = 1234
 
+    message_mock = MagicMock()
+    message_mock.content = canned_result.model_dump_json()
+
+    choice_mock = MagicMock()
+    choice_mock.message = message_mock
+
     response_mock = MagicMock()
-    response_mock.parsed = canned_result
+    response_mock.choices = [choice_mock]
     response_mock.usage = usage_mock
 
     client_mock = MagicMock()
-    client_mock.beta.chat.completions.parse.return_value = response_mock
+    client_mock.chat.completions.create.return_value = response_mock
 
     return client_mock

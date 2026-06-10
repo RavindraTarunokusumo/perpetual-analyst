@@ -71,7 +71,7 @@ def test_run_topic_dry_run_returns_none(
 ) -> None:
     result = run_topic(sample_topic, sample_items, db, mock_openrouter, settings, dry_run=True)
     assert result is None
-    mock_openrouter.beta.chat.completions.parse.assert_not_called()
+    mock_openrouter.chat.completions.create.assert_not_called()
 
 
 def test_run_topic_dry_run_prints_messages(
@@ -109,7 +109,7 @@ def test_run_topic_passes_thinking_when_configured(
         triage=ModelConfig(id="deepseek/deepseek-v4-flash", thinking=False),
     )
     run_topic(sample_topic, sample_items, db, mock_openrouter, settings_thinking)
-    call_kwargs = mock_openrouter.beta.chat.completions.parse.call_args
+    call_kwargs = mock_openrouter.chat.completions.create.call_args
     extra_body = call_kwargs.kwargs.get("extra_body", {})
     assert extra_body.get("thinking") == {"type": "adaptive"}
 
@@ -133,6 +133,6 @@ def test_run_topic_no_thinking_when_disabled(
         triage=ModelConfig(id="deepseek/deepseek-v4-flash", thinking=False),
     )
     run_topic(sample_topic, sample_items, db, mock_openrouter, settings_no_thinking)
-    call_kwargs = mock_openrouter.beta.chat.completions.parse.call_args
+    call_kwargs = mock_openrouter.chat.completions.create.call_args
     extra_body = call_kwargs.kwargs.get("extra_body", {})
     assert "thinking" not in extra_body
