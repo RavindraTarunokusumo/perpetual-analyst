@@ -114,6 +114,17 @@ def test_run_topic_passes_thinking_when_configured(
     assert extra_body.get("thinking") == {"type": "adaptive"}
 
 
+def test_assemble_context_includes_related_context_section(
+    db: sqlite3.Connection, sample_topic: Topic, sample_items, settings: Settings
+) -> None:
+    """assemble_context user message must contain Related prior observations section."""
+    prompt = load_system_prompt()
+    messages = assemble_context(sample_topic, sample_items, db, prompt, settings)
+    user_content = messages[1]["content"]
+    assert "## Related prior observations" in user_content
+    assert "## Related prior items" in user_content
+
+
 def test_run_topic_no_thinking_when_disabled(
     db: sqlite3.Connection, sample_topic: Topic, sample_items, mock_openrouter: MagicMock
 ) -> None:

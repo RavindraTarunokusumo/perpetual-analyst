@@ -28,9 +28,9 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [x] Mark triaged items `status='analyzed'` or `status='skipped'`
 
 ### Task 8 — Retrieval
-- [ ] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
-- [ ] Recency weighting in FTS queries
-- [ ] Wire "related prior context" blocks into agent context assembly
+- [x] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
+- [x] Recency weighting in FTS queries (30-day obs boost, 14-day item boost)
+- [x] Wire "Related prior observations" and "Related prior items" blocks into `assemble_context`
 
 ---
 
