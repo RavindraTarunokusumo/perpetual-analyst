@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import sqlite3
 
-from perpetual_analyst.analyst.theses import get_stale_theses, render_thesis_fragment
+from perpetual_analyst.analyst.theses import (
+    get_stale_theses,
+    render_thesis_fragment,
+    render_thesis_trail,
+)
 from perpetual_analyst.store.models import Topic
 
 
@@ -67,3 +71,30 @@ def test_render_thesis_fragment_marks_stale(db: sqlite3.Connection, sample_topic
     db.commit()
     fragment = render_thesis_fragment(sample_topic.id, db)
     assert "(stale)" in fragment
+
+
+def test_render_thesis_trail_no_updates(db: sqlite3.Connection, sample_topic: Topic) -> None:
+    """With no thesis_updates rows, render_thesis_trail returns the sentinel string."""
+    _insert_thesis(db, sample_topic.id, "No updates yet")
+    trail = render_thesis_trail(sample_topic.id, db)
+    assert trail == "(no thesis history)"
+
+
+def test_render_thesis_trail_shows_trajectory(db: sqlite3.Connection, sample_topic: Topic) -> None:
+    """A thesis with two thesis_updates rows renders start→end confidence over N update(s)."""
+    thesis_id = _insert_thesis(db, sample_topic.id, "Growing confidence", confidence=0.5)
+    db.execute(
+        """INSERT INTO thesis_updates (thesis_id, change, confidence_before, confidence_after)
+           VALUES (?, 'initial creation', NULL, 0.50)""",
+        (thesis_id,),
+    )
+    db.execute(
+        """INSERT INTO thesis_updates (thesis_id, change, confidence_before, confidence_after)
+           VALUES (?, 'evidence strengthened', 0.50, 0.80)""",
+        (thesis_id,),
+    )
+    db.commit()
+    trail = render_thesis_trail(sample_topic.id, db)
+    assert f"[thesis:{thesis_id}]" in trail
+    assert "0.50→0.80" in trail
+    assert "2 update(s)" in trail
