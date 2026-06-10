@@ -2,6 +2,26 @@
 
 Record notable behavior, architecture, API, persistence, or workflow changes.
 
+## 2026-06-11 — Phase 4: memory & thesis maturity (compaction, thesis history, prompt caching)
+
+Summary:
+
+- What changed: New weekly compaction pipeline (`analyst/compaction.py`, `weekly_run.py`); thesis audit trail injected into daily prompt; prompt-caching stable-prefix ordering enforced on both daily and weekly model calls.
+- Why: Phase 4 — close the observation lifecycle (expiry + promotion into dossier), surface thesis confidence history to the analyst, and reduce per-call token costs via prompt caching.
+- User-visible impact:
+  - `analyst weekly` / `python -m perpetual_analyst.weekly_run` now runs observation expiry + weekly review per active topic. Supports `--dry-run` and `--topic <slug>`.
+  - Daily analyst prompt now includes a `## Thesis history` section showing confidence trajectory per active thesis.
+  - Active theses untouched for >30 days are marked `(stale)` in the daily prompt.
+- Architecture notes:
+  - Two separate background cadences: daily (`daily_run.py`) and weekly (`weekly_run.py`). Weekly is one additional model call per topic per week — not per day.
+  - `expire_observations` is pure SQL, no model call; commits separately; idempotent.
+  - `apply_weekly_review` writes dossier rewrite + promoted observation IDs in one `with conn:` transaction. Weekly run never edits/retires theses.
+  - `WeeklyReviewOutput` schema: `dossier_rewrite`, `promoted_observation_ids`, `notes` (<200-word self-review appended to dossier).
+  - `agent.with_cache_control` helper attaches ephemeral `cache_control` breakpoint to the stable system prompt; applied on both `run_topic` and `run_weekly_review`.
+  - `render_thesis_trail` (in `theses.py`) builds per-thesis confidence history from `thesis_updates` rows.
+- Migration notes: No new tables. `observations.status` column already supported `promoted`/`expired` values from Phase 1 DDL.
+- Related PR/commit: phase-4-compaction branch
+
 ## 2026-06-10 — Phase 2+3: CLI, ingestion, retrieval, report, delivery
 
 Summary:

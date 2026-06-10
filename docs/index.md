@@ -27,8 +27,10 @@ Add module-specific docs here as the codebase grows:
 - `src/perpetual_analyst/store/`: SQLite connection, migrations, row models
 - `src/perpetual_analyst/report/`: assembly, rendering, citation conversion
 - `src/perpetual_analyst/delivery/`: Telegram send
-- `src/perpetual_analyst/daily_run.py`: orchestrator entry point
-- `src/perpetual_analyst/cli.py`: typer CLI (`analyst topic add`, `analyst run`)
+- `src/perpetual_analyst/daily_run.py`: daily orchestrator entry point
+- `src/perpetual_analyst/weekly_run.py`: weekly compaction orchestrator entry point
+- `src/perpetual_analyst/analyst/compaction.py`: observation expiry, weekly review model call, transactional apply
+- `src/perpetual_analyst/cli.py`: typer CLI (`analyst topic add`, `analyst run`, `analyst weekly`)
 - `config/`: `topics.yaml`, `sources.yaml`
 - `inbox/`: manual document drop, per-topic subfolders
 - `data/`: `analyst.db`, `reports/`
@@ -41,6 +43,7 @@ Add module-specific docs here as the codebase grows:
 
 - Changing analyst behavior: read `architecture.md` → `analyst/agent.py` → `analyst/prompts/`
 - Changing memory logic: read `database.md` → `analyst/memory.py` → `analyst/theses.py`
+- Changing compaction / observation lifecycle: read `database.md` → `analyst/compaction.py` → `weekly_run.py`
 - Changing DB schema: read `database.md` → `store/db.py` (full DDL in `init_db()`)
 - Changing ingestion: read `architecture.md` → `ingestion/` module
 - Changing delivery: read `architecture.md` → `delivery/telegram.py`
