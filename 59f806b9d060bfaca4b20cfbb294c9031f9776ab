@@ -1,0 +1,5 @@
+Task: Task 6 — analyst/theses.py stale-flagging + rendering
+Summary: Implemented get_stale_theses() and render_thesis_fragment(). Stale threshold is 30 days via coalesce(updated_at, created_at). Fragment uses confidence % format and (stale) marker.
+Docs: N/A
+TODO: Phase 2 / Task 6
+Validation: ruff (passed), pytest 5/5
