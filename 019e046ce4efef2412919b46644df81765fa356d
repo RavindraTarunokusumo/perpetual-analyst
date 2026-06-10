@@ -1,0 +1,2 @@
+Task: Security fix — path traversal
+Summary: Added _SLUG_RE regex validation + is_relative_to containment check in scan_inbox; blocks ../../ and absolute path slugs
