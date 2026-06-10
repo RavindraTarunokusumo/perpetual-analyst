@@ -136,3 +136,31 @@ def test_run_topic_no_thinking_when_disabled(
     call_kwargs = mock_openrouter.chat.completions.create.call_args
     extra_body = call_kwargs.kwargs.get("extra_body", {})
     assert "thinking" not in extra_body
+
+
+def test_assemble_context_stale_thesis_marker(
+    db: sqlite3.Connection, sample_topic: Topic, sample_items, settings: Settings
+) -> None:
+    """A stale active thesis (updated_at -40 days) must produce '(stale)' in the user message."""
+    cur = db.execute(
+        "INSERT INTO theses (topic_id, statement, confidence, status) VALUES (?, ?, ?, 'active')",
+        (sample_topic.id, "Old stale thesis", 0.6),
+    )
+    thesis_id = cur.lastrowid
+    db.execute(
+        "UPDATE theses SET updated_at = datetime('now', '-40 days') WHERE id = ?",
+        (thesis_id,),
+    )
+    db.commit()
+    prompt = load_system_prompt()
+    messages = assemble_context(sample_topic, sample_items, db, prompt, settings)
+    assert "(stale)" in messages[1]["content"]
+
+
+def test_assemble_context_thesis_history_heading(
+    db: sqlite3.Connection, sample_topic: Topic, sample_items, settings: Settings
+) -> None:
+    """The assembled user message must contain the '## Thesis history' heading."""
+    prompt = load_system_prompt()
+    messages = assemble_context(sample_topic, sample_items, db, prompt, settings)
+    assert "## Thesis history" in messages[1]["content"]
