@@ -5,13 +5,22 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
+## Session: phase-2-cli-and-ingestion (active)
+
+### Task 5 — CLI
+- [x] Implement `cli.py`: topic add/list, source add/list, run, report show — e847fe2
+- [x] Fix Windows dry-run Unicode encoding — e1fa262
+- [ ] Exit test: 5-day inbox simulation (needs OPENROUTER_API_KEY in .env; scaffold in exit-test/)
+
+---
+
 ## Session: Phase 2 — Source Ingestion + Retrieval (future)
 
 ### Task 6 — Thesis lifecycle
-- [ ] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire)
-- [ ] Enforce ≤7 active theses per topic (raise on 8th)
-- [ ] Stale-flagging query: any thesis untouched for 30 days flagged to analyst
-- [ ] Render "Thesis updates" fragment with confidence before→after
+- [x] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire) — (memory.py already)
+- [x] Enforce ≤7 active theses per topic (raise on 8th) — (memory.py already)
+- [x] Stale-flagging query: `get_stale_theses()` — theses untouched >30 days
+- [x] Render thesis fragment with confidence % and stale markers — `render_thesis_fragment()`
 
 ### Task 7 — RSS ingestion + triage
 - [ ] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
