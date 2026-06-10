@@ -102,6 +102,10 @@ def run_topic(
     messages = assemble_context(topic, items, conn, system_prompt, settings)
 
     if dry_run:
+        import sys
+
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         for msg in messages:
             print(f"[{msg['role'].upper()}]\n{msg['content']}\n{'=' * 60}")
         return None

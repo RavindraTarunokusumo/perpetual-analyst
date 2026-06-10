@@ -6,9 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from perpetual_analyst.analyst.agent import assemble_context, load_system_prompt, run_topic
-from perpetual_analyst.analyst.memory import get_active_observations, get_dossier, get_active_theses
-from perpetual_analyst.analyst.schemas import TopicAnalysis
-from perpetual_analyst.config import Settings, ModelConfig
+from perpetual_analyst.analyst.memory import get_active_observations
+from perpetual_analyst.config import ModelConfig, Settings
 from perpetual_analyst.store.models import Topic
 
 
@@ -64,8 +63,11 @@ def test_assemble_context_includes_topic_brief(
 
 
 def test_run_topic_dry_run_returns_none(
-    db: sqlite3.Connection, sample_topic: Topic, sample_items, settings: Settings,
-    mock_openrouter: MagicMock
+    db: sqlite3.Connection,
+    sample_topic: Topic,
+    sample_items,
+    settings: Settings,
+    mock_openrouter: MagicMock,
 ) -> None:
     result = run_topic(sample_topic, sample_items, db, mock_openrouter, settings, dry_run=True)
     assert result is None
@@ -73,8 +75,12 @@ def test_run_topic_dry_run_returns_none(
 
 
 def test_run_topic_dry_run_prints_messages(
-    db: sqlite3.Connection, sample_topic: Topic, sample_items, settings: Settings,
-    mock_openrouter: MagicMock, capsys
+    db: sqlite3.Connection,
+    sample_topic: Topic,
+    sample_items,
+    settings: Settings,
+    mock_openrouter: MagicMock,
+    capsys,
 ) -> None:
     run_topic(sample_topic, sample_items, db, mock_openrouter, settings, dry_run=True)
     captured = capsys.readouterr()
@@ -83,8 +89,11 @@ def test_run_topic_dry_run_prints_messages(
 
 
 def test_run_topic_commits_memory_writes(
-    db: sqlite3.Connection, sample_topic: Topic, sample_items, settings: Settings,
-    mock_openrouter: MagicMock
+    db: sqlite3.Connection,
+    sample_topic: Topic,
+    sample_items,
+    settings: Settings,
+    mock_openrouter: MagicMock,
 ) -> None:
     run_topic(sample_topic, sample_items, db, mock_openrouter, settings, dry_run=False)
     observations = get_active_observations(sample_topic.id, db)
@@ -93,8 +102,7 @@ def test_run_topic_commits_memory_writes(
 
 
 def test_run_topic_passes_thinking_when_configured(
-    db: sqlite3.Connection, sample_topic: Topic, sample_items,
-    mock_openrouter: MagicMock
+    db: sqlite3.Connection, sample_topic: Topic, sample_items, mock_openrouter: MagicMock
 ) -> None:
     settings_thinking = Settings(
         analyst=ModelConfig(id="anthropic/claude-opus-4-8", thinking=True),
@@ -107,8 +115,7 @@ def test_run_topic_passes_thinking_when_configured(
 
 
 def test_run_topic_no_thinking_when_disabled(
-    db: sqlite3.Connection, sample_topic: Topic, sample_items,
-    mock_openrouter: MagicMock
+    db: sqlite3.Connection, sample_topic: Topic, sample_items, mock_openrouter: MagicMock
 ) -> None:
     settings_no_thinking = Settings(
         analyst=ModelConfig(id="some-model", thinking=False),
