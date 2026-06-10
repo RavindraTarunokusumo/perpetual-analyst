@@ -23,9 +23,9 @@ cadence from the daily call, consistent with Invariant #1 (no daily critic loop)
 - [x] Tests with mock client + transactional-rollback test — cdbdec6
 
 ### Task C — Weekly run orchestrator + CLI
-- [ ] `weekly_run.py`: per active topic → expire_observations, run_weekly_review, apply_weekly_review; log structural stale-thesis flags via `get_stale_theses`; `--dry-run`, `--topic`
-- [ ] `cli.py::weekly` command mirroring `run`
-- [ ] Tests for orchestrator (dry-run skips client, error isolation per topic)
+- [x] `weekly_run.py`: per active topic → expire_observations, run_weekly_review, apply_weekly_review; log structural stale-thesis flags via `get_stale_theses`; `--dry-run`, `--topic` — 272d667
+- [x] `cli.py::weekly` command mirroring `run` — bfc86bc
+- [x] Tests for orchestrator (dry-run skips client, error isolation per topic) — 272d667
 
 ### Task D — Surface stale flags + thesis audit trail in daily context
 - [ ] `analyst/theses.py::render_thesis_trail(topic_id, conn)`: from `thesis_updates`, render `confidence 0.60→0.80 over N updates`
