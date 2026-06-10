@@ -49,19 +49,37 @@ def test_fts_syncs_on_item_delete(db: sqlite3.Connection) -> None:
     assert len(results) == 0
 
 
-def test_content_hash_deduplication(db: sqlite3.Connection) -> None:
+def test_insert_item_deduplicates_by_content_hash(db: sqlite3.Connection) -> None:
+    from perpetual_analyst.store.db import insert_item
+
     db.execute("INSERT INTO sources (id, type) VALUES (1, 'inbox')")
-    db.execute(
-        "INSERT INTO items (source_id, content_hash, title, raw_text) "
-        "VALUES (1, 'duphash', 'First', 'text')"
-    )
-    db.execute(
-        "INSERT OR IGNORE INTO items (source_id, content_hash, title, raw_text) "
-        "VALUES (1, 'duphash', 'Second', 'text2')"
-    )
     db.commit()
+
+    inserted = insert_item(db, source_id=1, content_hash="duphash", title="First", raw_text="text")
+    db.commit()
+    assert inserted is True
+
+    skipped = insert_item(db, source_id=1, content_hash="duphash", title="Second", raw_text="text2")
+    db.commit()
+    assert skipped is False
+
     count = db.execute("SELECT COUNT(*) FROM items").fetchone()[0]
     assert count == 1
+
+
+def test_insert_item_plain_raises_on_duplicate(db: sqlite3.Connection) -> None:
+    """Documents: plain INSERT raises IntegrityError; callers must use insert_item."""
+    import sqlite3 as _sqlite3
+
+    db.execute("INSERT INTO sources (id, type) VALUES (1, 'inbox')")
+    db.execute(
+        "INSERT INTO items (source_id, content_hash, title) VALUES (1, 'duphash2', 'First')"
+    )
+    db.commit()
+    with pytest.raises(_sqlite3.IntegrityError):
+        db.execute(
+            "INSERT INTO items (source_id, content_hash, title) VALUES (1, 'duphash2', 'Second')"
+        )
 
 
 def test_foreign_keys_enabled(db: sqlite3.Connection) -> None:

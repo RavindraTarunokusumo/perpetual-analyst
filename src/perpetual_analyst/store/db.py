@@ -175,8 +175,25 @@ def init_db(path: str = "data/analyst.db") -> sqlite3.Connection:
     conn.executescript(_DDL)
     conn.executescript(_FTS_TRIGGERS)
 
-    # Restore foreign_keys after executescript (it runs its own implicit COMMIT
-    # and may reset PRAGMAs in some SQLite builds).
-    conn.execute("PRAGMA foreign_keys = ON")
     conn.commit()
     return conn
+
+
+def insert_item(
+    conn: sqlite3.Connection,
+    source_id: int | None,
+    content_hash: str,
+    title: str | None = None,
+    url: str | None = None,
+    author: str | None = None,
+    published_at: str | None = None,
+    raw_text: str | None = None,
+) -> bool:
+    """Insert item; returns True if inserted, False if content_hash already exists."""
+    cur = conn.execute(
+        """INSERT OR IGNORE INTO items
+           (source_id, content_hash, title, url, author, published_at, raw_text)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (source_id, content_hash, title, url, author, published_at, raw_text),
+    )
+    return cur.rowcount > 0
