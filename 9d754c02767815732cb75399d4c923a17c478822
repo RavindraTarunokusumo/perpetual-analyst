@@ -1,0 +1,5 @@
+Task: fix init_db missing user seed
+Summary: INSERT OR IGNORE users(id=1) in init_db so topic FK never fails on fresh DB
+Docs: N/A
+TODO: N/A
+Validation: ruff pass, 90 pytest pass
