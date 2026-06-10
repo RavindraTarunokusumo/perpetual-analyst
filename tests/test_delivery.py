@@ -38,7 +38,7 @@ def _mock_telegram(bot: AsyncMock):
 @pytest.fixture
 def db() -> sqlite3.Connection:
     conn = init_db(":memory:")
-    conn.execute("INSERT INTO users (id, telegram_chat_id) VALUES (1, 'test-chat-id')")
+    conn.execute("INSERT OR REPLACE INTO users (id, telegram_chat_id) VALUES (1, 'test-chat-id')")
     conn.commit()
     yield conn
     conn.close()

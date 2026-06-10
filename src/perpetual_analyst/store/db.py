@@ -175,6 +175,8 @@ def init_db(path: str = "data/analyst.db") -> sqlite3.Connection:
     conn.executescript(_DDL)
     conn.executescript(_FTS_TRIGGERS)
 
+    # Seed the default single-user row so FK references to users(id=1) always resolve.
+    conn.execute("INSERT OR IGNORE INTO users (id) VALUES (1)")
     conn.commit()
     return conn
 
