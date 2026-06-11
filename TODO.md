@@ -5,7 +5,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Session: Phase 2 — Source Ingestion + Retrieval (future)
+## Session: Phase 2 — Source Ingestion + Retrieval (active — spec: docs/superpowers/specs/2026-06-11-phase-2-ingestion-retrieval-design.md)
 
 ### Task 6 — Thesis lifecycle
 - [ ] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire)
@@ -22,6 +22,12 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [ ] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
 - [ ] Recency weighting in FTS queries
 - [ ] Wire "related prior context" blocks into agent context assembly
+
+### Task 8.5 — Sources/topics config + CLI (extension added 2026-06-11, approved)
+- [ ] Extend `config.py`: `TopicConfig`/`SourceConfig` loaders + idempotent `sync_config()` (YAML → DB upsert)
+- [ ] CLI: `analyst topic add` and `analyst source add` (append to YAML, re-sync)
+- [ ] Replace placeholder YAML entries with real "AI frontier labs" topic + 2-3 RSS feeds
+- [ ] Live smoke test (`pytest -m smoke`): real feeds → triage → one analyst run on scratch DB
 
 ---
 
