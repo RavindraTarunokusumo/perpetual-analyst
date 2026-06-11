@@ -73,6 +73,9 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
             logger.exception("[weekly_run] topic=%s failed", topic.slug)
             failures += 1
 
+    # Source-quality + probation pass: pure-SQL maintenance with no model calls, so it runs
+    # regardless of dry_run — consistent with expire_observations above. dry_run gates only the
+    # model calls (compaction review, discovery), not deterministic bookkeeping.
     scored = compute_source_quality(conn)
     print(f"[weekly_run] scored {len(scored)} source(s)")
     for sq in bottom_decile(conn):
