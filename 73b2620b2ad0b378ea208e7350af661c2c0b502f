@@ -1,0 +1,5 @@
+Task: Phase 2 implementation plan
+Summary: writing-plans output; 13 bite-sized TDD tasks mapped 1:1 to TODO sub-items
+Docs: docs/superpowers/plans/2026-06-11-phase-2-ingestion-retrieval.md
+TODO: Session "Phase 2 - Source Ingestion + Retrieval" (all sub-items mapped)
+Validation: plan self-review (coverage/placeholders/type consistency); pre-commit hooks on staged files
