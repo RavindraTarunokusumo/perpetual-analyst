@@ -8,6 +8,14 @@ import sqlite3
 _TAG_RE = re.compile(r"\[item:(\d+)\]")
 
 
+def cited_item_ids(markdown: str) -> list[int]:
+    """Return unique [item:N] ids in document order from analyst markdown."""
+    seen: dict[int, None] = {}
+    for m in _TAG_RE.findall(markdown):
+        seen.setdefault(int(m), None)
+    return list(seen)
+
+
 def render_citations(markdown: str, conn: sqlite3.Connection) -> str:
     """Replace [item:N] tags with footnote references.
 
@@ -18,11 +26,10 @@ def render_citations(markdown: str, conn: sqlite3.Connection) -> str:
     - Items with no URL: footnote is just "[^N]: {title}" (no link)
     - Items not found in DB: "[^N]: (item N)" as fallback
     """
-    ids = [int(m) for m in _TAG_RE.findall(markdown)]
-    if not ids:
+    if not cited_item_ids(markdown):
         return markdown
 
-    unique_ids = sorted(set(ids))
+    unique_ids = sorted(set(cited_item_ids(markdown)))
 
     # Batch-fetch all cited items in one query
     placeholders = ",".join("?" * len(unique_ids))
