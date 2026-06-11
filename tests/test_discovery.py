@@ -150,6 +150,37 @@ def test_mine_outbound_domains_respects_limit(db, sample_topic):
 # ---------------------------------------------------------------------------
 
 
+def test_extract_json_object_strips_prose():
+    """Web-search responses prepend prose before the JSON; extraction must recover the object."""
+    from perpetual_analyst.analyst.discovery import _extract_json_object
+
+    raw = 'I\'ll research current sources. {"candidates": [{"url": "https://x.com"}]}'
+    assert _extract_json_object(raw) == '{"candidates": [{"url": "https://x.com"}]}'
+
+
+def test_extract_json_object_strips_code_fence():
+    from perpetual_analyst.analyst.discovery import _extract_json_object
+
+    raw = '```json\n{"candidates": []}\n```'
+    assert _extract_json_object(raw) == '{"candidates": []}'
+
+
+def test_discover_sources_parses_prose_wrapped_response(db, sample_topic):
+    """A live web-search reply with leading prose must still parse into DiscoveryOutput."""
+    from perpetual_analyst.analyst.discovery import discover_sources
+
+    client = _make_discovery_client(DiscoveryOutput())
+    # Override the mock content to mimic the real web-search reply shape (prose + JSON).
+    client.chat.completions.create.return_value.choices[0].message.content = (
+        'Here are some sources I found. {"candidates": '
+        '[{"url": "https://feeds.x.org/rss", "domain": "x.org", "rationale": "Fills gap Y."}]}'
+    )
+    result = discover_sources(sample_topic, db, client, _make_settings())
+    assert result is not None
+    assert len(result.candidates) == 1
+    assert result.candidates[0].domain == "x.org"
+
+
 def test_web_search_extra_contains_plugins():
     from perpetual_analyst.analyst.discovery import web_search_extra
 

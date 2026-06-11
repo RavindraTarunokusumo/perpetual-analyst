@@ -34,6 +34,7 @@ phase: triage hit-rate + citation rate (uniqueness/freshness-lead deferred).
 - [x] `analyst/prompts/discovery.md` prompt — f3cc358
 - [x] `discovery.py::discover_sources(...)`: web-search model call behind `web_search_extra` seam; store `source_candidates` — 62e3e6c
 - [x] Tests with mock client: candidates stored, dry-run skips, seam contract, dedupe — 62e3e6c
+- [x] Fix (found by live smoke test): OpenRouter web plugin ignores `response_format=json_object` and prepends prose; parse via tolerant JSON-object extraction
 
 ### Task E — Weekly integration + surfacing + probation lifecycle + CLI
 - [x] `weekly_run.py`: per-topic `discover_sources`; post-loop `compute_source_quality` + bottom-decile drop recs + `transition_probation` — f159351

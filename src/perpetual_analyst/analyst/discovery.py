@@ -17,6 +17,26 @@ from perpetual_analyst.store.models import Topic
 _DISCOVERY_PROMPT_PATH = Path(__file__).parent / "prompts" / "discovery.md"
 
 
+def _extract_json_object(raw: str) -> str:
+    """Return the JSON object substring from a model response.
+
+    The OpenRouter web-search plugin does not honor response_format=json_object — the
+    web-augmented model often prepends prose (or wraps the JSON in ``` fences) before the
+    object. Strip fences and slice from the first '{' to the last '}' so model_validate_json
+    sees clean JSON. Falls back to the original string if no object is found.
+    """
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lstrip().lower().startswith("json"):
+            text = text.lstrip()[4:]
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        return text[start : end + 1]
+    return text
+
+
 def _domain(url: str | None) -> str | None:
     """Extract bare domain from a URL, stripping a leading www. prefix."""
     if not url:
@@ -126,7 +146,7 @@ def discover_sources(
     )
 
     raw = response.choices[0].message.content or "{}"
-    result = DiscoveryOutput.model_validate_json(raw)
+    result = DiscoveryOutput.model_validate_json(_extract_json_object(raw))
     print(f"[discovery] topic={topic.slug} candidates={len(result.candidates)}")
 
     with conn:
