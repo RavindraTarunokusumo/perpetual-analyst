@@ -73,7 +73,9 @@ def test_eighth_active_thesis_raises(db, sample_topic):
         apply_thesis_update(_update(statement="Thesis 8"), sample_topic.id, db)
 
 
-def _insert_thesis(db, topic_id, statement, created_days_ago, updated_days_ago=None):
+def _insert_thesis(
+    db, topic_id: int, statement: str, created_days_ago: int, updated_days_ago: int | None = None
+):
     updated_expr = (
         f"datetime('now', '-{updated_days_ago} days')" if updated_days_ago is not None else "NULL"
     )
@@ -109,7 +111,7 @@ def test_old_update_is_stale(db, sample_topic):
 
 def test_retired_thesis_never_stale(db, sample_topic):
     _insert_thesis(db, sample_topic.id, "Retired", created_days_ago=90)
-    db.execute("UPDATE theses SET status = 'retired'")
+    db.execute("UPDATE theses SET status = 'retired' WHERE topic_id = ?", (sample_topic.id,))
     db.commit()
     assert get_stale_theses(sample_topic.id, db) == []
 
@@ -147,10 +149,24 @@ def test_render_shows_confidence_before_after():
     fragment = render_thesis_fragment([(_thesis_row(), _update_row(0.6, 0.8))])
     assert "### Thesis updates" in fragment
     assert "Open models reach parity" in fragment
-    assert "0.60 → 0.80" in fragment
-    assert "Third confirming signal" in fragment
+    assert (
+        "- **Open models reach parity** — confidence 0.60 → 0.80."
+        " Third confirming signal this month." in fragment
+    )
 
 
 def test_render_handles_missing_before_confidence():
     fragment = render_thesis_fragment([(_thesis_row(), _update_row(None, 0.5, "Created."))])
     assert "— → 0.50" in fragment
+
+
+def test_render_multiple_theses_single_header():
+    fragment = render_thesis_fragment(
+        [
+            (_thesis_row("Thesis A"), _update_row(0.4, 0.6)),
+            (_thesis_row("Thesis B"), _update_row(0.9, 0.7)),
+        ]
+    )
+    assert fragment.count("### Thesis updates") == 1
+    assert "Thesis A" in fragment
+    assert "Thesis B" in fragment
