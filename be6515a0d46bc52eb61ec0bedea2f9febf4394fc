@@ -1,0 +1,5 @@
+Task: Lint cleanup follow-up
+Summary: Committed ruff auto-fixes (unused imports, formatting) applied to test_agent.py by pre-commit hooks during Task 0/1 runs
+Docs: N/A
+TODO: Phase 2 session prerequisite (not a TODO sub-item)
+Validation: pre-commit green; suite 39 passed
