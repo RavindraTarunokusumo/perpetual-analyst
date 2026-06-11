@@ -29,11 +29,15 @@ analyst topic add "AI Frontier Labs" --brief "Track model releases, safety polic
 # List topics
 analyst topic list
 
-# Add a source to a topic
+# Add a source to a topic (starts in 'probation' status for 21 days)
 analyst source add --topic ai-frontier-labs --type rss --url https://example.com/feed.xml
 
 # List sources for a topic
 analyst source list --topic ai-frontier-labs
+
+# List pending source discovery candidates (read-only)
+analyst source candidates
+analyst source candidates --topic ai-frontier-labs
 
 # Run analyst for all active topics (full pipeline)
 analyst run
@@ -50,13 +54,13 @@ analyst report show
 # Show report for a specific date
 analyst report show --date 2026-06-10
 
-# Run weekly memory compaction for all active topics
+# Run weekly memory compaction + source discovery + quality scoring for all active topics
 analyst weekly
 
-# Run weekly compaction for a specific topic only
+# Run weekly for a specific topic only
 analyst weekly --topic ai-frontier-labs
 
-# Dry-run: print what the weekly review would do, skip writes
+# Dry-run: skip model calls (compaction review + discovery); pure-SQL steps still run
 analyst weekly --topic ai-frontier-labs --dry-run
 ```
 

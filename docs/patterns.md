@@ -127,6 +127,16 @@ One failing topic must never stop the run for other topics.
 
 Every item is presented to the analyst with a stable tag `[item:N]` where N is the `items.id`. The analyst must tag claims with these IDs. The renderer converts them to numbered footnote links in the final report. Observations store `source_item_ids` as a JSON array of item IDs.
 
+After report assembly, `_record_citations(report_id, report_date, markdown, conn)` resolves each `[item:N]` tag (via `cited_item_ids` in `render.py`) to its `source_id` and records a row in `citations` (INSERT OR IGNORE — safe to call on re-runs). This citation history feeds `compute_source_quality`.
+
+## Provider-Seam Pattern
+
+The web-search client used for source discovery is isolated behind `web_search_extra()` in `analyst/discovery.py`. Swapping to a different provider (e.g. Perplexity) requires changing only that function and the accompanying `make_client` call — nothing else in the discovery pipeline changes. This seam prevents provider lock-in from spreading into the core discovery logic.
+
+## Source Quality Scoring Pattern
+
+`compute_source_quality(conn)` in `quality.py` runs as a pure-SQL pass after the weekly compaction loop. It computes two sub-scores per source (triage hit-rate and citation rate) and combines them: `quality_score = 0.5*hit_rate + 0.5*citation_rate`. `bottom_decile(conn)` returns the worst-scoring non-probation sources for operator inspection — it does **not** remove them. Sources in probation are excluded from quality ranking until `transition_probation` promotes them. No automated removal ever occurs.
+
 ## Code Style
 
 - Comments only when the WHY is non-obvious.

@@ -19,18 +19,20 @@ The guiding rule: **the Analyst Agent is the product; everything else is plumbin
    │  extract.py         │   │  theses.py     │   └─────────────────┘
    │  dedupe.py          │   │  prompts/      │
    └─────────┬───────────┘   │  triage.py     │
-             │               └───────┬────────┘
-             ▼                       ▼
+             │               │  discovery.py  │
+             ▼               └───────┬────────┘
    ┌─────────────────────────────────────────────┐
    │ store/  — SQLite (sqlite3 + FTS5)           │
    │  items, chunks, topics, sources, theses,    │
-   │  observations, dossiers, reports            │
+   │  observations, dossiers, reports,           │
+   │  citations, source_candidates               │
    └─────────────────────────────────────────────┘
              ▲
-   ┌─────────┴───────────┐
-   │ retrieval/          │  FTS5 keyword search
-   │  search.py          │  optional: embeddings.py (sqlite-vec) if FTS insufficient
-   └─────────────────────┘
+   ┌─────────┴───────────┐      ┌──────────────────┐
+   │ retrieval/          │      │ quality.py        │
+   │  search.py          │      │  per-source       │
+   │  FTS5 keyword search│      │  quality scoring  │
+   └─────────────────────┘      └──────────────────┘
 ```
 
 ## Data Flow
@@ -42,7 +44,15 @@ sources → fetch → extract/dedupe → items
        → TopicAnalysis (report section + memory writes)
        → memory writes (observations, thesis updates, dossier edit)
        → report assembly (multi-topic merge + exec summary)
+           → _record_citations: [item:N] tags → citations table (idempotent)
        → Telegram (HTML digest ≤3,000 chars + .md file attachment)
+
+Weekly additions (weekly_run.py):
+       → discover_sources (per topic, web search via OpenRouter)
+           → source_candidates rows (status='pending'; human reviews later)
+       → compute_source_quality: triage hit-rate + citation rate → sources.quality_score
+       → bottom_decile: log worst-scoring sources (no auto-removal)
+       → transition_probation: promote past-probation sources to 'active'
 ```
 
 The triage step exists to protect the analyst's context: the expensive model sees 10–30 distilled items per topic, not 200 raw articles.
@@ -66,10 +76,12 @@ The only module that calls the Anthropic API for reasoning (except `triage.py` w
 | `theses.py` | `get_stale_theses(topic_id, conn, days=30)` — single SQL query with `coalesce(updated_at, created_at)` comparison; `render_thesis_fragment(topic_id, conn)` — `is_stale` computed in DB, returns markdown list with `(stale)` markers; `render_thesis_trail(topic_id, conn)` — per-thesis confidence history from `thesis_updates` rendered as `confidence 0.60→0.80 over N update(s)` |
 | `compaction.py` | `expire_observations(topic_id, conn)` — pure SQL, no model call; sets `status='expired'` for importance-1 observations older than 30 days and importance-2 older than 90 days; `run_weekly_review(topic, conn, client, settings, dry_run=False)` — single weekly model call returning `WeeklyReviewOutput`; `apply_weekly_review(topic_id, result, conn)` — transactional write: dossier rewrite + promoted observation IDs + appends <200-word self-review note to dossier |
 | `triage.py` | `triage_items(items, topic_brief, client, settings, conn)` — Haiku batch call scoring items 0–1; items with score < 0.2 marked `status='skipped'` and filtered out; **does NOT call `conn.commit()`** — caller owns the transaction; graceful degradation (returns all items unchanged on API failure) |
-| `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate`, `WeeklyReviewOutput` (fields: `dossier_rewrite`, `promoted_observation_ids`, `notes`) |
+| `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate`, `WeeklyReviewOutput` (fields: `dossier_rewrite`, `promoted_observation_ids`, `notes`); Phase 5: `DiscoveryOutput`, `DiscoveryCandidate` |
+| `discovery.py` | `discover_sources(topic, conn, client, settings)` — weekly per-topic model call via OpenRouter web search; proposes 3–5 new source candidates stored in `source_candidates` with `status='pending'`. `mine_outbound_domains(topic_id, conn)` ranks domains already supplying cited material as context for the prompt. Provider isolated behind `web_search_extra()` seam (swappable). |
 | `prompts/analyst_system.md` | Finalized 12-rule system prompt with context template and JSON output schema |
 | `prompts/weekly_review.md` | Self-review / memory compaction prompt |
 | `prompts/digest.md` | Telegram digest generation prompt |
+| `prompts/discovery.md` | Source discovery prompt — instructs the model to propose new candidate sources given cited domain context |
 
 **Context assembly order (caching-friendly, stable first, volatile last):**
 
@@ -105,15 +117,25 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 
 | File | Responsibility |
 |---|---|
-| `db.py` | `init_db(path="data/analyst.db") -> sqlite3.Connection` — runs full DDL, FTS5 virtual tables (`items_fts`, `observations_fts`), and sync triggers; `insert_item(conn, source_id, content_hash, ...) -> bool` — only safe insertion path, enforces dedupe invariant |
+| `db.py` | `init_db(path="data/analyst.db") -> sqlite3.Connection` — runs full DDL, FTS5 virtual tables (`items_fts`, `observations_fts`), and sync triggers; `insert_item(conn, source_id, content_hash, ...) -> bool` — only safe insertion path, enforces dedupe invariant. Phase 5: also creates `citations` and `source_candidates` tables; adds `sources.status` and `sources.probation_until` columns via `_ensure_columns()` (idempotent, guarded by `PRAGMA table_info`). |
 | `models.py` | `@dataclass` row models with `from_row(cls, row)` classmethod: `User`, `Topic`, `Source`, `Item`, `Dossier`, `Thesis`, `ThesisUpdate`, `Observation`, `Report` |
+
+### `quality.py`
+
+Top-level module (not inside `analyst/`).
+
+| Function | Responsibility |
+|---|---|
+| `compute_source_quality(conn)` | For each source with ≥1 item: computes triage hit-rate (share of items with `triage_score >= 0.4`) and citation rate (distinct cited items / total items); writes `sources.quality_score = 0.5*hit_rate + 0.5*citation_rate`. Pure SQL + UPDATE, no model call. |
+| `bottom_decile(conn)` | Returns worst-scoring sources (≥ `min_items`, probation excluded) as drop candidates for operator review. Does not remove anything. |
+| `transition_probation(conn)` | Promotes sources whose `probation_until` date has passed to `status='active'`. Pure SQL. |
 
 ### `report/`
 
 | File | Responsibility |
 |---|---|
-| `assemble.py` | `assemble_report(topic_analyses, date, conn, client, settings, reports_dir)` — joins per-topic sections (calls `render_citations` per section), generates `digest_text` via OpenRouter, upserts `reports` row with `user_id=1`, writes `data/reports/brief-{date}.md`. Returns `report_id`. `digest_text` is HTML safely truncated to ≤3,000 chars with trailing unclosed tags stripped. |
-| `render.py` | `render_citations(markdown, conn)` — batch IN query to look up all `[item:N]` tags; replaces inline with `[^N]` and appends footnotes section. Items not found in DB fall back to `(item N)`. |
+| `assemble.py` | `assemble_report(topic_analyses, date, conn, client, settings, reports_dir)` — joins per-topic sections (calls `render_citations` per section), generates `digest_text` via OpenRouter, upserts `reports` row with `user_id=1`, writes `data/reports/brief-{date}.md`. Returns `report_id`. `digest_text` is HTML safely truncated to ≤3,000 chars with trailing unclosed tags stripped. `_record_citations(report_id, report_date, markdown, conn)` resolves `[item:N]` tags to their source and inserts rows into `citations` (idempotent via INSERT OR IGNORE). |
+| `render.py` | `render_citations(markdown, conn)` — batch IN query to look up all `[item:N]` tags; replaces inline with `[^N]` and appends footnotes section. Items not found in DB fall back to `(item N)`. `cited_item_ids(markdown)` extracts the set of item IDs referenced in a rendered markdown string. |
 
 ### `delivery/`
 
@@ -123,8 +145,8 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 
 ## Background Jobs
 
-- **Daily run:** orchestrated by `daily_run.py`; one analyst model call per active topic.
-- **Weekly compaction:** orchestrated by `weekly_run.py`; one model call per active topic (distinct cadence from the daily run, not an additional daily call). Steps per topic: (1) `expire_observations` — pure SQL, no model, marks importance-1/>30d and importance-2/>90d observations `expired`; (2) `run_weekly_review` — model call over dossier + active observations + active theses, returns `WeeklyReviewOutput`; (3) `apply_weekly_review` — rewrites dossier, marks promoted observations `status='promoted'`, appends self-review note. The weekly run does **not** edit or retire theses — that remains exclusively in the daily run to preserve the audit-trail invariant.
+- **Daily run:** orchestrated by `daily_run.py`; one analyst model call per active topic. After report assembly, `_record_citations` records every cited `[item:N]` tag into the `citations` table (idempotent).
+- **Weekly compaction:** orchestrated by `weekly_run.py`; one model call per active topic (distinct cadence from the daily run, not an additional daily call). Steps per topic: (1) `expire_observations` — pure SQL, no model, marks importance-1/>30d and importance-2/>90d observations `expired`; (2) `run_weekly_review` — model call over dossier + active observations + active theses, returns `WeeklyReviewOutput`; (3) `apply_weekly_review` — rewrites dossier, marks promoted observations `status='promoted'`, appends self-review note. The weekly run does **not** edit or retire theses — that remains exclusively in the daily run to preserve the audit-trail invariant. After the compaction loop (Phase 5): (4) `discover_sources` — per-topic model call proposing new source candidates (stored as `source_candidates` with `status='pending'`; no auto-add); (5) `compute_source_quality` + log `bottom_decile` drop candidates; (6) `transition_probation` — promotes past-probation sources. Steps 5–6 are pure SQL and run regardless of `--dry-run`; only model calls (steps 2 and 4) are gated by `--dry-run`. **Approval of source candidates is deferred to a future Web UI session — sources are never auto-added or auto-removed.**
 
 ## External Integrations
 
@@ -132,6 +154,7 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 |---|---|---|---|
 | OpenRouter API | API key | `OPENROUTER_API_KEY` | Abort topic run; log error; continue other topics |
 | Telegram Bot API | Bot token | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Store report; retry on next run (`delivered_at IS NULL` check) |
+| Web search (discovery) | via OpenRouter | `OPENROUTER_API_KEY` | Skip discovery for that topic; log error; continue. Provider isolated behind `web_search_extra()` seam in `analyst/discovery.py` — swap to Perplexity or another provider by replacing that function and updating `make_client` accordingly. |
 
 ## Tech Stack
 

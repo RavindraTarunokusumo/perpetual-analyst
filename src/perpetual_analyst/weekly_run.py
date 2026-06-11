@@ -14,8 +14,10 @@ from perpetual_analyst.analyst.compaction import (
     expire_observations,
     run_weekly_review,
 )
+from perpetual_analyst.analyst.discovery import discover_sources
 from perpetual_analyst.analyst.theses import get_stale_theses
 from perpetual_analyst.config import load_settings
+from perpetual_analyst.quality import bottom_decile, compute_source_quality, transition_probation
 from perpetual_analyst.store.db import init_db
 from perpetual_analyst.store.models import Topic
 
@@ -64,10 +66,26 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
             if output is not None:
                 apply_weekly_review(topic.id, output, conn)
 
+            discover_sources(topic, conn, client, settings, dry_run=dry_run)
+
             successes += 1
         except Exception:
             logger.exception("[weekly_run] topic=%s failed", topic.slug)
             failures += 1
+
+    # Source-quality + probation pass: pure-SQL maintenance with no model calls, so it runs
+    # regardless of dry_run — consistent with expire_observations above. dry_run gates only the
+    # model calls (compaction review, discovery), not deterministic bookkeeping.
+    scored = compute_source_quality(conn)
+    print(f"[weekly_run] scored {len(scored)} source(s)")
+    for sq in bottom_decile(conn, all_scores=scored):
+        print(
+            f"[weekly_run] DROP? source={sq.source_id} '{sq.name}' "
+            f"items={sq.total_items} hit_rate={sq.hit_rate:.2f} cited={sq.citation_rate:.2f}"
+        )
+    transitioned = transition_probation(conn)
+    if transitioned:
+        print(f"[weekly_run] probation→active: {transitioned} source(s)")
 
     print(f"[weekly_run] done — topics={len(topics)} successes={successes} failures={failures}")
 

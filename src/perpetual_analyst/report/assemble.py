@@ -10,7 +10,7 @@ import openai
 
 from perpetual_analyst.analyst.schemas import TopicAnalysis
 from perpetual_analyst.config import Settings
-from perpetual_analyst.report.render import render_citations
+from perpetual_analyst.report.render import cited_item_ids, render_citations
 
 _DIGEST_PROMPT_PATH = Path(__file__).parent.parent / "analyst" / "prompts" / "digest.md"
 _DEFAULT_REPORTS_DIR = Path("data/reports")
@@ -22,6 +22,41 @@ def _truncate_html(text: str, max_chars: int = 3000) -> str:
     if len(text) <= max_chars:
         return text
     return _UNCLOSED_TAG.sub("", text[:max_chars])
+
+
+def _record_citations(
+    report_id: int,
+    report_date: str,
+    topic_analyses: dict[str, TopicAnalysis],
+    conn: sqlite3.Connection,
+) -> None:
+    """Record each cited item (resolved to its source) for the report.
+
+    Idempotent via INSERT OR IGNORE.
+    """
+    all_item_ids: dict[int, None] = {}
+    for analysis in topic_analyses.values():
+        if analysis.nothing_significant:
+            continue
+        for item_id in cited_item_ids(analysis.report_section_markdown):
+            all_item_ids.setdefault(item_id, None)
+
+    if not all_item_ids:
+        return
+
+    placeholders = ",".join("?" * len(all_item_ids))
+    rows = conn.execute(
+        f"SELECT id, source_id FROM items WHERE id IN ({placeholders})",
+        list(all_item_ids),
+    ).fetchall()
+
+    with conn:
+        for row in rows:
+            conn.execute(
+                "INSERT OR IGNORE INTO citations (report_id, report_date, item_id, source_id)"
+                " VALUES (?,?,?,?)",
+                (report_id, report_date, row["id"], row["source_id"]),
+            )
 
 
 def assemble_report(
@@ -84,4 +119,9 @@ def assemble_report(
 
     # 5. Return row ID
     row = conn.execute("SELECT id FROM reports WHERE report_date = ?", (date,)).fetchone()
-    return row["id"]
+    report_id = row["id"]
+
+    # 6. Record citations
+    _record_citations(report_id, date, topic_analyses, conn)
+
+    return report_id

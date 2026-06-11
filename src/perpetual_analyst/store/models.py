@@ -41,6 +41,8 @@ class Source:
     fetch_error_count: int
     quality_score: float | None
     created_at: str
+    status: str = "active"
+    probation_until: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Source:
@@ -137,4 +139,33 @@ class Report:
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> Report:
+        return cls(**dict(row))
+
+
+@dataclass
+class Citation:
+    id: int
+    report_id: int | None
+    report_date: str | None
+    item_id: int | None
+    source_id: int | None
+    created_at: str
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> Citation:
+        return cls(**dict(row))
+
+
+@dataclass
+class SourceCandidate:
+    id: int
+    topic_id: int | None
+    url: str | None
+    domain: str | None
+    rationale: str | None
+    status: str
+    created_at: str
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> SourceCandidate:
         return cls(**dict(row))

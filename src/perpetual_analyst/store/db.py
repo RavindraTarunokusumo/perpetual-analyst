@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS sources (
     last_fetched_at TEXT,
     fetch_error_count INTEGER DEFAULT 0,
     quality_score REAL,
+    status TEXT DEFAULT 'active',
+    probation_until TEXT,
     created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -114,6 +116,27 @@ CREATE TABLE IF NOT EXISTS reports (
     delivered_at TEXT,
     created_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS citations (
+    id INTEGER PRIMARY KEY,
+    report_id INTEGER REFERENCES reports(id),
+    report_date TEXT,
+    item_id INTEGER REFERENCES items(id),
+    source_id INTEGER REFERENCES sources(id),
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(report_id, item_id)
+);
+
+CREATE TABLE IF NOT EXISTS source_candidates (
+    id INTEGER PRIMARY KEY,
+    topic_id INTEGER REFERENCES topics(id),
+    url TEXT,
+    domain TEXT,
+    rationale TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(topic_id, url)
+);
 """
 
 _FTS_TRIGGERS = """
@@ -159,6 +182,15 @@ CREATE TRIGGER IF NOT EXISTS observations_fts_ad
 """
 
 
+def _ensure_columns(conn: sqlite3.Connection) -> None:
+    """Add Phase 5 columns to an existing sources table if missing (idempotent)."""
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(sources)")}
+    if "status" not in cols:
+        conn.execute("ALTER TABLE sources ADD COLUMN status TEXT DEFAULT 'active'")
+    if "probation_until" not in cols:
+        conn.execute("ALTER TABLE sources ADD COLUMN probation_until TEXT")
+
+
 def init_db(path: str = "data/analyst.db") -> sqlite3.Connection:
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -174,6 +206,7 @@ def init_db(path: str = "data/analyst.db") -> sqlite3.Connection:
     # but it commits any pending transaction first and sets autocommit.
     conn.executescript(_DDL)
     conn.executescript(_FTS_TRIGGERS)
+    _ensure_columns(conn)
 
     # Seed the default single-user row so FK references to users(id=1) always resolve.
     conn.execute("INSERT OR IGNORE INTO users (id) VALUES (1)")

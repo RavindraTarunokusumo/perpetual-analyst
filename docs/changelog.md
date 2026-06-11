@@ -2,6 +2,26 @@
 
 Record notable behavior, architecture, API, persistence, or workflow changes.
 
+## 2026-06-11 — Phase 5: source discovery & quality scoring
+
+Summary:
+
+- What changed: New `analyst/discovery.py` (`discover_sources`, `mine_outbound_domains`, `web_search_extra` provider seam); new `quality.py` (`compute_source_quality`, `bottom_decile`, `transition_probation`); citation recording (`_record_citations` in `report/assemble.py`, `cited_item_ids` in `report/render.py`); two new tables (`citations`, `source_candidates`); two new columns on `sources` (`status`, `probation_until`); idempotent column migration via `_ensure_columns()`; `DiscoveryOutput`/`DiscoveryCandidate` added to `analyst/schemas.py`; `analyst source candidates` CLI command.
+- Why: Phase 5 — close the feedback loop between what the analyst cites and which sources to grow or prune. Give the operator visibility into source quality without any automated removals.
+- User-visible impact:
+  - `analyst weekly` now also runs per-topic source discovery (model call) and a source-quality pass (pure SQL). `--dry-run` gates only the model calls.
+  - `analyst source add` now starts new sources in `status='probation'` with a 21-day `probation_until`.
+  - `analyst source candidates [--topic <slug>]` lists pending discovery proposals (read-only).
+  - `sources.quality_score` is now populated weekly based on triage hit-rate and citation rate.
+- Architecture notes:
+  - Discovery proposes candidates into `source_candidates` (`status='pending'`) — no source is ever auto-added or auto-removed. Approval UI deferred to a future Web UI session.
+  - No Telegram inbound listener in this phase.
+  - `web_search_extra()` is the provider seam for discovery web search; swapping providers touches only that function and `make_client`.
+  - `_ensure_columns(conn)` adds `sources.status` and `sources.probation_until` to pre-Phase-5 databases idempotently (guarded by `PRAGMA table_info`).
+  - `compute_source_quality`, `bottom_decile`, and `transition_probation` are pure SQL; they run inside `weekly_run.py` unconditionally (not gated by `--dry-run`).
+- Migration notes: `_ensure_columns()` handles existing databases. New tables created via `CREATE TABLE IF NOT EXISTS` in `init_db()`.
+- Related PR/commit: phase-5-discovery branch
+
 ## 2026-06-11 — Phase 4: memory & thesis maturity (compaction, thesis history, prompt caching)
 
 Summary:
