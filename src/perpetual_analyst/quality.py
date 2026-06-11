@@ -86,6 +86,21 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
     return results
 
 
+def transition_probation(conn: sqlite3.Connection) -> int:
+    """Promote probation sources whose probation_until has passed to status='active'.
+
+    Returns the number of sources transitioned. Sources with NULL probation_until are left as-is.
+    """
+    with conn:
+        cur = conn.execute(
+            "UPDATE sources SET status='active'"
+            " WHERE status='probation'"
+            " AND probation_until IS NOT NULL"
+            " AND probation_until < datetime('now')"
+        )
+    return cur.rowcount
+
+
 def bottom_decile(
     conn: sqlite3.Connection,
     min_items: int = 5,

@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from perpetual_analyst.quality import bottom_decile, compute_source_quality
+from perpetual_analyst.quality import bottom_decile, compute_source_quality, transition_probation
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -202,3 +202,67 @@ def test_bottom_decile_min_items_threshold(db: sqlite3.Connection) -> None:
     decile = bottom_decile(db)
     ids = [r.source_id for r in decile]
     assert small not in ids
+
+
+# ---------------------------------------------------------------------------
+# transition_probation tests
+# ---------------------------------------------------------------------------
+
+
+def _insert_source_with_probation(
+    db: sqlite3.Connection,
+    name: str,
+    probation_until: str | None,
+) -> int:
+    cur = db.execute(
+        "INSERT INTO sources (type, name, status, probation_until)"
+        " VALUES ('rss', ?, 'probation', ?)",
+        (name, probation_until),
+    )
+    db.commit()
+    return cur.lastrowid
+
+
+def test_transition_probation_past_date_becomes_active(db: sqlite3.Connection) -> None:
+    """A probation source whose probation_until is in the past is promoted to active."""
+    sid = _insert_source_with_probation(db, "past-prob", "2020-01-01 00:00:00")
+
+    count = transition_probation(db)
+
+    assert count == 1
+    row = db.execute("SELECT status FROM sources WHERE id = ?", (sid,)).fetchone()
+    assert row["status"] == "active"
+
+
+def test_transition_probation_future_date_stays_probation(db: sqlite3.Connection) -> None:
+    """A probation source with a future probation_until is not promoted."""
+    sid = _insert_source_with_probation(db, "future-prob", "2099-01-01 00:00:00")
+
+    count = transition_probation(db)
+
+    assert count == 0
+    row = db.execute("SELECT status FROM sources WHERE id = ?", (sid,)).fetchone()
+    assert row["status"] == "probation"
+
+
+def test_transition_probation_null_probation_until_stays(db: sqlite3.Connection) -> None:
+    """A probation source with NULL probation_until is left as-is."""
+    sid = _insert_source_with_probation(db, "null-prob", None)
+
+    count = transition_probation(db)
+
+    assert count == 0
+    row = db.execute("SELECT status FROM sources WHERE id = ?", (sid,)).fetchone()
+    assert row["status"] == "probation"
+
+
+def test_transition_probation_returns_correct_count(db: sqlite3.Connection) -> None:
+    """Returns the exact number of sources transitioned."""
+    _insert_source_with_probation(db, "old1", "2020-01-01 00:00:00")
+    _insert_source_with_probation(db, "old2", "2021-06-15 12:00:00")
+    _insert_source_with_probation(db, "future", "2099-01-01 00:00:00")
+    _insert_source_with_probation(db, "no-date", None)
+
+    count = transition_probation(db)
+
+    assert count == 2
