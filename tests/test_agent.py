@@ -125,3 +125,23 @@ def test_run_topic_no_thinking_when_disabled(
     call_kwargs = mock_openrouter.beta.chat.completions.parse.call_args
     extra_body = call_kwargs.kwargs.get("extra_body", {})
     assert "thinking" not in extra_body
+
+
+def test_assemble_context_flags_stale_theses(db, sample_topic, settings):
+    db.execute(
+        "INSERT INTO theses (topic_id, statement, confidence, status, created_at, updated_at)"
+        " VALUES (?, 'Dusty thesis', 0.5, 'active',"
+        " datetime('now', '-45 days'), datetime('now', '-40 days'))",
+        (sample_topic.id,),
+    )
+    db.commit()
+    messages = assemble_context(sample_topic, [], db, "system prompt", settings)
+    user_content = messages[1]["content"]
+    assert "## Stale theses — revisit or retire" in user_content
+    assert "Dusty thesis" in user_content
+
+
+def test_assemble_context_stale_section_present_when_empty(db, sample_topic, settings):
+    messages = assemble_context(sample_topic, [], db, "system prompt", settings)
+    user_content = messages[1]["content"]
+    assert "## Stale theses — revisit or retire\n(none)" in user_content

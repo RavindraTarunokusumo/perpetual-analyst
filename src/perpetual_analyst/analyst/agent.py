@@ -15,6 +15,7 @@ from perpetual_analyst.analyst.memory import (
     get_dossier,
 )
 from perpetual_analyst.analyst.schemas import TopicAnalysis
+from perpetual_analyst.analyst.theses import get_stale_theses
 from perpetual_analyst.config import Settings
 from perpetual_analyst.store.models import Item, Topic
 
@@ -66,6 +67,15 @@ def assemble_context(
         or "(no active theses)"
     )
 
+    stale = get_stale_theses(topic.id, conn)
+    stale_text = (
+        "\n".join(
+            f"[thesis:{t.id}] (last touched {t.updated_at or t.created_at}) {t.statement}"
+            for t in stale
+        )
+        or "(none)"
+    )
+
     items_text = (
         "\n\n".join(
             f"[item:{item.id}] {item.title or '(untitled)'}\n"
@@ -79,6 +89,7 @@ def assemble_context(
         f"## Topic brief\n{topic.brief or '(no brief)'}\n\n"
         f"## Dossier\n{dossier}\n\n"
         f"## Active theses\n{theses_text}\n\n"
+        f"## Stale theses — revisit or retire\n{stale_text}\n\n"
         f"## Yesterday's report section\n{yesterday_section}\n\n"
         f"## Prior observations\n{observations_text or '(no prior observations)'}\n\n"
         f"## Today's items\n{items_text}"
