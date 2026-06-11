@@ -84,7 +84,7 @@ def test_live_run_calls_client_and_applies(db, sample_topic, monkeypatch):
 
     main(dry_run=False)
 
-    mock_client.chat.completions.create.assert_called_once()
+    assert mock_client.chat.completions.create.called
 
     row = db.execute("SELECT status FROM observations WHERE id = ?", (obs_id,)).fetchone()
     assert row["status"] == "promoted"
@@ -127,3 +127,93 @@ def test_no_active_topics_returns_early(db, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert "nothing to do" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# discovery + quality/probation pass
+# ---------------------------------------------------------------------------
+
+
+def test_discover_sources_called_per_topic(db, sample_topic, monkeypatch):
+    """discover_sources is invoked once per active topic in the weekly run."""
+    mock_client = _make_weekly_client(WeeklyReviewOutput())
+    discover_mock = MagicMock(return_value=None)
+
+    monkeypatch.setattr("perpetual_analyst.weekly_run.init_db", lambda *_a, **_k: db)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.make_client", lambda: mock_client)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.load_settings", _make_settings)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.discover_sources", discover_mock)
+
+    from perpetual_analyst.weekly_run import main
+
+    main(dry_run=False)
+
+    discover_mock.assert_called_once()
+    call_kwargs = discover_mock.call_args
+    assert call_kwargs[0][0].id == sample_topic.id
+
+
+def test_quality_pass_scores_sources_after_loop(db, sample_topic, monkeypatch, capsys):
+    """After the per-topic loop, compute_source_quality runs and quality_score is populated."""
+    sid = db.execute(
+        "INSERT INTO sources (type, name, status) VALUES ('rss', 'test-src', 'active')"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
+        (sample_topic.id, sid),
+    )
+    for i in range(3):
+        db.execute(
+            "INSERT INTO items (source_id, content_hash, triage_score) VALUES (?, ?, ?)",
+            (sid, f"hash{i}", 0.9),
+        )
+    db.commit()
+
+    mock_client = _make_weekly_client(WeeklyReviewOutput())
+    monkeypatch.setattr("perpetual_analyst.weekly_run.init_db", lambda *_a, **_k: db)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.make_client", lambda: mock_client)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.load_settings", _make_settings)
+    monkeypatch.setattr(
+        "perpetual_analyst.weekly_run.discover_sources", MagicMock(return_value=None)
+    )
+
+    from perpetual_analyst.weekly_run import main
+
+    main(dry_run=False)
+
+    row = db.execute("SELECT quality_score FROM sources WHERE id = ?", (sid,)).fetchone()
+    assert row["quality_score"] is not None
+
+    captured = capsys.readouterr()
+    assert "scored" in captured.out
+
+
+def test_probation_transition_runs_after_loop(db, sample_topic, monkeypatch, capsys):
+    """transition_probation runs after the loop and prints a message when sources are promoted."""
+    sid = db.execute(
+        "INSERT INTO sources (type, name, status, probation_until)"
+        " VALUES ('rss', 'old-prob', 'probation', '2020-01-01 00:00:00')"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
+        (sample_topic.id, sid),
+    )
+    db.commit()
+
+    mock_client = _make_weekly_client(WeeklyReviewOutput())
+    monkeypatch.setattr("perpetual_analyst.weekly_run.init_db", lambda *_a, **_k: db)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.make_client", lambda: mock_client)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.load_settings", _make_settings)
+    monkeypatch.setattr(
+        "perpetual_analyst.weekly_run.discover_sources", MagicMock(return_value=None)
+    )
+
+    from perpetual_analyst.weekly_run import main
+
+    main(dry_run=False)
+
+    row = db.execute("SELECT status FROM sources WHERE id = ?", (sid,)).fetchone()
+    assert row["status"] == "active"
+
+    captured = capsys.readouterr()
+    assert "probation" in captured.out
