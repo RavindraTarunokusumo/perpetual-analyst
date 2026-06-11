@@ -14,7 +14,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [x] Render "Thesis updates" fragment with confidence before→after
 
 ### Task 7 — RSS ingestion + triage
-- [ ] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
+- [x] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
 - [ ] Implement `analyst/triage.py`: Haiku batch call — score (0–1) + 2-line summary per item
 - [ ] Mark triaged items `status='analyzed'` or `status='skipped'`
 
