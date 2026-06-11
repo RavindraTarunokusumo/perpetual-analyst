@@ -2,6 +2,28 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-06-11 — Phase 5 discovery session (workflow/harness)
+
+### What worked well
+
+**The live smoke test (Rule 11) caught a provider-layer bug for the second consecutive feature that touched OpenRouter structured output.** Phase 4 it was nothing; Phase 5 it was the OpenRouter web plugin silently ignoring `response_format=json_object` and prepending prose before the JSON — `model_validate_json(raw)` blew up on the first real call, while all 175 mocked tests passed. Standing rule now: any NEW OpenRouter call shape (a new plugin, web search, a new param) must get a live smoke test before PR, and structured-output parsing should be tolerant (extract the JSON object substring) rather than assuming `json_object` is honored. Mocks validate wiring; only a live call validates the provider contract.
+
+**Recovering a subagent interrupted mid-task without losing or duplicating work.** The Task D implementer hit the session limit after 17 tool uses and returned an empty result — its four files were written but uncommitted. The right move was NOT to re-dispatch (which would redo/duplicate): per Workflow Rule 8, run `git status` first, read the uncommitted files, run the suite + pre-commit, verify the work against the task spec, then commit it myself on the agent's behalf. Re-dispatching a "finished but uncommitted" task is the trap to avoid.
+
+**Reinstalling the editable package at session start (Phase 4 insight) paid off.** Starting Phase 5 from a fresh worktree, `pip install -e .` re-pointed the shared `.venv` immediately; the baseline suite ran green on the first try. The habit works.
+
+### What to improve
+
+**The GitNexus stale-index hook fired on every single Bash command for two full sessions and never self-resolved.** It is pure noise once acknowledged, and the index (pinned at the Phase 1 commit) is useless for impact analysis on a branch that is now four phases ahead — so the CLAUDE.md "MUST run gitnexus_impact before editing" step is unfollowable as written. Either re-run `npx gitnexus analyze` once at the start of a multi-phase effort, or relax the hook/rule when the index predates the working branch's base. Acting on a four-phases-stale graph would be worse than reading callers directly.
+
+**`/simplify` keeps surfacing out-of-scope or behavior-changing suggestions that must be filtered, not applied.** This phase: a `thinking_extra` helper that would edit Phase 1–4 call sites (out of scope), module relocations (larger restructure), and the "two sources of truth" framing of an additive migration (which is actually the correct pattern). The discipline: apply only behavior-preserving, in-scope cleanups; note the rest with a one-line reason rather than letting the cleanup pass balloon the diff right before PR.
+
+### Patterns established this session
+
+- New OpenRouter call shapes get a live smoke test before PR; parse structured output tolerantly (don't trust `response_format=json_object` across plugins/providers).
+- Subagent interrupted mid-task → verify the working tree and commit its work yourself; don't re-dispatch.
+- When GitNexus is indexed older than the working branch's base, skip the impact step and read callers directly — say so explicitly.
+
 ## 2026-06-11 — Phase 4 compaction session (workflow/harness)
 
 ### What worked well
