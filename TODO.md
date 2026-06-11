@@ -8,8 +8,8 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 ## Session: Phase 2 — Source Ingestion + Retrieval (active — spec: docs/superpowers/specs/2026-06-11-phase-2-ingestion-retrieval-design.md)
 
 ### Task 6 — Thesis lifecycle
-- [ ] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire)
-- [ ] Enforce ≤7 active theses per topic (raise on 8th)
+- [x] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire) (regression-tested; CRUD lives in memory.py per spec)
+- [x] Enforce ≤7 active theses per topic (raise on 8th)
 - [ ] Stale-flagging query: any thesis untouched for 30 days flagged to analyst
 - [ ] Render "Thesis updates" fragment with confidence before→after
 
