@@ -1,0 +1,5 @@
+Task: Phase 2 design spec
+Summary: Brainstormed and locked Phase 2 design (Tasks 6-8 + added Task 8.5 config/CLI); spec committed before implementation per workflow
+Docs: docs/superpowers/specs/2026-06-11-phase-2-ingestion-retrieval-design.md
+TODO: Session "Phase 2 - Source Ingestion + Retrieval" (Tasks 6, 7, 8, 8.5)
+Validation: pre-commit run --all-files (pre-existing E402/E501 failures on untouched inbox.py/test_ingestion.py noted per Workflow Rule 6)
