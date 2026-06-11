@@ -101,7 +101,8 @@ def source_add(
         typer.echo(f"Topic '{topic}' not found.", err=True)
         raise typer.Exit(1)
     cur = conn.execute(
-        "INSERT INTO sources (type, url, name, active) VALUES (?, ?, ?, 1)",
+        "INSERT INTO sources (type, url, name, active, status, probation_until)"
+        " VALUES (?, ?, ?, 1, 'probation', datetime('now', '+21 days'))",
         (type_, url, name),
     )
     source_id = cur.lastrowid
@@ -110,7 +111,7 @@ def source_add(
         (topic_row["id"], source_id),
     )
     conn.commit()
-    typer.echo(f"Added source id={source_id} ({type_}) to topic '{topic}'.")
+    typer.echo(f"Added source id={source_id} ({type_}) to topic '{topic}' (probation, 21 days).")
 
 
 @source_app.command("list")
@@ -136,6 +137,45 @@ def source_list(
         name = row["name"] or ""
         url = row["url"] or ""
         typer.echo(f"[{row['id']:3}] {row['type']:10} [{status}]  {name:20} {url}")
+
+
+@source_app.command("candidates")
+def source_candidates(
+    topic: str = typer.Option(None, help="Topic slug to filter (default: all)"),
+) -> None:
+    """List discovered source candidates awaiting review (read-only)."""
+    conn = _db()
+    topic_id: int | None = None
+    if topic is not None:
+        row = conn.execute("SELECT id FROM topics WHERE slug = ?", (topic,)).fetchone()
+        if not row:
+            typer.echo(f"Topic '{topic}' not found.", err=True)
+            raise typer.Exit(1)
+        topic_id = row["id"]
+
+    if topic_id is not None:
+        rows = conn.execute(
+            "SELECT sc.id, sc.status, sc.domain, sc.url, sc.rationale"
+            " FROM source_candidates sc"
+            " WHERE sc.topic_id = ?"
+            " ORDER BY sc.created_at",
+            (topic_id,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT sc.id, sc.status, sc.domain, sc.url, sc.rationale"
+            " FROM source_candidates sc"
+            " ORDER BY sc.created_at"
+        ).fetchall()
+
+    if not rows:
+        typer.echo("No candidates.")
+        return
+
+    for row in rows:
+        label = row["domain"] or row["url"] or ""
+        rationale = (row["rationale"] or "")[:80]
+        typer.echo(f"[{row['id']}] {row['status']:8} {label}  — {rationale}")
 
 
 @app.command()

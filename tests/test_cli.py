@@ -103,8 +103,92 @@ def test_source_add(tmp_db):
     assert "Added source" in result.output
 
 
+def test_source_add_sets_probation(tmp_db):
+    """source add starts the new source in probation with a non-null probation_until."""
+    runner.invoke(app, ["topic", "add", "ai-safety", "--name", "AI Safety"])
+    runner.invoke(
+        app,
+        ["source", "add", "--topic", "ai-safety", "--type", "rss", "--url", "https://ex.com/rss"],
+    )
+    conn = init_db(tmp_db)
+    row = conn.execute("SELECT status, probation_until FROM sources WHERE type = 'rss'").fetchone()
+    assert row["status"] == "probation"
+    assert row["probation_until"] is not None
+
+
+def test_source_add_echo_mentions_probation(tmp_db):
+    """The success echo from source add mentions 'probation'."""
+    runner.invoke(app, ["topic", "add", "ai-safety", "--name", "AI Safety"])
+    result = runner.invoke(
+        app,
+        ["source", "add", "--topic", "ai-safety", "--type", "rss", "--url", "https://ex.com/rss"],
+    )
+    assert result.exit_code == 0
+    assert "probation" in result.output
+
+
 def test_source_add_unknown_topic(tmp_db):
     result = runner.invoke(app, ["source", "add", "--topic", "no-such", "--type", "rss"])
+    assert result.exit_code == 1
+
+
+def test_source_candidates_empty(tmp_db):
+    """source candidates prints 'No candidates.' when source_candidates table is empty."""
+    result = runner.invoke(app, ["source", "candidates"])
+    assert result.exit_code == 0
+    assert "No candidates" in result.output
+
+
+def test_source_candidates_lists_row(tmp_db):
+    """source candidates prints a seeded source_candidates row."""
+    runner.invoke(app, ["topic", "add", "ai-safety", "--name", "AI Safety"])
+    conn = init_db(tmp_db)
+    topic_row = conn.execute("SELECT id FROM topics WHERE slug = 'ai-safety'").fetchone()
+    conn.execute(
+        "INSERT INTO source_candidates (topic_id, url, domain, rationale, status)"
+        " VALUES (?, 'https://example.com', 'example.com', 'Great source for safety news',"
+        " 'pending')",
+        (topic_row["id"],),
+    )
+    conn.commit()
+    conn.close()
+
+    result = runner.invoke(app, ["source", "candidates"])
+    assert result.exit_code == 0
+    assert "example.com" in result.output
+    assert "Great source" in result.output
+
+
+def test_source_candidates_filter_by_topic(tmp_db):
+    """source candidates --topic filters to the given topic's candidates only."""
+    runner.invoke(app, ["topic", "add", "ai-safety", "--name", "AI Safety"])
+    runner.invoke(app, ["topic", "add", "compute", "--name", "Compute"])
+    conn = init_db(tmp_db)
+    t1 = conn.execute("SELECT id FROM topics WHERE slug = 'ai-safety'").fetchone()
+    t2 = conn.execute("SELECT id FROM topics WHERE slug = 'compute'").fetchone()
+    conn.execute(
+        "INSERT INTO source_candidates (topic_id, url, domain, rationale, status)"
+        " VALUES (?, 'https://safety.example.com', 'safety.example.com', 'safety news', 'pending')",
+        (t1["id"],),
+    )
+    conn.execute(
+        "INSERT INTO source_candidates (topic_id, url, domain, rationale, status)"
+        " VALUES (?, 'https://compute.example.com', 'compute.example.com', 'compute news',"
+        " 'pending')",
+        (t2["id"],),
+    )
+    conn.commit()
+    conn.close()
+
+    result = runner.invoke(app, ["source", "candidates", "--topic", "ai-safety"])
+    assert result.exit_code == 0
+    assert "safety.example.com" in result.output
+    assert "compute.example.com" not in result.output
+
+
+def test_source_candidates_unknown_topic(tmp_db):
+    """source candidates --topic with unknown slug exits with code 1."""
+    result = runner.invoke(app, ["source", "candidates", "--topic", "no-such"])
     assert result.exit_code == 1
 
 
