@@ -4,6 +4,7 @@ import pytest
 
 from perpetual_analyst.analyst.memory import apply_thesis_update, get_active_theses
 from perpetual_analyst.analyst.schemas import ThesisUpdate
+from perpetual_analyst.analyst.theses import get_stale_theses
 
 
 def _update(
@@ -68,3 +69,44 @@ def test_eighth_active_thesis_raises(db, sample_topic):
         apply_thesis_update(_update(statement=f"Thesis {i}"), sample_topic.id, db)
     with pytest.raises(ValueError, match="limit"):
         apply_thesis_update(_update(statement="Thesis 8"), sample_topic.id, db)
+
+
+def _insert_thesis(db, topic_id, statement, created_days_ago, updated_days_ago=None):
+    updated_expr = (
+        f"datetime('now', '-{updated_days_ago} days')" if updated_days_ago is not None else "NULL"
+    )
+    db.execute(
+        f"""INSERT INTO theses (topic_id, statement, confidence, status, created_at, updated_at)
+            VALUES (?, ?, 0.5, 'active', datetime('now', '-{created_days_ago} days'),
+                    {updated_expr})""",
+        (topic_id, statement),
+    )
+    db.commit()
+
+
+def test_untouched_31_days_is_stale(db, sample_topic):
+    _insert_thesis(db, sample_topic.id, "Old", created_days_ago=31)
+    stale = get_stale_theses(sample_topic.id, db)
+    assert [t.statement for t in stale] == ["Old"]
+
+
+def test_untouched_29_days_is_not_stale(db, sample_topic):
+    _insert_thesis(db, sample_topic.id, "Fresh-ish", created_days_ago=29)
+    assert get_stale_theses(sample_topic.id, db) == []
+
+
+def test_recent_update_overrides_old_creation(db, sample_topic):
+    _insert_thesis(db, sample_topic.id, "Maintained", created_days_ago=60, updated_days_ago=5)
+    assert get_stale_theses(sample_topic.id, db) == []
+
+
+def test_old_update_is_stale(db, sample_topic):
+    _insert_thesis(db, sample_topic.id, "Neglected", created_days_ago=60, updated_days_ago=40)
+    assert [t.statement for t in get_stale_theses(sample_topic.id, db)] == ["Neglected"]
+
+
+def test_retired_thesis_never_stale(db, sample_topic):
+    _insert_thesis(db, sample_topic.id, "Retired", created_days_ago=90)
+    db.execute("UPDATE theses SET status = 'retired'")
+    db.commit()
+    assert get_stale_theses(sample_topic.id, db) == []
