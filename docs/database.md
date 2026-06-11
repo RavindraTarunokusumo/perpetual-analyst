@@ -45,8 +45,14 @@ RSS feeds, inbox folders, web pages.
 | `active` | INTEGER | |
 | `last_fetched_at` | TEXT | |
 | `fetch_error_count` | INTEGER | |
-| `quality_score` | REAL | Phase 5: analyst-rated signal quality |
+| `quality_score` | REAL | Phase 5: computed by `compute_source_quality` — `0.5*hit_rate + 0.5*citation_rate` |
+| `status` | TEXT | Phase 5: `'active'` \| `'probation'`; DEFAULT `'active'`. New sources added via `analyst source add` start in `'probation'`. |
+| `probation_until` | TEXT | Phase 5: ISO date; set to `now + 21 days` when a source is added. `transition_probation()` promotes to `'active'` once the date passes. |
 | `created_at` | TEXT | |
+
+**Probation lifecycle:** `analyst source add` sets `status='probation'` and `probation_until = today + 21 days`. The weekly run calls `transition_probation(conn)` which sets `status='active'` for any source past its `probation_until`. Quality scoring excludes probation sources from `bottom_decile` drop candidates.
+
+**Migration:** `_ensure_columns(conn)` in `store/db.py` adds `status` and `probation_until` to pre-Phase-5 databases using `PRAGMA table_info` to check for the columns before issuing `ALTER TABLE`. It is safe to call on any database version.
 
 ### `topic_sources`
 
@@ -174,6 +180,39 @@ Stored verbatim. Is part of tomorrow's analyst context.
 | `delivered_at` | TEXT | NULL until Telegram send succeeds |
 | `created_at` | TEXT | |
 
+### `citations` — Phase 5
+
+Records which items were cited in each daily report. Written by `_record_citations` in `report/assemble.py` after assembly. Idempotent via `INSERT OR IGNORE`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | |
+| `report_id` | INTEGER FK → reports | |
+| `report_date` | TEXT | YYYY-MM-DD; denormalized for fast range queries |
+| `item_id` | INTEGER FK → items | |
+| `source_id` | INTEGER FK → sources | resolved from `items.source_id` at write time |
+| `created_at` | TEXT | |
+| UNIQUE | `(report_id, item_id)` | prevents double-counting on re-run |
+
+Used by `compute_source_quality` to compute per-source citation rates.
+
+### `source_candidates` — Phase 5
+
+Proposed sources returned by weekly discovery. Humans review and approve; nothing is auto-added.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | |
+| `topic_id` | INTEGER FK → topics | |
+| `url` | TEXT | |
+| `domain` | TEXT | extracted from URL |
+| `rationale` | TEXT | model's reason for suggesting this source |
+| `status` | TEXT | `'pending'` \| `'approved'` \| `'rejected'`; DEFAULT `'pending'` |
+| `created_at` | TEXT | |
+| UNIQUE | `(topic_id, url)` | prevents duplicate proposals across weekly runs |
+
+Approval UI is deferred to a future Web UI session. `analyst source candidates [--topic <slug>]` lists pending rows read-only.
+
 ## Memory Tier Summary
 
 | Tier | Table | Lifetime | Budget | Written by |
@@ -186,6 +225,7 @@ Stored verbatim. Is part of tomorrow's analyst context.
 
 - Migrations are applied by `init_db()` using `CREATE TABLE IF NOT EXISTS` for all tables.
 - Schema changes require a version bump and a `migrate_vN()` function called by `init_db()`.
+- Column additions to existing tables use `_ensure_columns(conn)` with `PRAGMA table_info` guards — idempotent, safe on any database age. Phase 5 uses this pattern for `sources.status` and `sources.probation_until`.
 - Backward compatibility must be explicit.
 - Data deletion must be intentional and documented.
 - Tests must cover migration-sensitive behavior.
@@ -201,6 +241,10 @@ Stored verbatim. Is part of tomorrow's analyst context.
 | `observations.status` (expiry), `dossiers` (rewrite + note), `observations.status` (promotion) | `analyst/compaction.py` — `expire_observations()` commits separately (idempotent SQL); `apply_weekly_review()` writes dossier rewrite + promoted IDs in one `with conn:` transaction |
 | `reports` | `report/assemble.py` — upserts on `report_date` conflict; `user_id` always 1 |
 | `reports.delivered_at` | `delivery/telegram.py` — set only on confirmed Telegram success |
+| `citations` | `report/assemble.py` via `_record_citations()` — INSERT OR IGNORE after assembly |
+| `source_candidates` | `analyst/discovery.py` via `discover_sources()` — INSERT OR IGNORE; status only changed by future approval UI |
+| `sources.quality_score` | `quality.py` via `compute_source_quality()` — pure SQL UPDATE, run weekly |
+| `sources.status`, `sources.probation_until` | `cli.py` (`analyst source add` writes initial values); `quality.py` (`transition_probation` clears probation) |
 | `sources.last_fetched_at`, `sources.fetch_error_count` | `ingestion/rss.py` |
 | `sources` (inbox) inserts | `ingestion/inbox.py` via `get_or_create_inbox_source()` — canonical helper; never duplicated inline |
 
