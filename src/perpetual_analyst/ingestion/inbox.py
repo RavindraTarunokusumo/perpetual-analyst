@@ -6,10 +6,10 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
-
 from perpetual_analyst.store.db import insert_item
 from perpetual_analyst.store.models import Item
+
+_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 
 
 def _extract_text(path: Path) -> str | None:

@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from perpetual_analyst.ingestion.inbox import scan_inbox
-from perpetual_analyst.store.models import Item
 
 
 @pytest.fixture
@@ -59,7 +58,9 @@ def test_scan_inbox_deduplicates(
     items2 = scan_inbox(sample_topic.slug, sample_topic.id, sample_source, db)
     assert len(items2) == 0
 
-    count = db.execute("SELECT COUNT(*) FROM items WHERE source_id = ?", (sample_source,)).fetchone()[0]
+    count = db.execute(
+        "SELECT COUNT(*) FROM items WHERE source_id = ?", (sample_source,)
+    ).fetchone()[0]
     assert count == 1
 
 
