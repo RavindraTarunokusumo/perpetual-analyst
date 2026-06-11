@@ -1,0 +1,5 @@
+Task: Stale-thesis context wiring (TODO 6.3 complete)
+Summary: assemble_context gains an always-present "Stale theses - revisit or retire" section fed by get_stale_theses; stable prompt ordering preserved for caching
+Docs: N/A
+TODO: Task 6 sub-item 3 crossed (Task 6 fully done)
+Validation: 2 new tests; full suite passing; pre-commit green
