@@ -1,0 +1,5 @@
+Task: Lint cleanup on contact
+Summary: Fixed pre-existing E402 (inbox.py import order) and E501 (test_ingestion.py long line) so all-files pre-commit is green
+Docs: N/A
+TODO: Phase 2 session prerequisite (not a TODO sub-item)
+Validation: pre-commit run --all-files green; full pytest suite passing
