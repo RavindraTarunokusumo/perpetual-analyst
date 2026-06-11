@@ -4,7 +4,9 @@ import pytest
 
 from perpetual_analyst.analyst.memory import apply_thesis_update, get_active_theses
 from perpetual_analyst.analyst.schemas import ThesisUpdate
-from perpetual_analyst.analyst.theses import get_stale_theses
+from perpetual_analyst.analyst.theses import get_stale_theses, render_thesis_fragment
+from perpetual_analyst.store.models import Thesis as ThesisRow
+from perpetual_analyst.store.models import ThesisUpdate as ThesisUpdateRow
 
 
 def _update(
@@ -110,3 +112,45 @@ def test_retired_thesis_never_stale(db, sample_topic):
     db.execute("UPDATE theses SET status = 'retired'")
     db.commit()
     assert get_stale_theses(sample_topic.id, db) == []
+
+
+def _thesis_row(statement="Open models reach parity"):
+    return ThesisRow(
+        id=1,
+        topic_id=1,
+        statement=statement,
+        rationale=None,
+        confidence=0.8,
+        status="active",
+        created_at="2026-06-01",
+        updated_at=None,
+    )
+
+
+def _update_row(before, after, change="Third confirming signal this month."):
+    return ThesisUpdateRow(
+        id=1,
+        thesis_id=1,
+        change=change,
+        confidence_before=before,
+        confidence_after=after,
+        triggered_by_item_id=None,
+        created_at="2026-06-11",
+    )
+
+
+def test_render_empty_returns_empty_string():
+    assert render_thesis_fragment([]) == ""
+
+
+def test_render_shows_confidence_before_after():
+    fragment = render_thesis_fragment([(_thesis_row(), _update_row(0.6, 0.8))])
+    assert "### Thesis updates" in fragment
+    assert "Open models reach parity" in fragment
+    assert "0.60 → 0.80" in fragment
+    assert "Third confirming signal" in fragment
+
+
+def test_render_handles_missing_before_confidence():
+    fragment = render_thesis_fragment([(_thesis_row(), _update_row(None, 0.5, "Created."))])
+    assert "— → 0.50" in fragment

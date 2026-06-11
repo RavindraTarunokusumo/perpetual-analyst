@@ -11,7 +11,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [x] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire) (regression-tested; CRUD lives in memory.py per spec)
 - [x] Enforce ≤7 active theses per topic (raise on 8th)
 - [ ] Stale-flagging query: any thesis untouched for 30 days flagged to analyst (query done; context wiring pending)
-- [ ] Render "Thesis updates" fragment with confidence before→after
+- [x] Render "Thesis updates" fragment with confidence before→after
 
 ### Task 7 — RSS ingestion + triage
 - [ ] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
