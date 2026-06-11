@@ -51,7 +51,6 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
     ).fetchall()
 
     results: list[SourceQuality] = []
-    updates: list[tuple[float, int]] = []
 
     for row in rows:
         total = row["total_items"]
@@ -73,14 +72,12 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
                 status=row["status"] or "active",
             )
         )
-        updates.append((score, row["source_id"]))
 
     with conn:
-        for score, source_id in updates:
-            conn.execute(
-                "UPDATE sources SET quality_score = ? WHERE id = ?",
-                (score, source_id),
-            )
+        conn.executemany(
+            "UPDATE sources SET quality_score = ? WHERE id = ?",
+            [(sq.score, sq.source_id) for sq in results],
+        )
 
     results.sort(key=lambda sq: sq.score, reverse=True)
     return results
@@ -104,21 +101,23 @@ def transition_probation(conn: sqlite3.Connection) -> int:
 def bottom_decile(
     conn: sqlite3.Connection,
     min_items: int = 5,
+    all_scores: list[SourceQuality] | None = None,
 ) -> list[SourceQuality]:
     """Return the worst-scoring sources as drop candidates.
 
-    Calls compute_source_quality to get fresh scores, then filters to sources with
-    total_items >= min_items and status != 'probation'.  Returns the bottom 10%
-    (at least 1 if any qualify), ordered worst-first.
+    Filters to sources with total_items >= min_items and status != 'probation', then
+    returns the bottom 10% (at least 1 if any qualify), ordered worst-first. Pass
+    `all_scores` (from a prior compute_source_quality call) to avoid recomputing.
     """
-    all_scores = compute_source_quality(conn)
+    if all_scores is None:
+        all_scores = compute_source_quality(conn)
 
-    eligible = [sq for sq in all_scores if sq.total_items >= min_items and sq.status != "probation"]
-
+    eligible = sorted(
+        (sq for sq in all_scores if sq.total_items >= min_items and sq.status != "probation"),
+        key=lambda sq: sq.score,  # worst-first
+    )
     if not eligible:
         return []
 
-    # bottom 10%, at least 1
     n = max(1, math.ceil(len(eligible) * 0.1))
-    # eligible is sorted best→worst; take last n and reverse so worst is first
-    return list(reversed(eligible[-n:]))
+    return eligible[:n]

@@ -153,20 +153,13 @@ def source_candidates(
             raise typer.Exit(1)
         topic_id = row["id"]
 
+    query = "SELECT sc.id, sc.status, sc.domain, sc.url, sc.rationale FROM source_candidates sc"
+    params: tuple = ()
     if topic_id is not None:
-        rows = conn.execute(
-            "SELECT sc.id, sc.status, sc.domain, sc.url, sc.rationale"
-            " FROM source_candidates sc"
-            " WHERE sc.topic_id = ?"
-            " ORDER BY sc.created_at",
-            (topic_id,),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT sc.id, sc.status, sc.domain, sc.url, sc.rationale"
-            " FROM source_candidates sc"
-            " ORDER BY sc.created_at"
-        ).fetchall()
+        query += " WHERE sc.topic_id = ?"
+        params = (topic_id,)
+    query += " ORDER BY sc.created_at"
+    rows = conn.execute(query, params).fetchall()
 
     if not rows:
         typer.echo("No candidates.")

@@ -26,10 +26,9 @@ def render_citations(markdown: str, conn: sqlite3.Connection) -> str:
     - Items with no URL: footnote is just "[^N]: {title}" (no link)
     - Items not found in DB: "[^N]: (item N)" as fallback
     """
-    if not cited_item_ids(markdown):
+    unique_ids = sorted(cited_item_ids(markdown))
+    if not unique_ids:
         return markdown
-
-    unique_ids = sorted(set(cited_item_ids(markdown)))
 
     # Batch-fetch all cited items in one query
     placeholders = ",".join("?" * len(unique_ids))

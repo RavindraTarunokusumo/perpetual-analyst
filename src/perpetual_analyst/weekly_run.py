@@ -78,7 +78,7 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
     # model calls (compaction review, discovery), not deterministic bookkeeping.
     scored = compute_source_quality(conn)
     print(f"[weekly_run] scored {len(scored)} source(s)")
-    for sq in bottom_decile(conn):
+    for sq in bottom_decile(conn, all_scores=scored):
         print(
             f"[weekly_run] DROP? source={sq.source_id} '{sq.name}' "
             f"items={sq.total_items} hit_rate={sq.hit_rate:.2f} cited={sq.citation_rate:.2f}"

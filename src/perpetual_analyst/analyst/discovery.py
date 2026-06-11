@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -50,22 +51,18 @@ def mine_outbound_domains(
         (topic_id,),
     ).fetchall()
 
-    counts: dict[str, int] = {}
-    for row in rows:
-        d = _domain(row["url"])
-        if d:
-            counts[d] = counts.get(d, 0) + 1
-
-    ranked = sorted(counts.items(), key=lambda x: x[1], reverse=True)
-    return ranked[:limit]
+    domains = [d for row in rows if (d := _domain(row["url"]))]
+    return Counter(domains).most_common(limit)
 
 
 def web_search_extra() -> dict:
     """OpenRouter web-search plugin config (the provider SEAM).
 
     Swapping to a different web-search provider (e.g. Perplexity) later means changing
-    ONLY this function — e.g. returning a different extra_body, or pointing the client
-    at another base_url. Keep all provider-specific web-search wiring here.
+    this function. NOTE: a full provider swap also requires changing the client's base_url
+    and auth in `analyst.agent.make_client` — that is the co-change site, since the client
+    here is assumed to be pointed at OpenRouter. Promote to a config field when a second
+    provider actually lands.
     """
     return {"plugins": [{"id": "web", "max_results": 5}]}
 
@@ -99,11 +96,7 @@ def discover_sources(
 
     dossier = get_dossier(topic.id, conn) or "(no dossier yet)"
     mined = mine_outbound_domains(topic.id, conn)
-
-    if mined:
-        domains_text = "\n".join(f"- {d} ({n} citations)" for d, n in mined)
-    else:
-        domains_text = "(none yet)"
+    domains_text = "\n".join(f"- {d} ({n} citations)" for d, n in mined) or "(none yet)"
 
     user_content = (
         f"## Topic brief\n{topic.brief or '(no brief)'}\n\n"
@@ -121,7 +114,7 @@ def discover_sources(
             print(f"[{msg['role'].upper()}]\n{msg['content']}\n{'=' * 60}")
         return None
 
-    extra: dict = {**web_search_extra()}
+    extra = web_search_extra()
     if settings.analyst.thinking:
         extra["thinking"] = {"type": "adaptive"}
 
