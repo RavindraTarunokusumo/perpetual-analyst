@@ -1,0 +1,5 @@
+Task: render_thesis_fragment (TODO 6.4)
+Summary: Markdown fragment with confidence before->after, em-dash for missing values, empty string when nothing moved
+Docs: N/A
+TODO: Task 6 sub-item 4 crossed
+Validation: pytest tests/test_theses.py passing; full suite passing; pre-commit green
