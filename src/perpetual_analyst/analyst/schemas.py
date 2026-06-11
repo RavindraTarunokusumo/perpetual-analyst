@@ -77,6 +77,23 @@ class TopicAnalysis(BaseModel):
     )
 
 
+class DiscoveryCandidate(BaseModel):
+    url: str = Field(description="Feed or site URL of the proposed source.")
+    domain: str = Field(default="", description="Bare domain, e.g. example.com.")
+    rationale: str = Field(
+        description="The specific gap in current coverage this source would fill."
+    )
+
+
+class DiscoveryOutput(BaseModel):
+    """Output of one weekly source-discovery run for one topic. See SPEC §11."""
+
+    candidates: list[DiscoveryCandidate] = Field(
+        default_factory=list,
+        description="3–5 proposed candidate sources.",
+    )
+
+
 class WeeklyReviewOutput(BaseModel):
     """Output of one weekly compaction/review run for one topic. See SPEC §8."""
 
