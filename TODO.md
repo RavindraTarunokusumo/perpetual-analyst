@@ -14,31 +14,32 @@ OpenRouter web search behind a provider seam (swappable to Perplexity later). Me
 phase: triage hit-rate + citation rate (uniqueness/freshness-lead deferred).
 
 ### Task A — Schema: citations, source_candidates, sources probation columns
-- [ ] `store/db.py`: add `citations` table (report_id, report_date, item_id, source_id, created_at) and `source_candidates` table (topic_id, url, domain, rationale, status DEFAULT 'pending', created_at); add `status TEXT DEFAULT 'active'` and `probation_until TEXT` columns to `sources` DDL
-- [ ] `store/db.py`: idempotent `_ensure_columns` migration — ALTER existing `sources` to add missing columns (guarded via `PRAGMA table_info`)
-- [ ] `store/models.py`: add `Citation`, `SourceCandidate` dataclasses; extend `Source` with `status`, `probation_until`
-- [ ] Tests: fresh-DB schema, migration adds columns to a pre-existing sources table, model round-trips
+- [x] `store/db.py`: `citations` + `source_candidates` tables; `status`/`probation_until` columns on `sources` — 58373aa
+- [x] `store/db.py`: idempotent `_ensure_columns` migration (guarded via `PRAGMA table_info`) — 58373aa
+- [x] `store/models.py`: `Citation`, `SourceCandidate` dataclasses; extend `Source` — 58373aa
+- [x] Tests: fresh-DB schema, migration, model round-trips — 669a2de
 
 ### Task B — Citation recording at report assembly
-- [ ] `report/assemble.py`: after building full_markdown, record each cited `[item:N]` into `citations` (item_id → its source_id via items table, plus report_date); dedupe per (report_date, item_id)
-- [ ] Tests: cited items recorded with correct source_id; uncited items absent; re-assembly idempotent
+- [x] `report/assemble.py`: record each cited `[item:N]` → `citations` (item_id→source_id, report_date); dedupe via INSERT OR IGNORE — 3e992c0
+- [x] Tests: cited items recorded with correct source_id; uncited absent; re-assembly idempotent — 3db93ff
 
 ### Task C — Per-source quality metrics → quality_score
-- [ ] `analyst/quality.py::compute_source_quality(conn) -> list[...]`: per source, triage hit-rate (items with triage_score ≥ 0.4 / total items) and citation rate (distinct cited items / total items); combine into `sources.quality_score`; skip sources with zero items
-- [ ] `quality.py::bottom_decile(conn)` — sources ranked worst by score with item/citation counts for drop recommendations
-- [ ] Tests: hit-rate/citation-rate math, quality_score written, probation sources flagged not dropped
+- [x] `quality.py::compute_source_quality(conn)`: triage hit-rate + citation rate → `sources.quality_score`; skip zero-item sources — 929fd99
+- [x] `quality.py::bottom_decile(conn)` — worst sources for drop recommendations; probation excluded — 929fd99
+- [x] Tests: hit-rate/citation-rate math, quality_score written, probation excluded — b86f661
 
 ### Task D — Discovery run (link-mining + OpenRouter web search)
-- [ ] `analyst/discovery.py::mine_outbound_domains(topic_id, conn)`: domains from cited high-quality items' URLs, ranked by frequency
-- [ ] `analyst/schemas.py::DiscoveryOutput` (candidates: list of {url, domain, rationale/gap})
-- [ ] `analyst/prompts/discovery.md` prompt
-- [ ] `discovery.py::discover_sources(topic, conn, client, settings, dry_run)`: model call via OpenRouter web search behind a provider seam (create()+model_validate_json); store results in `source_candidates`
-- [ ] Tests with mock client: candidates stored, dry-run skips call, seam is swappable
+- [x] `analyst/discovery.py::mine_outbound_domains(topic_id, conn)`: domains from cited items' URLs, ranked — 62e3e6c
+- [x] `analyst/schemas.py::DiscoveryOutput` / `DiscoveryCandidate` — f3cc358
+- [x] `analyst/prompts/discovery.md` prompt — f3cc358
+- [x] `discovery.py::discover_sources(...)`: web-search model call behind `web_search_extra` seam; store `source_candidates` — 62e3e6c
+- [x] Tests with mock client: candidates stored, dry-run skips, seam contract, dedupe — 62e3e6c
 
 ### Task E — Weekly integration + surfacing + probation lifecycle + CLI
-- [ ] `weekly_run.py`: after compaction, run `compute_source_quality` + `discover_sources`; print bottom-decile drop recs + new candidate count; transition probation sources past `probation_until` → `status='active'`
-- [ ] `cli.py`: `analyst source candidates` (read-only list) and start `source add` sources in `status='probation'` with `probation_until = +21 days`
-- [ ] Tests: weekly wiring, probation transition, CLI candidate listing
+- [x] `weekly_run.py`: per-topic `discover_sources`; post-loop `compute_source_quality` + bottom-decile drop recs + `transition_probation` — f159351
+- [x] `quality.py::transition_probation(conn)` — probation→active after window — c6826f6
+- [x] `cli.py`: `source candidates` read-only view; `source add` starts in `probation` (+21 days) — a3e85b3
+- [x] Tests: weekly wiring, probation transition, CLI candidate listing — c6826f6, f159351, a3e85b3
 
 ---
 
