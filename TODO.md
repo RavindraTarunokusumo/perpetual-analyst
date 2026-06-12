@@ -21,7 +21,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 ### Task 8 — Retrieval
 - [x] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
 - [x] Recency weighting in FTS queries
-- [ ] Wire "related prior context" blocks into agent context assembly
+- [x] Wire "related prior context" blocks into agent context assembly
 
 ### Task 8.5 — Sources/topics config + CLI (extension added 2026-06-11, approved)
 - [ ] Extend `config.py`: `TopicConfig`/`SourceConfig` loaders + idempotent `sync_config()` (YAML → DB upsert)

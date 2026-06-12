@@ -17,6 +17,7 @@ from perpetual_analyst.analyst.memory import (
 from perpetual_analyst.analyst.schemas import TopicAnalysis
 from perpetual_analyst.analyst.theses import get_stale_theses
 from perpetual_analyst.config import Settings
+from perpetual_analyst.retrieval.search import related_items, related_observations
 from perpetual_analyst.store.models import Item, Topic
 
 load_dotenv()
@@ -24,6 +25,7 @@ load_dotenv()
 _system_prompt: str | None = None
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "analyst_system.md"
 _ITEM_TEXT_LIMIT = 3000  # chars per item; caps large PDFs without truncating short items
+_RELATED_OBS_CHARS = 200  # one-line truncation for related-context entries
 
 
 def load_system_prompt() -> str:
@@ -43,6 +45,29 @@ def make_client() -> openai.OpenAI:
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key,
     )
+
+
+def _render_item_block(
+    item: Item, topic_id: int, conn: sqlite3.Connection, exclude_ids: list[int]
+) -> str:
+    parts = [f"[item:{item.id}] {item.title or '(untitled)'}"]
+    if item.triage_summary:
+        parts.append(f"Triage summary: {item.triage_summary}")
+    parts.append((item.raw_text or "(no text)")[:_ITEM_TEXT_LIMIT])
+
+    query_text = f"{item.title or ''} {item.triage_summary or ''}".strip()
+    if query_text:
+        context_lines = [
+            f"  [obs:{o.id}] {o.content[:_RELATED_OBS_CHARS]}"
+            for o in related_observations(query_text, topic_id, conn)
+        ]
+        context_lines += [
+            f"  [item:{r.id}] {r.title or '(untitled)'}"
+            for r in related_items(query_text, topic_id, conn, exclude_ids=exclude_ids)
+        ]
+        if context_lines:
+            parts.append("Related prior context:\n" + "\n".join(context_lines))
+    return "\n".join(parts)
 
 
 def assemble_context(
@@ -76,12 +101,9 @@ def assemble_context(
         or "(none)"
     )
 
+    exclude_ids = [item.id for item in items]
     items_text = (
-        "\n\n".join(
-            f"[item:{item.id}] {item.title or '(untitled)'}\n"
-            f"{(item.raw_text or '(no text)')[:_ITEM_TEXT_LIMIT]}"
-            for item in items
-        )
+        "\n\n".join(_render_item_block(item, topic.id, conn, exclude_ids) for item in items)
         or "(no new items today)"
     )
 

@@ -8,7 +8,7 @@ import pytest
 from perpetual_analyst.analyst.agent import assemble_context, load_system_prompt, run_topic
 from perpetual_analyst.analyst.memory import get_active_observations
 from perpetual_analyst.config import ModelConfig, Settings
-from perpetual_analyst.store.models import Topic
+from perpetual_analyst.store.models import Item, Topic
 
 
 @pytest.fixture
@@ -145,3 +145,37 @@ def test_assemble_context_stale_section_present_when_empty(db, sample_topic, set
     messages = assemble_context(sample_topic, [], db, "system prompt", settings)
     user_content = messages[1]["content"]
     assert "## Stale theses — revisit or retire\n(none)" in user_content
+
+
+def test_assemble_context_attaches_related_prior_context(db, sample_topic, sample_source, settings):
+    db.execute(
+        "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
+        (sample_topic.id, sample_source),
+    )
+    db.execute(
+        "INSERT INTO observations (topic_id, kind, content, importance, status)"
+        " VALUES (?, 'signal', 'GPU export controls tightened in May', 2, 'active')",
+        (sample_topic.id,),
+    )
+    cur = db.execute(
+        "INSERT INTO items (source_id, content_hash, title, raw_text, triage_summary)"
+        " VALUES (?, 'hash_new', 'Export controls on GPUs expanded',"
+        " 'Today the export controls were expanded.', 'GPU export controls expanded again')",
+        (sample_source,),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM items WHERE id = ?", (cur.lastrowid,)).fetchone()
+    new_item = Item.from_row(row)
+
+    messages = assemble_context(sample_topic, [new_item], db, "system prompt", settings)
+    user_content = messages[1]["content"]
+    assert "Related prior context:" in user_content
+    assert "[obs:" in user_content
+    assert "GPU export controls tightened in May" in user_content
+
+
+def test_assemble_context_no_related_context_when_nothing_matches(
+    db, sample_topic, sample_items, settings
+):
+    messages = assemble_context(sample_topic, sample_items, db, "system prompt", settings)
+    assert "Related prior context:" not in messages[1]["content"]
