@@ -9,7 +9,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ### Task 9 — Report assembly + rendering
 - [ ] Implement `report/assemble.py`: merge topic sections, build exec summary
-- [ ] Implement `report/render.py`: `[item:N]` → footnote conversion
+- [x] Implement `report/render.py`: `[item:N]` → footnote conversion
 - [ ] Write `analyst/prompts/digest.md` for Telegram digest generation
 - [ ] Write `reports` DB row + markdown file to `data/reports/`
 
