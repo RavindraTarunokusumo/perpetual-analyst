@@ -118,3 +118,39 @@ def test_unknown_item_id_ignored(db, sample_source, settings):
     )
     results = triage_items(items, "brief", _client_returning(payload), settings, db)
     assert [r.item_id for r in results] == [items[0].id]
+
+
+def test_preamble_prose_stripped(db, sample_source, settings):
+    items = _items_in_db(db, sample_source, 1)
+    payload = f"Here is your JSON array:\n```json\n{_payload(items, 0.5)}\n```\nLet me know!"
+    results = triage_items(items, "brief", _client_returning(payload), settings, db)
+    assert len(results) == 1
+
+
+def test_low_scores_still_returned_but_marked_skipped(db, sample_source, settings):
+    items = _items_in_db(db, sample_source, 1)
+    payload = _payload(items, 0.05)
+    results = triage_items(items, "brief", _client_returning(payload), settings, db)
+    assert len(results) == 1
+    assert db.execute("SELECT status FROM items").fetchone()["status"] == "skipped"
+
+
+def test_duplicate_item_id_first_wins(db, sample_source, settings):
+    items = _items_in_db(db, sample_source, 1)
+    payload = json.dumps(
+        [
+            {"item_id": items[0].id, "score": 0.8, "summary": "first"},
+            {"item_id": items[0].id, "score": 0.1, "summary": "second"},
+        ]
+    )
+    results = triage_items(items, "brief", _client_returning(payload), settings, db)
+    assert len(results) == 1
+    row = db.execute("SELECT triage_score, status FROM items").fetchone()
+    assert row["triage_score"] == 0.8
+    assert row["status"] == "new"
+
+
+def test_empty_items_makes_no_api_calls(db, settings):
+    client = _client_returning()
+    assert triage_items([], "brief", client, settings, db) == []
+    assert client.chat.completions.create.call_count == 0

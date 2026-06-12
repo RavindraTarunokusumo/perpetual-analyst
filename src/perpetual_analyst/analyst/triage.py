@@ -45,7 +45,13 @@ _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$")
 
 
 def _strip_fences(text: str) -> str:
-    return _FENCE_RE.sub("", text.strip())
+    """Extract the JSON array from a reply that may carry prose or code fences."""
+    text = text.strip()
+    start = text.find("[")
+    end = text.rfind("]")
+    if start != -1 and end > start:
+        return text[start : end + 1]
+    return _FENCE_RE.sub("", text)
 
 
 def _format_items(items: list[Item]) -> str:
@@ -73,7 +79,7 @@ def _triage_chunk(
             return _RESULTS.validate_json(_strip_fences(text))
         except Exception as exc:
             prompt = (
-                f"{prompt}\n\nYour previous reply failed validation ({exc}). "
+                f"{prompt}\n\nYour previous reply failed validation ({str(exc)[:200]}). "
                 "Return ONLY the JSON array."
             )
     print(f"[triage] chunk of {len(chunk)} items failed validation twice; left untriaged")
@@ -87,20 +93,26 @@ def triage_items(
     settings: Settings,
     conn: sqlite3.Connection,
 ) -> list[TriageResult]:
-    """Score + summarize items in chunks; writes triage columns and skip-status to DB."""
+    """Score + summarize items in chunks; writes triage columns and skip-status to DB.
+
+    Returns all validated results, including those marked skipped — callers select
+    analyst-bound items from the DB by status/score, not from this return value.
+    """
     known_ids = {item.id for item in items}
-    accepted: list[TriageResult] = []
+    handled: set[int] = set()
+    results: list[TriageResult] = []
     for start in range(0, len(items), CHUNK_SIZE):
         chunk = items[start : start + CHUNK_SIZE]
         for result in _triage_chunk(chunk, topic_brief, client, settings):
-            if result.item_id not in known_ids:
+            if result.item_id not in known_ids or result.item_id in handled:
                 continue
+            handled.add(result.item_id)
             conn.execute(
                 "UPDATE items SET triage_score = ?, triage_summary = ?,"
                 " status = CASE WHEN ? < ? THEN 'skipped' ELSE status END"
                 " WHERE id = ?",
                 (result.score, result.summary, result.score, SKIP_THRESHOLD, result.item_id),
             )
-            accepted.append(result)
+            results.append(result)
         conn.commit()
-    return accepted
+    return results
