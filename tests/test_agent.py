@@ -209,7 +209,8 @@ def test_memory_writes_and_analyzed_marking_are_atomic(
         raise sqlite3.OperationalError("simulated failure")
 
     monkeypatch.setattr(memory, "update_dossier", _boom)
-    mock_openrouter.beta.chat.completions.parse.return_value.parsed.dossier_edits = "new dossier"
+    parsed = mock_openrouter.beta.chat.completions.parse.return_value.choices[0].message.parsed
+    parsed.dossier_edits = "new dossier"
 
     with pytest.raises(sqlite3.OperationalError):
         run_topic(sample_topic, sample_items, db, mock_openrouter, settings)

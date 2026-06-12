@@ -147,7 +147,7 @@ def run_topic(
         extra_body=extra,
     )
 
-    result: TopicAnalysis = response.parsed
+    result: TopicAnalysis = response.choices[0].message.parsed
     used = (
         response.usage.total_tokens
         if response.usage
