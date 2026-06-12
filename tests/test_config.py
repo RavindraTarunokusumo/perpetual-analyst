@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from perpetual_analyst.config import SourceConfig, TopicConfig, sync_config
+from perpetual_analyst.config import (
+    SourceConfig,
+    TopicConfig,
+    load_sources,
+    load_topics,
+    sync_config,
+)
 
 
 def _topic(slug="ai-labs", name="AI Labs", brief="Track the labs"):
@@ -71,3 +77,23 @@ def test_sync_leaves_inbox_sources_alone(db, sample_source):
 def test_sync_unknown_topic_slug_raises(db):
     with pytest.raises(ValueError, match="unknown topic"):
         sync_config(db, [], [_source(topics=("nope",))])
+
+
+def test_loaders_tolerate_missing_files(tmp_path):
+    assert load_topics(str(tmp_path / "nope.yaml")) == []
+    assert load_sources(str(tmp_path / "nope.yaml")) == []
+
+
+def test_source_gaining_url_creates_new_row_and_deactivates_old(db):
+    # First sync: source keyed by name (no url)
+    sync_config(db, [_topic()], [SourceConfig(name="Feed A", type="rss", topics=["ai-labs"])])
+    # Second sync: same name, now with url — keyed by url, finds nothing, inserts new row
+    sync_config(db, [_topic()], [_source()])
+    rows = db.execute("SELECT name, url, active FROM sources ORDER BY id").fetchall()
+    assert len(rows) == 2
+    # Old name-keyed row deactivated (not in synced_ids)
+    assert rows[0]["active"] == 0
+    assert rows[0]["url"] is None
+    # New url-keyed row active
+    assert rows[1]["active"] == 1
+    assert rows[1]["url"] == "https://a.example/feed"

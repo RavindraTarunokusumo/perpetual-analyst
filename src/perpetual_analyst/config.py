@@ -46,12 +46,18 @@ class SourceConfig:
 
 
 def load_topics(path: str = "config/topics.yaml") -> list[TopicConfig]:
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    p = Path(path)
+    if not p.exists():
+        return []
+    data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     return [TopicConfig(**entry) for entry in data.get("topics") or []]
 
 
 def load_sources(path: str = "config/sources.yaml") -> list[SourceConfig]:
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    p = Path(path)
+    if not p.exists():
+        return []
+    data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     return [SourceConfig(**entry) for entry in data.get("sources") or []]
 
 
@@ -65,6 +71,9 @@ def sync_config(
     Touches definition columns only — never last_fetched_at, fetch_error_count,
     or quality_score. Rows absent from YAML are deactivated, never deleted;
     inbox-type sources are exempt (they're created implicitly).
+
+    An empty topics/sources list deactivates ALL rows of that kind (inbox
+    sources exempt) — an accidentally empty YAML file disables everything.
     """
     for tc in topics:
         conn.execute(
@@ -82,11 +91,13 @@ def sync_config(
             slugs,
         )
     else:
+        print("[config] topics list empty - deactivating ALL topics")
         conn.execute("UPDATE topics SET active = 0")
 
     synced_ids: list[int] = []
     for sc in sources:
         key_column = "url" if sc.url else "name"
+        assert key_column in ("url", "name")  # bounded; never user-controlled
         key_value = sc.url or sc.name
         row = conn.execute(
             f"SELECT id FROM sources WHERE {key_column} = ?", (key_value,)
