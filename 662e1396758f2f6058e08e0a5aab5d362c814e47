@@ -1,0 +1,5 @@
+Task: Citation renderer (TODO 9.2)
+Summary: [item:N] -> [^k] with stable first-appearance numbering, Sources reviewed footnote list, unknown ids as plain text, obs/thesis tags untouched
+Docs: N/A
+TODO: Task 9 sub-item 2 crossed
+Validation: 4 new tests; full suite passing (105 passed, 1 deselected); pre-commit green
