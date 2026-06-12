@@ -1,0 +1,5 @@
+Task: Triage pass (TODO 7.2 + 7.3 skipped-half)
+Summary: Batched JSON triage via settings.triage.id with 20-item chunks, one validation retry with error feedback, graceful give-up leaving items untriaged, score<0.2 -> skipped
+Docs: N/A
+TODO: Task 7 sub-item 2 crossed; sub-item 3 half-done (analyzed marking pending)
+Validation: 7 new tests; full suite passing; pre-commit green
