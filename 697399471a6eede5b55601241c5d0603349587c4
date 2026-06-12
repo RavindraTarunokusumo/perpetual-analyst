@@ -1,0 +1,5 @@
+Task: Review disposition for P3 Task 3
+Summary: Documented file-as-regenerable-copy contract per review; declined N+1 rewrite (SELECT t.*, u.* column collision breaks from_row; round-trips bounded by <=7 theses/day)
+Docs: N/A
+TODO: Task 9 (review disposition)
+Validation: pre-commit green
