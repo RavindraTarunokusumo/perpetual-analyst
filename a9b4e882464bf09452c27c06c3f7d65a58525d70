@@ -1,0 +1,5 @@
+Task: Changelog (Pre-PR)
+Summary: Phase 2 entry covering new modules, status lifecycle, live-smoke-discovered fixes, testing and migration notes
+Docs: docs/changelog.md
+TODO: Pre-PR step
+Validation: docs-only
