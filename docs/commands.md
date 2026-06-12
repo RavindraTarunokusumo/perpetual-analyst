@@ -23,14 +23,18 @@ cp .env.example .env
 ## CLI — `analyst` Commands
 
 ```bash
-# Add a topic
-analyst topic add "AI Frontier Labs" --brief "Track model releases, safety policy, compute trends"
+# Add a topic (appends to config/topics.yaml, then syncs to DB)
+analyst topic add ai-frontier-labs --name "AI Frontier Labs" --brief "Track model releases, safety policy, compute trends"
 
 # List topics
 analyst topic list
 
-# Add a source to a topic
-analyst source add --topic ai-frontier-labs --type rss --url https://example.com/feed.xml
+# Add a source to a topic (appends to config/sources.yaml, then syncs to DB)
+analyst source add --topic ai-frontier-labs --type rss --url https://example.com/feed.xml --name "Example Feed"
+
+# Optional: non-default DB path
+analyst topic add my-topic --name "My Topic" --db-path data/alt.db
+analyst source add --topic my-topic --type rss --url https://example.com/feed.xml --name "Feed" --db-path data/alt.db
 
 # List sources for a topic
 analyst source list --topic ai-frontier-labs
@@ -61,10 +65,18 @@ python -m perpetual_analyst.daily_run --topic ai-frontier-labs
 
 ## Testing
 
+The package is not pip-installed in dev; set PYTHONPATH so pytest can import it:
 ```bash
-pytest
-pytest tests/test_memory.py -v
-pytest -x -k "thesis"
+# Unit suite (smoke tests excluded by default via addopts in pyproject.toml)
+PYTHONPATH=src pytest
+PYTHONPATH=src pytest tests/test_memory.py -v
+PYTHONPATH=src pytest -x -k "thesis"
+
+# Windows PowerShell
+$env:PYTHONPATH="src"; pytest
+
+# Live end-to-end smoke test (requires OPENROUTER_API_KEY + network; uses data/smoke-phase2.db)
+PYTHONPATH=src pytest -m smoke
 ```
 
 ## Lint and Format

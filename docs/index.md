@@ -28,7 +28,8 @@ Add module-specific docs here as the codebase grows:
 - `src/perpetual_analyst/report/`: assembly, rendering, citation conversion
 - `src/perpetual_analyst/delivery/`: Telegram send
 - `src/perpetual_analyst/daily_run.py`: orchestrator entry point
-- `src/perpetual_analyst/cli.py`: typer CLI (`analyst topic add`, `analyst run`)
+- `src/perpetual_analyst/cli.py`: typer CLI (`analyst topic add SLUG`, `analyst source add`, `analyst run`)
+- `src/perpetual_analyst/config.py`: YAML config loaders and `sync_config` (YAML → DB upsert)
 - `config/`: `topics.yaml`, `sources.yaml`
 - `inbox/`: manual document drop, per-topic subfolders
 - `data/`: `analyst.db`, `reports/`

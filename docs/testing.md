@@ -8,7 +8,8 @@ Testing includes both execution and planning. Run automated tests and use the `t
 
 - Activate the project environment: `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate`
 - Run commands from repo root
-- Mock Anthropic API calls — never make real API calls in tests
+- The package is not pip-installed in dev; set `PYTHONPATH=src` (or `$env:PYTHONPATH="src"` on PowerShell) before running pytest
+- Mock OpenRouter/analyst API calls — never make real API calls in unit tests
 - Mock Telegram sends
 - Use in-memory SQLite (`analyst.db` = `:memory:`) for all DB tests
 
@@ -16,16 +17,22 @@ Testing includes both execution and planning. Run automated tests and use the `t
 
 ```
 tests/
-  conftest.py          # shared fixtures (in-memory DB, mock anthropic client)
+  conftest.py          # shared fixtures (in-memory DB, mock OpenRouter client)
   test_store.py        # schema creation, FTS triggers, dedupe behavior
   test_memory.py       # dossier/observation/thesis CRUD, budget enforcement
-  test_theses.py       # thesis lifecycle, ≤7 limit, stale flagging
-  test_triage.py       # triage call structure (mocked)
+  test_theses.py       # thesis lifecycle, ≤7 limit, stale flagging, render_thesis_fragment
+  test_triage.py       # triage call structure (mocked); robust JSON extraction; chunking
   test_agent.py        # context assembly order, dry-run output, memory write transaction
-  test_ingestion.py    # inbox file loading, hash dedupe, RSS parsing
-  test_retrieval.py    # FTS search helpers, recency weighting
+  test_ingestion.py    # inbox file loading, hash dedupe, RSS parsing (undated entries)
+  test_retrieval.py    # FTS search helpers, recency weighting, exclude_ids
   test_report.py       # citation rendering, report assembly
   test_delivery.py     # Telegram send + retry logic (mocked)
+  test_smoke.py        # live end-to-end test (marked `smoke`; excluded from default run)
+```
+
+The `smoke` marker requires a real `OPENROUTER_API_KEY` and live network access. It uses a dedicated `data/smoke-phase2.db` to avoid polluting the development database. Run explicitly with:
+```bash
+PYTHONPATH=src pytest -m smoke
 ```
 
 ## Core Fixtures (`conftest.py`)
@@ -39,36 +46,38 @@ def db():
     conn.close()
 
 @pytest.fixture
-def mock_anthropic(monkeypatch):
-    """Stub client.messages.parse() to return a canned TopicAnalysis."""
+def mock_openrouter(monkeypatch):
+    """Stub client.beta.chat.completions.parse() to return a canned TopicAnalysis.
+    The result must be accessible via response.choices[0].message.parsed (real SDK shape).
+    """
     ...
 ```
 
 ## Running Tests
 
-All tests:
+All unit tests (smoke excluded by default):
 ```bash
-pytest
+PYTHONPATH=src pytest
 ```
 
 One file:
 ```bash
-pytest tests/test_memory.py
+PYTHONPATH=src pytest tests/test_memory.py
 ```
 
 One test:
 ```bash
-pytest tests/test_memory.py::test_budget_truncation -v
+PYTHONPATH=src pytest tests/test_memory.py::test_budget_truncation -v
 ```
 
 Stop on first failure:
 ```bash
-pytest -x
+PYTHONPATH=src pytest -x
 ```
 
 By keyword:
 ```bash
-pytest -k "thesis"
+PYTHONPATH=src pytest -k "thesis"
 ```
 
 ## Validation Workflow
@@ -78,7 +87,7 @@ Default sequence before every commit:
 ```bash
 ruff check . --fix
 ruff format .
-pytest
+PYTHONPATH=src pytest
 ```
 
 ## When to Invoke `test-plan-writer`
