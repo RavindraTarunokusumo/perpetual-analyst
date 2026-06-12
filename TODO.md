@@ -5,62 +5,31 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Session: Phase 1 — Analyst Prototype (2026-06-10)
-
-Phase 1 exit test: *feed it 5 days of hand-picked articles one day at a time; day-5 report must reference day-1 context.*
-
-### Task 1 — Project skeleton + DB layer
-- [ ] Write `pyproject.toml` with all dependencies
-- [ ] Create package layout under `src/perpetual_analyst/`
-- [ ] Implement `store/db.py`: connection, `init_db()` running the full §5 DDL
-- [ ] Add FTS5 `items_fts` and `observations_fts` virtual tables with triggers
-- [ ] Write `store/models.py`: typed dataclasses or Pydantic models for DB rows
-- [ ] Tests: schema creates clean, FTS triggers fire on insert/update/delete
-
-### Task 2 — Memory module
-- [ ] Implement `analyst/memory.py`: CRUD for dossier, observations, theses
-- [ ] Implement `thesis_updates` audit writes in same transaction as thesis change
-- [ ] Implement `build_memory_context(topic_id, token_budget)` — importance/recency sort, hard truncation
-- [ ] Tests with fake in-memory DB data covering budget enforcement
-
-### Task 3 — Analyst schemas + system prompt
-- [ ] Finalize `analyst/schemas.py`: `TopicAnalysis`, `NewObservation`, `ThesisUpdate` Pydantic models
-- [ ] Write `analyst/prompts/analyst_system.md` encoding all 12 behavioral rules from SPEC §7
-- [ ] Ensure `nothing_significant: bool` is in schema and prompt
-
-### Task 4 — Analyst agent call
-- [ ] Implement `analyst/agent.py`: assemble context in caching-friendly order
-- [ ] Wire `client.messages.parse()` with `claude-opus-4-8`, adaptive thinking
-- [ ] Persist all returned memory writes transactionally after successful parse
-- [ ] Implement `--dry-run` flag: print assembled prompt, skip API call
-- [ ] Manual test: one topic, one item, check DB rows written
-
-### Task 5 — Inbox ingestion
-- [ ] Implement `ingestion/inbox.py`: scan `inbox/<topic-slug>/` for .md/.txt/.pdf
-- [ ] Integrate `pypdf` for PDF text extraction
-- [ ] Hash-dedupe on `content_hash` (SHA-256 of text), write `items` rows
-- [ ] Mark ingested files as processed (rename or move to `inbox/<slug>/.processed/`)
-- [ ] End-to-end Phase 1 test: 3 docs → analyst run → report file + memory rows written
-
----
-
-## Session: Phase 2 — Source Ingestion + Retrieval (future)
+## Session: Phase 2 — Source Ingestion + Retrieval (active — spec: docs/superpowers/specs/2026-06-11-phase-2-ingestion-retrieval-design.md)
 
 ### Task 6 — Thesis lifecycle
-- [ ] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire)
-- [ ] Enforce ≤7 active theses per topic (raise on 8th)
-- [ ] Stale-flagging query: any thesis untouched for 30 days flagged to analyst
-- [ ] Render "Thesis updates" fragment with confidence before→after
+- [x] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire) (regression-tested; CRUD lives in memory.py per spec)
+- [x] Enforce ≤7 active theses per topic (raise on 8th)
+- [x] Stale-flagging query: any thesis untouched for 30 days flagged to analyst
+- [x] Render "Thesis updates" fragment with confidence before→after
 
 ### Task 7 — RSS ingestion + triage
-- [ ] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
-- [ ] Implement `analyst/triage.py`: Haiku batch call — score (0–1) + 2-line summary per item
-- [ ] Mark triaged items `status='analyzed'` or `status='skipped'`
+- [x] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
+- [x] Implement `analyst/triage.py`: Haiku batch call — score (0–1) + 2-line summary per item
+- [x] Mark triaged items `status='analyzed'` or `status='skipped'`
 
 ### Task 8 — Retrieval
-- [ ] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
-- [ ] Recency weighting in FTS queries
-- [ ] Wire "related prior context" blocks into agent context assembly
+- [x] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
+- [x] Recency weighting in FTS queries
+- [x] Wire "related prior context" blocks into agent context assembly
+
+### Task 8.5 — Sources/topics config + CLI (extension added 2026-06-11, approved)
+- [x] Extend `config.py`: `TopicConfig`/`SourceConfig` loaders + idempotent `sync_config()` (YAML → DB upsert)
+- [x] CLI: `analyst topic add` and `analyst source add` (append to YAML, re-sync)
+- [x] Replace placeholder YAML entries with real "AI frontier labs" topic + 2-3 RSS feeds
+- [x] Live smoke test (`pytest -m smoke`): real feeds → triage → one analyst run on scratch DB
+- [x] (extension 2026-06-12) Fix Phase 1 schemas: numeric ge/le bounds rejected by provider structured outputs — replaced with clamping validators (found by live smoke test)
+- [x] (extension 2026-06-12) Fix Phase 1 agent.py: response.parsed → response.choices[0].message.parsed (real SDK shape; conftest mock corrected to match — found by live smoke test)
 
 ---
 
@@ -76,7 +45,14 @@ Phase 1 exit test: *feed it 5 days of hand-picked articles one day at a time; da
 - [ ] Implement `delivery/telegram.py`: HTML digest ≤3,000 chars + document attach
 - [ ] Retry logic for undelivered reports (check `delivered_at IS NULL`)
 - [ ] Implement `daily_run.py` orchestrator: ingest→triage→analyze-per-topic→assemble→deliver with per-stage error isolation
-- [ ] Document cron / Windows Task Scheduler entry in `docs/commands.md`
+- [ ] Document cron / Windows Task Scheduler entry in `docs/commands.md` (support both Windows and Linux per 2026-06-11 decision)
+
+Phase 2 final-review handoff notes for the orchestrator (2026-06-12):
+- Extract a shared `select_analyst_items(topic_id, conn, limit)` helper (status='new' AND triage_score >= SKIP_THRESHOLD, scoped per topic via topic_sources) — smoke test currently selects globally, fine for one topic only
+- Call `sync_config` at the start of every run, before fetch
+- Enforce Invariant 1 (one analyst call per topic per day) — check `reports` row for today before run_topic
+- Triage assumes one pass per day; re-triaging never un-skips items
+- A YAML-reactivated source resumes at fetch_error_count=5; consider resetting the counter on reactivation
 
 ---
 

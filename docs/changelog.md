@@ -2,6 +2,17 @@
 
 Record notable behavior, architecture, API, persistence, or workflow changes.
 
+## 2026-06-12 — Phase 2: source ingestion + retrieval
+
+Summary:
+
+- What changed: `ingestion/rss.py` (httpx + feedparser + trafilatura fetcher with error-count deactivation at 5), `analyst/triage.py` (batched triage via `settings.triage.id`, 20 items/chunk, one retry, score < 0.2 → `skipped`), `retrieval/search.py` (FTS5 `related_observations`/`related_items` with ×1.5 recency boost), `analyst/theses.py` (`get_stale_theses` + `render_thesis_fragment`), `config.py` (`sync_config` — YAML is source of truth for topic/source definitions), `cli.py` (`analyst topic add`, `analyst source add`).
+- Behavior: analyst prompt gains an always-present "Stale theses — revisit or retire" section and per-item "Related prior context" blocks. Item lifecycle: `new` → `skipped` (triage) | `analyzed` (marked inside the memory-write transaction).
+- Fixes found by live smoke testing: Pydantic `ge`/`le` bounds removed from analyst output schemas (providers reject `minimum`/`maximum` in structured-output JSON schemas; clamping validators enforce ranges client-side), and parsed output is read from `response.choices[0].message.parsed` (the real SDK shape; the old `response.parsed` never existed).
+- Testing: `pytest` runs the unit suite (smoke excluded by default); `pytest -m smoke` runs a live end-to-end pipeline against real feeds (needs `OPENROUTER_API_KEY`).
+- Migration notes: replace placeholder `config/*.yaml` entries — `sync_config` deactivates DB rows absent from YAML (inbox-type sources exempt).
+- Related PR/commit: phase-2-ingestion-retrieval branch
+
 ## 2026-06-10 — Phase 1: analyst prototype implementation
 
 Summary:

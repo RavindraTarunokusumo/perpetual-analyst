@@ -6,8 +6,17 @@ from unittest.mock import MagicMock
 import pytest
 
 from perpetual_analyst.analyst.schemas import NewObservation, TopicAnalysis
+from perpetual_analyst.config import ModelConfig, Settings
 from perpetual_analyst.store.db import init_db
 from perpetual_analyst.store.models import Item, Topic
+
+
+@pytest.fixture
+def settings() -> Settings:
+    return Settings(
+        analyst=ModelConfig(id="test-analyst", thinking=False),
+        triage=ModelConfig(id="test-triage", thinking=False),
+    )
 
 
 @pytest.fixture
@@ -75,8 +84,14 @@ def mock_openrouter() -> MagicMock:
     usage_mock = MagicMock()
     usage_mock.total_tokens = 1234
 
+    message_mock = MagicMock()
+    message_mock.parsed = canned_result
+
+    choice_mock = MagicMock()
+    choice_mock.message = message_mock
+
     response_mock = MagicMock()
-    response_mock.parsed = canned_result
+    response_mock.choices = [choice_mock]
     response_mock.usage = usage_mock
 
     client_mock = MagicMock()

@@ -28,22 +28,25 @@ The guiding rule: **the Analyst Agent is the product; everything else is plumbin
    └─────────────────────────────────────────────┘
              ▲
    ┌─────────┴───────────┐
-   │ retrieval/          │  FTS5 keyword search (V1)
-   │  search.py          │  optional: embeddings.py (sqlite-vec) Phase 2+
+   │ retrieval/          │  FTS5 keyword search + BM25 recency boost
+   │  search.py          │  optional: embeddings.py (sqlite-vec) only if FTS proves insufficient
    └─────────────────────┘
 ```
 
 ## Data Flow
 
 ```
-sources → fetch → extract/dedupe → items
+sources → fetch → extract/dedupe → items (status: new)
        → triage (Haiku: relevance score + 2-line summary per item)
-       → analyst run (Opus: reasoning over triaged items + memory context)
+           score < 0.2 → status: skipped
+           score ≥ 0.2 → analyst run (Opus: reasoning over triaged items + memory context)
        → TopicAnalysis (report section + memory writes)
-       → memory writes (observations, thesis updates, dossier edit)
+       → memory writes (observations, thesis updates, dossier edit, items → analyzed) [one transaction]
        → report assembly (multi-topic merge + exec summary)
        → Telegram (HTML digest ≤3,000 chars + .md file attachment)
 ```
+
+Item status lifecycle: `new` → (`skipped` by triage | remains `new`) → `analyzed` by `run_topic` (inside the memory-write transaction).
 
 The triage step exists to protect the analyst's context: the expensive model sees 10–30 distilled items per topic, not 200 raw articles.
 
@@ -60,11 +63,11 @@ The only module that calls the Anthropic API for reasoning (except `triage.py` w
 
 | File | Responsibility |
 |---|---|
-| `agent.py` | `make_client() -> openai.OpenAI` (OpenRouter); `assemble_context(topic, items, conn, prompt, settings) -> list[dict]`; `run_topic(topic, items, conn, client, settings, dry_run=False) -> TopicAnalysis \| None` — calls `client.beta.chat.completions.parse()`, persists memory writes transactionally |
+| `agent.py` | `make_client() -> openai.OpenAI` (OpenRouter); `assemble_context(topic, items, conn, prompt, settings) -> list[dict]` — includes stale-theses block and per-item related-context; `run_topic(topic, items, conn, client, settings, dry_run=False) -> TopicAnalysis \| None` — calls `client.beta.chat.completions.parse()`, reads result from `response.choices[0].message.parsed`, persists memory writes and marks items `analyzed` in one transaction |
 | `memory.py` | CRUD for dossier/observations/theses; `build_memory_context(topic_id, conn, token_budget=3000)` returning char-budget-truncated prompt text; `apply_all_memory_writes(topic_id, result, conn)` atomic bundle |
 | `theses.py` | Apply `ThesisUpdate`s (create/revise/retire); enforce ≤7 active; stale-flagging; render thesis fragment |
 | `triage.py` | Triage model batch call — score (0–1) + 2-line summary per item; mark `status` on items |
-| `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate` |
+| `schemas.py` | Pydantic output models: `TopicAnalysis`, `NewObservation`, `ThesisUpdate`; numeric fields use clamping validators (`@field_validator`) instead of `ge`/`le` bounds — provider structured-output schemas reject `minimum`/`maximum` JSON Schema keywords |
 | `prompts/analyst_system.md` | Finalized 12-rule system prompt with context template and JSON output schema |
 | `prompts/weekly_review.md` | Self-review / memory compaction prompt |
 | `prompts/digest.md` | Telegram digest generation prompt |
@@ -75,8 +78,13 @@ The only module that calls the Anthropic API for reasoning (except `triage.py` w
 system prompt → topic brief → dossier → active theses (+ last update each)
 → last 7 days digest lines → yesterday's topic section
 → active observations (importance-sorted, budgeted)
-→ today's triaged items with related-prior-context attached
+→ stale theses (≥30 days untouched — "revisit or retire" block)
+→ today's triaged items, each with related prior context (top-5 obs + top-3 items via FTS5)
 ```
+
+### `config.py`
+
+`TopicConfig` / `SourceConfig` dataclasses; `load_topics(path)` / `load_sources(path)` (missing-file tolerant); `sync_config(conn, topics, sources)` — idempotent upsert. YAML is the source of truth for slug/name/brief/url; runtime columns (`last_fetched_at`, `fetch_error_count`) are DB-only. YAML-absent rows are deactivated; an empty list deactivates all of that kind. `inbox`-type sources are exempt from deactivation on absence.
 
 ### `ingestion/`
 
@@ -91,7 +99,7 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 
 | File | Responsibility |
 |---|---|
-| `search.py` | `related_observations(text, topic, k)` and `related_items(text, topic, k)` via FTS5, recency-weighted. **No vector search in V1.** |
+| `search.py` | `related_observations(text, topic_id, k, exclude_ids)` and `related_items(text, topic_id, k, exclude_ids)` — FTS5 BM25 with ×1.5 recency boost (30d obs / 14d items), term-quoting, topic isolation. No vector search. |
 
 ### `store/`
 
@@ -135,7 +143,7 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 | LLM (triage) | `deepseek/deepseek-v4-flash`, no thinking |
 | Model config | `config/settings.yaml` → `Settings.analyst` / `Settings.triage` (`ModelConfig(id, thinking)`) |
 | Storage | SQLite + FTS5, single file `data/analyst.db` |
-| Embeddings (Phase 2+) | sqlite-vec + Voyage AI `voyage-3.5` — only if FTS proves insufficient |
+| Embeddings | sqlite-vec + Voyage AI `voyage-3.5` — deferred; add only if FTS5 retrieval proves insufficient |
 | Fetching | feedparser, httpx, trafilatura, pypdf |
 | Telegram | python-telegram-bot (send-only V1) |
 | Scheduling | OS cron / Windows Task Scheduler |

@@ -1,14 +1,22 @@
 # config/sources.yaml
 # Managed via `analyst source add` or edited directly.
-# Sources can be shared across multiple topics.
 
 sources:
-  - name: "Example RSS Feed"
+  - name: "arXiv cs.AI"
     type: rss
-    url: "https://example.com/feed.xml"
+    url: "https://rss.arxiv.org/rss/cs.AI"
     active: true
     topics:
-      - example-topic
-
-# Source types: rss | inbox | web
-# inbox sources are implicit — drop files into inbox/<topic-slug>/
+      - ai-frontier-labs
+  - name: "Simon Willison"
+    type: rss
+    url: "https://simonwillison.net/atom/everything/"
+    active: true
+    topics:
+      - ai-frontier-labs
+  - name: "OpenAI News"
+    type: rss
+    url: "https://openai.com/news/rss.xml"
+    active: true
+    topics:
+      - ai-frontier-labs

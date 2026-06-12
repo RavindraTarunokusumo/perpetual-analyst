@@ -47,6 +47,23 @@ def apply_all_memory_writes(topic_id: int, result: TopicAnalysis, conn: sqlite3.
 
 If any write fails, `with conn:` rolls back the entire bundle. Never write observations, thesis updates, or dossier edits outside of this function.
 
+## Clamping Validator Pattern
+
+Provider structured-output schemas reject Pydantic `ge`/`le` field constraints because these emit `minimum`/`maximum` in JSON Schema, which OpenRouter's structured output endpoint refuses. Use `@field_validator` with clamping instead:
+
+```python
+@field_validator("confidence", mode="before")
+@classmethod
+def clamp_confidence(cls, v: float) -> float:
+    return max(0.0, min(1.0, float(v)))
+```
+
+Apply this to any numeric field sent through `client.beta.chat.completions.parse()`.
+
+## Config Sync Pattern
+
+YAML files (`config/topics.yaml`, `config/sources.yaml`) are the source of truth for topic/source definitions. `sync_config(conn, topics, sources)` performs an idempotent upsert: rows present in YAML are created-or-updated; rows absent from YAML are deactivated. Runtime-only columns (`last_fetched_at`, `fetch_error_count`) are never touched by `sync_config`. `inbox`-type sources are exempt from YAML-absence deactivation.
+
 ## Structured Output Pattern
 
 Use `client.beta.chat.completions.parse()` (OpenRouter/openai SDK) with a Pydantic model for all analyst calls. Never parse JSON manually from message text. Inject adaptive thinking via `extra_body` when `settings.analyst.thinking` is true.
@@ -59,7 +76,7 @@ response = client.beta.chat.completions.parse(
     response_format=TopicAnalysis,
     extra_body=extra,
 )
-result: TopicAnalysis = response.parsed
+result: TopicAnalysis = response.choices[0].message.parsed  # real SDK shape
 ```
 
 ## Triage-Before-Analyst Pattern

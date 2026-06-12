@@ -1,11 +1,118 @@
-"""Haiku relevance triage pass — score + 2-line summary per item. See SPEC §4."""
+"""Relevance triage pass via the configured cheap model (settings.triage.id). See SPEC §4.
 
-# TODO (Task 7): Implement
-# - triage_items(items: list[Item], topic_brief: str, client) -> list[TriagedItem]
-#   - batch call to claude-haiku-4-5
-#   - returns relevance score (0–1) and 2-line summary per item
-#   - items with score < 0.2 are marked status='skipped'
-#   - items with score >= 0.2 are marked status='analyzed' after analyst run
-#
-# The triage pass exists to protect the analyst's context window:
-# the expensive Opus model sees 10–30 distilled items, not 200 raw articles.
+Protects the analyst's context window: the expensive model sees 10-30 distilled
+items, not 200 raw articles. This is a function, not an agent (Invariant 1).
+"""
+
+from __future__ import annotations
+
+import re
+import sqlite3
+
+import openai
+from pydantic import BaseModel, Field, TypeAdapter
+
+from perpetual_analyst.config import Settings
+from perpetual_analyst.store.models import Item
+
+CHUNK_SIZE = 20
+SKIP_THRESHOLD = 0.2
+_EXCERPT_CHARS = 1500
+
+_PROMPT_TEMPLATE = """You are a relevance triage filter for an intelligence analyst.
+
+Topic brief:
+{brief}
+
+Score each item below for relevance to the topic brief (0.0 = irrelevant,
+1.0 = essential reading) and write a 2-line summary of each.
+
+Items:
+{items}
+
+Return ONLY a JSON array, one object per item, no other text:
+[{{"item_id": <int>, "score": <float 0-1>, "summary": "<2-line summary>"}}]"""
+
+
+class TriageResult(BaseModel):
+    item_id: int
+    score: float = Field(ge=0.0, le=1.0)
+    summary: str
+
+
+_RESULTS = TypeAdapter(list[TriageResult])
+_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$")
+
+
+def _strip_fences(text: str) -> str:
+    """Extract the JSON array from a reply that may carry prose or code fences."""
+    text = text.strip()
+    start = text.find("[")
+    end = text.rfind("]")
+    if start != -1 and end > start:
+        return text[start : end + 1]
+    return _FENCE_RE.sub("", text)
+
+
+def _format_items(items: list[Item]) -> str:
+    blocks = []
+    for item in items:
+        excerpt = (item.raw_text or "")[:_EXCERPT_CHARS]
+        blocks.append(f"item_id={item.id}\ntitle: {item.title or '(untitled)'}\n{excerpt}")
+    return "\n\n".join(blocks)
+
+
+def _triage_chunk(
+    chunk: list[Item],
+    topic_brief: str,
+    client: openai.OpenAI,
+    settings: Settings,
+) -> list[TriageResult]:
+    prompt = _PROMPT_TEMPLATE.format(brief=topic_brief, items=_format_items(chunk))
+    for _ in range(2):
+        response = client.chat.completions.create(
+            model=settings.triage.id,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.choices[0].message.content or ""
+        try:
+            return _RESULTS.validate_json(_strip_fences(text))
+        except Exception as exc:
+            prompt = (
+                f"{prompt}\n\nYour previous reply failed validation ({str(exc)[:200]}). "
+                "Return ONLY the JSON array."
+            )
+    print(f"[triage] chunk of {len(chunk)} items failed validation twice; left untriaged")
+    return []
+
+
+def triage_items(
+    items: list[Item],
+    topic_brief: str,
+    client: openai.OpenAI,
+    settings: Settings,
+    conn: sqlite3.Connection,
+) -> list[TriageResult]:
+    """Score + summarize items in chunks; writes triage columns and skip-status to DB.
+
+    Returns all validated results, including those marked skipped — callers select
+    analyst-bound items from the DB by status/score, not from this return value.
+    """
+    known_ids = {item.id for item in items}
+    handled: set[int] = set()
+    results: list[TriageResult] = []
+    for start in range(0, len(items), CHUNK_SIZE):
+        chunk = items[start : start + CHUNK_SIZE]
+        for result in _triage_chunk(chunk, topic_brief, client, settings):
+            if result.item_id not in known_ids or result.item_id in handled:
+                continue
+            handled.add(result.item_id)
+            conn.execute(
+                "UPDATE items SET triage_score = ?, triage_summary = ?,"
+                " status = CASE WHEN ? < ? THEN 'skipped' ELSE status END"
+                " WHERE id = ? AND status = 'new'",
+                (result.score, result.summary, result.score, SKIP_THRESHOLD, result.item_id),
+            )
+            results.append(result)
+        conn.commit()
+    return results

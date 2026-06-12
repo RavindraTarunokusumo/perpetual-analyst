@@ -44,7 +44,7 @@ RSS feeds, inbox folders, web pages.
 | `name` | TEXT | |
 | `active` | INTEGER | |
 | `last_fetched_at` | TEXT | |
-| `fetch_error_count` | INTEGER | |
+| `fetch_error_count` | INTEGER | Incremented on each fetch failure; source deactivated (`active=0`) at 5; reset to 0 on first success after recovery |
 | `quality_score` | REAL | Phase 5: analyst-rated signal quality |
 | `created_at` | TEXT | |
 
@@ -75,7 +75,7 @@ Fetched documents. The analyst's raw material.
 | `raw_text` | TEXT | Clean extracted text |
 | `triage_summary` | TEXT | Haiku 2-liner |
 | `triage_score` | REAL | 0–1 relevance from triage |
-| `status` | TEXT | `new` \| `analyzed` \| `skipped` |
+| `status` | TEXT | `new` (freshly inserted) → `skipped` (triage score < 0.2) or → `analyzed` (written by `run_topic` inside the memory-write transaction) |
 
 **FTS virtual table:**
 ```sql
@@ -196,8 +196,10 @@ Stored verbatim. Is part of tomorrow's analyst context.
 | State | Module that owns writes |
 |---|---|
 | `items` inserts | `ingestion/` modules via `store.db.insert_item()` — never bare INSERT |
-| `items.triage_*`, `items.status` | `analyst/triage.py` |
+| `items.triage_*`, `items.status='skipped'` | `analyst/triage.py` |
+| `items.status='analyzed'` | `analyst/agent.py` `run_topic()` — written inside `apply_all_memory_writes()` transaction |
 | `dossiers`, `observations`, `theses`, `thesis_updates` | `analyst/memory.py` via `apply_all_memory_writes()` — single `with conn:` transaction after agent call |
+| `topics`, `sources`, `topic_sources` definitions | `config.py` `sync_config()` — YAML is source of truth; runtime columns (`last_fetched_at`, `fetch_error_count`) are DB-only |
 | `reports` | `report/assemble.py` |
 | `reports.delivered_at` | `delivery/telegram.py` |
 | `sources.last_fetched_at`, `sources.fetch_error_count` | `ingestion/rss.py` |
