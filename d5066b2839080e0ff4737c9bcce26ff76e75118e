@@ -1,0 +1,5 @@
+Task: Mark items analyzed (TODO 7.3 complete)
+Summary: run_topic stamps status=analyzed on the batch after memory writes land; dry-run leaves items untouched
+Docs: N/A
+TODO: Task 7 sub-item 3 crossed (Task 7 fully done)
+Validation: 2 new tests; full suite passing; pre-commit green
