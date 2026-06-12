@@ -3,19 +3,8 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock
 
-import pytest
-
 from perpetual_analyst.analyst.triage import CHUNK_SIZE, triage_items
-from perpetual_analyst.config import ModelConfig, Settings
 from perpetual_analyst.store.models import Item
-
-
-@pytest.fixture
-def settings():
-    return Settings(
-        analyst=ModelConfig(id="test-analyst", thinking=False),
-        triage=ModelConfig(id="test-triage", thinking=False),
-    )
 
 
 def _client_returning(*payloads: str) -> MagicMock:

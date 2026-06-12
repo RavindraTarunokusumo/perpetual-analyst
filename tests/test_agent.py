@@ -11,14 +11,6 @@ from perpetual_analyst.config import ModelConfig, Settings
 from perpetual_analyst.store.models import Item, Topic
 
 
-@pytest.fixture
-def settings() -> Settings:
-    return Settings(
-        analyst=ModelConfig(id="anthropic/claude-opus-4-8", thinking=True),
-        triage=ModelConfig(id="deepseek/deepseek-v4-flash", thinking=False),
-    )
-
-
 def test_load_system_prompt_returns_string() -> None:
     prompt = load_system_prompt()
     assert isinstance(prompt, str)

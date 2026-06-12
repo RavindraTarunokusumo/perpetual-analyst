@@ -6,8 +6,17 @@ from unittest.mock import MagicMock
 import pytest
 
 from perpetual_analyst.analyst.schemas import NewObservation, TopicAnalysis
+from perpetual_analyst.config import ModelConfig, Settings
 from perpetual_analyst.store.db import init_db
 from perpetual_analyst.store.models import Item, Topic
+
+
+@pytest.fixture
+def settings() -> Settings:
+    return Settings(
+        analyst=ModelConfig(id="test-analyst", thinking=False),
+        triage=ModelConfig(id="test-triage", thinking=False),
+    )
 
 
 @pytest.fixture

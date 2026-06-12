@@ -35,6 +35,16 @@ def _sync(db_path: str) -> None:
         conn.close()
 
 
+def _read_yaml(path: str) -> dict:
+    return yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+
+
+def _write_yaml(path: str, data: dict) -> None:
+    Path(path).write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
+
+
 @topic_app.command("add")
 def topic_add(
     slug: str,
@@ -43,15 +53,14 @@ def topic_add(
     db_path: str = typer.Option("data/analyst.db", help="SQLite DB path"),
 ) -> None:
     """Add a topic to config/topics.yaml and sync to the DB."""
-    path = Path(TOPICS_PATH)
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = _read_yaml(TOPICS_PATH)
     topics = data.get("topics") or []
     if any(entry["slug"] == slug for entry in topics):
         typer.echo(f"topic {slug!r} already exists")
         raise typer.Exit(1)
     topics.append({"slug": slug, "name": name, "brief": brief, "active": True})
     data["topics"] = topics
-    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    _write_yaml(TOPICS_PATH, data)
     _sync(db_path)
     typer.echo(f"added topic {slug!r}")
 
@@ -65,8 +74,7 @@ def source_add(
     db_path: str = typer.Option("data/analyst.db", help="SQLite DB path"),
 ) -> None:
     """Add a source to config/sources.yaml, link it to a topic, and sync to the DB."""
-    path = Path(SOURCES_PATH)
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = _read_yaml(SOURCES_PATH)
     sources = data.get("sources") or []
     for entry in sources:
         if (url and entry.get("url") == url) or (not url and entry.get("name") == name):
@@ -76,7 +84,7 @@ def source_add(
     else:
         sources.append({"name": name, "type": type, "url": url, "active": True, "topics": [topic]})
     data["sources"] = sources
-    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    _write_yaml(SOURCES_PATH, data)
     try:
         _sync(db_path)
     except ValueError as exc:
