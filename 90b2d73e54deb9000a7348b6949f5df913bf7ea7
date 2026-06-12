@@ -1,0 +1,5 @@
+Task: daily_run orchestrator (TODO 10.3)
+Summary: sync -> ingest -> triage -> analyze -> assemble -> deliver pipeline with per-topic/per-stage isolation, per-day Invariant 1 guard, dry-run mode (zero API calls), analyst run CLI wired
+Docs: N/A
+TODO: Task 10 sub-item 3 crossed
+Validation: 5 orchestration tests; full suite passing (128 passed, 1 deselected); manual dry-run attempted against real feeds — feed extraction ran >14 min (arXiv cs.AI trafilatura timeout); DB was actively receiving data (WAL grew to 12 MB) confirming pipeline flows; pre-commit green
