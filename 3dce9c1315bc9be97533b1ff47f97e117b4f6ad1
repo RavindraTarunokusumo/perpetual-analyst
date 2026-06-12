@@ -1,0 +1,5 @@
+Task: Schema bounds fix (smoke-test finding)
+Summary: Anthropic via OpenRouter rejects minimum/maximum on structured-output schemas; ge/le removed from importance/confidence, clamping field_validators enforce ranges client-side; schema regression test added
+Docs: N/A
+TODO: Phase 2 extension logged
+Validation: schema JSON asserted bound-free; clamp tests; full suite passing; pre-commit green
