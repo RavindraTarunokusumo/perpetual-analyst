@@ -157,14 +157,5 @@ def run_topic(
         f"[agent] topic={topic.slug} tokens={used} nothing_significant={result.nothing_significant}"
     )
 
-    apply_all_memory_writes(topic.id, result, conn)
-
-    if items:
-        placeholders = ",".join("?" for _ in items)
-        conn.execute(
-            f"UPDATE items SET status = 'analyzed' WHERE id IN ({placeholders})",
-            [item.id for item in items],
-        )
-        conn.commit()
-
+    apply_all_memory_writes(topic.id, result, conn, analyzed_item_ids=[i.id for i in items])
     return result

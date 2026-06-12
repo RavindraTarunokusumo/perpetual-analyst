@@ -198,3 +198,21 @@ def test_dry_run_does_not_mark_items(db, sample_topic, sample_items, settings, m
     run_topic(sample_topic, sample_items, db, mock_openrouter, settings, dry_run=True)
     statuses = [r["status"] for r in db.execute("SELECT status FROM items").fetchall()]
     assert all(s == "new" for s in statuses)
+
+
+def test_memory_writes_and_analyzed_marking_are_atomic(
+    db, sample_topic, sample_items, settings, mock_openrouter, monkeypatch
+):
+    from perpetual_analyst.analyst import memory
+
+    def _boom(*args, **kwargs):
+        raise sqlite3.OperationalError("simulated failure")
+
+    monkeypatch.setattr(memory, "update_dossier", _boom)
+    mock_openrouter.beta.chat.completions.parse.return_value.parsed.dossier_edits = "new dossier"
+
+    with pytest.raises(sqlite3.OperationalError):
+        run_topic(sample_topic, sample_items, db, mock_openrouter, settings)
+
+    assert db.execute("SELECT COUNT(*) FROM observations").fetchone()[0] == 0
+    assert all(r["status"] == "new" for r in db.execute("SELECT status FROM items").fetchall())

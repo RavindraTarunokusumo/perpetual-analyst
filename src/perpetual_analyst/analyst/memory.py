@@ -115,7 +115,12 @@ def build_memory_context(topic_id: int, conn: sqlite3.Connection, token_budget: 
     return "\n".join(parts)
 
 
-def apply_all_memory_writes(topic_id: int, result: TopicAnalysis, conn: sqlite3.Connection) -> None:
+def apply_all_memory_writes(
+    topic_id: int,
+    result: TopicAnalysis,
+    conn: sqlite3.Connection,
+    analyzed_item_ids: list[int] | None = None,
+) -> None:
     with conn:
         for obs in result.new_observations:
             insert_observation(topic_id, obs, conn)
@@ -123,3 +128,9 @@ def apply_all_memory_writes(topic_id: int, result: TopicAnalysis, conn: sqlite3.
             apply_thesis_update(update, topic_id, conn)
         if result.dossier_edits is not None:
             update_dossier(topic_id, result.dossier_edits, conn)
+        if analyzed_item_ids:
+            placeholders = ",".join("?" for _ in analyzed_item_ids)
+            conn.execute(
+                f"UPDATE items SET status = 'analyzed' WHERE id IN ({placeholders})",
+                analyzed_item_ids,
+            )
