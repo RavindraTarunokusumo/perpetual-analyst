@@ -1,0 +1,5 @@
+Task: Telegram delivery (TODO 10.1 + 10.2)
+Summary: send_report (HTML digest truncated at paragraph boundary + md attachment, delivered_at stamp) and retry_undelivered backlog sweep; env-gated skip when credentials absent; exception type-only logging (Invariant 7)
+Docs: N/A
+TODO: Task 10 sub-items 1-2 crossed
+Validation: 5 new tests, all mocked; full suite passing; pre-commit green
