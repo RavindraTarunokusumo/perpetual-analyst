@@ -2,6 +2,40 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-06-12 — Phase 2 implementation session
+
+### What worked well
+
+**Live smoke testing as a first-class plan task.** Two latent Phase 1 bugs (provider rejecting `minimum`/`maximum` in structured-output schemas; `response.parsed` not existing on the real SDK object) were invisible to a 100-test mocked suite and surfaced only on a real API call. Mocks that fabricate the response shape validate the mock, not the contract — when correcting such a bug, fix the conftest mock in the same commit so the suite pins the real shape.
+
+**Empirical verification before applying review findings.** Three reviewer claims were rejected with reproductions (a `time.strftime` timezone claim disproven with a 5-line script; a "double period" formatting claim disproven by an exact-line assertion; a ×0.5-vs-×1.5 boost direction confirmed against bm25 sign semantics). Each rejection was cheaper than the wrong "fix."
+
+**Plan-with-complete-code + Sonnet implementers.** Prescribing full test/implementation code in the plan made per-task subagents fast and reviewable. Implementers caught two genuine plan bugs by running the tests (`NOT IN (NULL)` three-valued-logic row-drop; a test fixture producing identical content hashes that dedupe collapsed) — evidence the TDD steps protect against the planner too.
+
+**Substitute Opus PR review when Copilot is down.** The Opus reviewer reproduced (not speculated) two real bugs the suite couldn't see: a hallucinated `thesis_id` FK-aborting the whole memory transaction, and triage demoting `analyzed` items. Reproduce-before-report should be the bar for all review subagents.
+
+### What to improve
+
+**Long-running commands die with the dispatching subagent.** A 40-minute live pytest launched in a subagent's foreground shell was killed when the subagent's turn ended (the run survived to feed-fetch only). Long-running verification must be launched by the orchestrator with `run_in_background` (log to a file with an appended `EXIT: $LASTEXITCODE` marker), never inside a subagent.
+
+**Subagents hit the Claude session limit mid-workflow.** Four parallel /simplify reviewers all died instantly on a session limit; the inline fallback (doing the 4-angle review in the main context) worked fine. When dispatches start failing with limit errors, switch to inline rather than retrying.
+
+**`npx gitnexus analyze` inside a worktree rewrites AGENTS.md/CLAUDE.md.** A subagent's reindex registered the worktree as a separate repo ("phase-2") and rewrote the GitNexus block in both files. Tell subagents not to run gitnexus analyze in worktrees; keep the dirtied files unstaged (specific staging protected every commit).
+
+**OpenRouter 402 on max_tokens reservation.** The analyst call reserves ~65K output tokens; a smoke run fails with 402 if the account balance can't cover the reservation even when actual usage would be far less. Check credit headroom before scheduling live runs.
+
+**Serial trafilatura extraction dominates smoke wall time.** ~40 minutes for 363 arXiv entries (per-article page fetches). For Phase 3+: consider a first-fetch entry cap or concurrent extraction before scaling topics.
+
+**`gh pr merge` + local unpushed state.** Local main carried an unpushed commit that reached origin only via the PR branch; the post-merge `git pull` then collided with pre-existing dirty test files (stash, pull, proceed). Check `git status` in the MAIN working dir before merging, not just the worktree.
+
+### Patterns established this session
+
+- Provider-bound Pydantic models must not carry `ge`/`le` (serialize to rejected `minimum`/`maximum`) — use clamping `field_validator`s
+- bm25 scores are negative: recency boosts multiply by >1, never <1
+- `sync_config` owns topic/source definitions (YAML → DB); runtime columns are DB-only; inbox sources exempt from deactivation
+- Item status transitions are guarded: triage writes only `status='new'` rows; analyzed-marking lives inside `apply_all_memory_writes`
+- LLM-provided IDs (item_id, thesis_id) are validated against known sets before any DB write
+
 ## 2026-06-10 — Phase 1 implementation session
 
 ### What worked well

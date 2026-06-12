@@ -5,35 +5,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Session: Phase 2 — Source Ingestion + Retrieval (active — spec: docs/superpowers/specs/2026-06-11-phase-2-ingestion-retrieval-design.md)
-
-### Task 6 — Thesis lifecycle
-- [x] Implement `analyst/theses.py`: apply `ThesisUpdate`s (create/revise/retire) (regression-tested; CRUD lives in memory.py per spec)
-- [x] Enforce ≤7 active theses per topic (raise on 8th)
-- [x] Stale-flagging query: any thesis untouched for 30 days flagged to analyst
-- [x] Render "Thesis updates" fragment with confidence before→after
-
-### Task 7 — RSS ingestion + triage
-- [x] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
-- [x] Implement `analyst/triage.py`: Haiku batch call — score (0–1) + 2-line summary per item
-- [x] Mark triaged items `status='analyzed'` or `status='skipped'`
-
-### Task 8 — Retrieval
-- [x] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
-- [x] Recency weighting in FTS queries
-- [x] Wire "related prior context" blocks into agent context assembly
-
-### Task 8.5 — Sources/topics config + CLI (extension added 2026-06-11, approved)
-- [x] Extend `config.py`: `TopicConfig`/`SourceConfig` loaders + idempotent `sync_config()` (YAML → DB upsert)
-- [x] CLI: `analyst topic add` and `analyst source add` (append to YAML, re-sync)
-- [x] Replace placeholder YAML entries with real "AI frontier labs" topic + 2-3 RSS feeds
-- [x] Live smoke test (`pytest -m smoke`): real feeds → triage → one analyst run on scratch DB
-- [x] (extension 2026-06-12) Fix Phase 1 schemas: numeric ge/le bounds rejected by provider structured outputs — replaced with clamping validators (found by live smoke test)
-- [x] (extension 2026-06-12) Fix Phase 1 agent.py: response.parsed → response.choices[0].message.parsed (real SDK shape; conftest mock corrected to match — found by live smoke test)
-
----
-
-## Session: Phase 3 — Automated Delivery (future)
+## Session: Phase 3 — Automated Delivery (active)
 
 ### Task 9 — Report assembly + rendering
 - [ ] Implement `report/assemble.py`: merge topic sections, build exec summary
