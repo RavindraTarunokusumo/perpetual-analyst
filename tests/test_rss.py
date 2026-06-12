@@ -115,3 +115,23 @@ def test_success_resets_error_count(db, rss_source, feed_ok):
     rss.fetch_rss(rss_source, db)
     src = db.execute("SELECT * FROM sources WHERE id = ?", (rss_source.id,)).fetchone()
     assert src["fetch_error_count"] == 0
+
+
+UNDATED_XML = b"""<?xml version="1.0"?>
+<rss version="2.0"><channel><title>Test Feed</title>
+<item><title>No Date Post</title><link>https://example.com/nodate</link>
+<description>Summary undated</description></item>
+</channel></rss>"""
+
+
+def test_undated_entry_always_taken_and_deduped(db, rss_source, monkeypatch):
+    monkeypatch.setattr(rss.httpx, "get", lambda *a, **kw: _FakeResponse(UNDATED_XML))
+    monkeypatch.setattr(rss.trafilatura, "fetch_url", lambda url: None)
+    assert rss.fetch_rss(rss_source, db) == 1
+    # undated entries pass the since-last-fetch filter on refetch; dedupe catches them
+    src = Source.from_row(
+        db.execute("SELECT * FROM sources WHERE id = ?", (rss_source.id,)).fetchone()
+    )
+    assert rss.fetch_rss(src, db) == 0
+    row = db.execute("SELECT published_at FROM items").fetchone()
+    assert row["published_at"] is None

@@ -17,7 +17,7 @@ MAX_FETCH_ERRORS = 5
 _TIMEOUT_SECONDS = 30.0
 
 
-def _entry_timestamp(entry) -> str | None:
+def _entry_timestamp(entry: feedparser.FeedParserDict) -> str | None:
     for attr in ("published_parsed", "updated_parsed"):
         parsed = getattr(entry, attr, None)
         if parsed:
@@ -33,7 +33,7 @@ def _extract_full_text(url: str | None) -> str | None:
         if downloaded:
             return trafilatura.extract(downloaded)
     except Exception:
-        return None
+        pass
     return None
 
 
@@ -46,7 +46,6 @@ def _record_fetch_error(source_id: int, conn: sqlite3.Connection) -> None:
         "UPDATE sources SET active = 0 WHERE id = ? AND fetch_error_count >= ?",
         (source_id, MAX_FETCH_ERRORS),
     )
-    conn.commit()
 
 
 def fetch_rss(source: Source, conn: sqlite3.Connection) -> int:
@@ -63,6 +62,7 @@ def fetch_rss(source: Source, conn: sqlite3.Connection) -> int:
             raise ValueError(f"unparseable feed: {source.url}")
     except Exception:
         _record_fetch_error(source.id, conn)
+        conn.commit()
         return 0
 
     inserted = 0
