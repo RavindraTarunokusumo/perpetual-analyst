@@ -158,4 +158,13 @@ def run_topic(
     )
 
     apply_all_memory_writes(topic.id, result, conn)
+
+    if items:
+        placeholders = ",".join("?" for _ in items)
+        conn.execute(
+            f"UPDATE items SET status = 'analyzed' WHERE id IN ({placeholders})",
+            [item.id for item in items],
+        )
+        conn.commit()
+
     return result

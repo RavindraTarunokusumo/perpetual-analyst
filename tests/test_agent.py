@@ -179,3 +179,22 @@ def test_assemble_context_no_related_context_when_nothing_matches(
 ):
     messages = assemble_context(sample_topic, sample_items, db, "system prompt", settings)
     assert "Related prior context:" not in messages[1]["content"]
+
+
+def test_run_topic_marks_items_analyzed(db, sample_topic, sample_items, settings, mock_openrouter):
+    result = run_topic(sample_topic, sample_items, db, mock_openrouter, settings)
+    assert result is not None
+    statuses = [
+        r["status"]
+        for r in db.execute(
+            "SELECT status FROM items WHERE id IN (?, ?, ?)",
+            [i.id for i in sample_items],
+        ).fetchall()
+    ]
+    assert statuses == ["analyzed", "analyzed", "analyzed"]
+
+
+def test_dry_run_does_not_mark_items(db, sample_topic, sample_items, settings, mock_openrouter):
+    run_topic(sample_topic, sample_items, db, mock_openrouter, settings, dry_run=True)
+    statuses = [r["status"] for r in db.execute("SELECT status FROM items").fetchall()]
+    assert all(s == "new" for s in statuses)

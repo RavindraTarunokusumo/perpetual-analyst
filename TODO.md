@@ -16,7 +16,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 ### Task 7 — RSS ingestion + triage
 - [x] Implement `ingestion/rss.py`: feedparser + trafilatura, since-last-fetch, error counting
 - [x] Implement `analyst/triage.py`: Haiku batch call — score (0–1) + 2-line summary per item
-- [ ] Mark triaged items `status='analyzed'` or `status='skipped'` (skipped done; analyzed marking lands with run_topic task)
+- [x] Mark triaged items `status='analyzed'` or `status='skipped'`
 
 ### Task 8 — Retrieval
 - [x] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
