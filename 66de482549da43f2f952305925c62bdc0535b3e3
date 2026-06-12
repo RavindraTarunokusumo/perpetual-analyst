@@ -1,0 +1,5 @@
+Task: Phase 2 post-PR wrap-up
+Summary: Archived Phase 2 session with per-commit SHAs and merge ID 43f6445; recorded workflow insights (live smoke value, subagent lifetime/limits, gitnexus-in-worktree, 402 reservation); TODO trimmed to Phase 3+
+Docs: docs/iterations/archive/2026-06-12-phase-2-ingestion-retrieval.md, docs/insights.md
+TODO: Phase 2 session removed (archived); Phase 3 marked active
+Validation: docs-only
