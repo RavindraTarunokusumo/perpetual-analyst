@@ -1,0 +1,7 @@
+@
+Task: Digest schema + prompt (TODO 9.3)
+Summary: DigestOutput (two plain string fields, provider-safe - no minimum/maximum in JSON schema) and prompts/digest.md encoding SPEC s10 voice rules
+Docs: N/A
+TODO: Task 9 sub-item 3 crossed
+Validation: schema bound-free asserted; full suite passing; pre-commit green
+@
