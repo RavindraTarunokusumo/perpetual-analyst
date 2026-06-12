@@ -8,6 +8,7 @@ kills the rest of the run. Exit 0 even on partial success (SPEC §12 Phase 3).
 from __future__ import annotations
 
 import sqlite3
+import sys
 
 import openai
 from dotenv import load_dotenv
@@ -117,7 +118,14 @@ def run_daily(
             print(f"[daily] delivery stage failed: {exc}")
 
 
+def force_utf8_stdout() -> None:
+    """Piped/scheduled output on Windows defaults to cp1252; prompts contain unicode."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> None:
+    force_utf8_stdout()
     load_dotenv()
     conn = init_db()
     try:

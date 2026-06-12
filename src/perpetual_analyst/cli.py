@@ -102,8 +102,9 @@ def run(
     """Run the daily analyst pipeline."""
     from perpetual_analyst.analyst.agent import make_client
     from perpetual_analyst.config import load_settings
-    from perpetual_analyst.daily_run import run_daily
+    from perpetual_analyst.daily_run import force_utf8_stdout, run_daily
 
+    force_utf8_stdout()
     conn = init_db(db_path)
     try:
         client = None if dry_run else make_client()
