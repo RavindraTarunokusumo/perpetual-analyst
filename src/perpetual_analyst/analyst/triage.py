@@ -116,3 +116,16 @@ def triage_items(
             results.append(result)
         conn.commit()
     return results
+
+
+def select_analyst_items(topic_id: int, conn: sqlite3.Connection, limit: int = 10) -> list[Item]:
+    """Items the analyst should see today: triaged, kept, topic-scoped, best first."""
+    rows = conn.execute(
+        """SELECT i.* FROM items i
+           JOIN topic_sources ts ON ts.source_id = i.source_id AND ts.topic_id = ?
+           WHERE i.status = 'new' AND i.triage_score >= ?
+           ORDER BY i.triage_score DESC
+           LIMIT ?""",
+        (topic_id, SKIP_THRESHOLD, limit),
+    ).fetchall()
+    return [Item.from_row(row) for row in rows]

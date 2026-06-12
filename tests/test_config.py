@@ -97,3 +97,21 @@ def test_source_gaining_url_creates_new_row_and_deactivates_old(db):
     # New url-keyed row active
     assert rows[1]["active"] == 1
     assert rows[1]["url"] == "https://a.example/feed"
+
+
+def test_reactivated_source_resets_error_count(db):
+    sync_config(db, [_topic()], [_source()])
+    db.execute("UPDATE sources SET active = 0, fetch_error_count = 5")
+    db.commit()
+    sync_config(db, [_topic()], [_source()])
+    row = db.execute("SELECT active, fetch_error_count FROM sources").fetchone()
+    assert row["active"] == 1
+    assert row["fetch_error_count"] == 0
+
+
+def test_still_active_source_keeps_error_count(db):
+    sync_config(db, [_topic()], [_source()])
+    db.execute("UPDATE sources SET fetch_error_count = 3")
+    db.commit()
+    sync_config(db, [_topic()], [_source()])
+    assert db.execute("SELECT fetch_error_count FROM sources").fetchone()[0] == 3
