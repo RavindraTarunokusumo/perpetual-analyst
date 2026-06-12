@@ -5,7 +5,7 @@ import pytest
 from perpetual_analyst.retrieval.search import related_items, related_observations
 
 
-def _obs(db, topic_id, content, days_ago=0, status="active"):
+def _obs(db, topic_id: int, content: str, days_ago: int = 0, status: str = "active"):
     db.execute(
         f"""INSERT INTO observations (topic_id, kind, content, importance, status, created_at)
             VALUES (?, 'fact', ?, 2, ?, datetime('now', '-{days_ago} days'))""",
@@ -14,7 +14,7 @@ def _obs(db, topic_id, content, days_ago=0, status="active"):
     db.commit()
 
 
-def _item(db, source_id, title, text, days_ago=0, status="new"):
+def _item(db, source_id: int, title: str, text: str, days_ago: int = 0, status: str = "new"):
     cur = db.execute(
         f"""INSERT INTO items (source_id, content_hash, title, raw_text, status, fetched_at)
             VALUES (?, ?, ?, ?, ?, datetime('now', '-{days_ago} days'))""",
@@ -56,6 +56,7 @@ def test_related_observations_excludes_inactive(db, sample_topic):
 def test_recent_observation_ranks_first(db, sample_topic):
     _obs(db, sample_topic.id, "Compute scaling continues unabated", days_ago=60)
     _obs(db, sample_topic.id, "Compute scaling shows new datapoint", days_ago=1)
+    # both rows tie on bm25 for the matched terms; the ×1.5 recency boost must break the tie
     results = related_observations("compute scaling", sample_topic.id, db, k=2)
     assert len(results) == 2
     assert "new datapoint" in results[0].content
@@ -92,3 +93,8 @@ def test_related_items_excludes_current_batch(db, sample_topic, linked_source):
     ids = [i.id for i in results]
     assert prior in ids
     assert current not in ids
+
+
+def test_exclude_ids_rejects_non_ints(db, sample_topic, linked_source):
+    with pytest.raises(TypeError, match="exclude_ids"):
+        related_items("anything", sample_topic.id, db, exclude_ids=[None])

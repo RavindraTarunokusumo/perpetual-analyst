@@ -11,7 +11,7 @@ import sqlite3
 
 from perpetual_analyst.store.models import Item, Observation
 
-_MAX_TERMS = 30
+_MAX_TERMS = 30  # cap OR expansion from long triage summaries; ranking, not recall, is the goal
 _RECENT_BOOST = 1.5
 
 
@@ -51,6 +51,8 @@ def related_items(
     if not query:
         return []
     exclude = exclude_ids or []
+    if exclude and not all(isinstance(x, int) for x in exclude):
+        raise TypeError("exclude_ids must contain only ints")
     if exclude:
         exclude_clause = f"AND i.id NOT IN ({','.join('?' for _ in exclude)})"
         params: tuple = (topic_id, query, *exclude, _RECENT_BOOST, k)
