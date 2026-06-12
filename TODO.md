@@ -27,7 +27,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [x] Extend `config.py`: `TopicConfig`/`SourceConfig` loaders + idempotent `sync_config()` (YAML → DB upsert)
 - [x] CLI: `analyst topic add` and `analyst source add` (append to YAML, re-sync)
 - [x] Replace placeholder YAML entries with real "AI frontier labs" topic + 2-3 RSS feeds
-- [ ] Live smoke test (`pytest -m smoke`): real feeds → triage → one analyst run on scratch DB
+- [x] Live smoke test (`pytest -m smoke`): real feeds → triage → one analyst run on scratch DB
 
 ---
 
