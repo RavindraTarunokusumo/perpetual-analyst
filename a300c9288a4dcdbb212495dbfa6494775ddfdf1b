@@ -1,0 +1,5 @@
+Task: Final-review fix (Invariant 5)
+Summary: analyzed-marking folded into apply_all_memory_writes transaction; partial-state window between memory commit and item status closed; atomicity regression test added
+Docs: N/A
+TODO: Task 8.5 (final review hardening)
+Validation: atomicity test + full suite passing; pre-commit green
