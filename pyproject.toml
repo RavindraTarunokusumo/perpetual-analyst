@@ -42,3 +42,7 @@ select = ["E", "F", "I", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = "-m 'not smoke'"
+markers = [
+    "smoke: live network + API end-to-end test; run explicitly with `pytest -m smoke`",
+]
