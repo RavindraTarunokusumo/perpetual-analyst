@@ -143,3 +143,14 @@ def test_empty_items_makes_no_api_calls(db, settings):
     client = _client_returning()
     assert triage_items([], "brief", client, settings, db) == []
     assert client.chat.completions.create.call_count == 0
+
+
+def test_triage_never_touches_non_new_items(db, sample_source, settings):
+    items = _items_in_db(db, sample_source, 1)
+    db.execute("UPDATE items SET status = 'analyzed' WHERE id = ?", (items[0].id,))
+    db.commit()
+    items[0].status = "analyzed"
+    triage_items(items, "brief", _client_returning(_payload(items, 0.05)), settings, db)
+    row = db.execute("SELECT status, triage_score FROM items").fetchone()
+    assert row["status"] == "analyzed"
+    assert row["triage_score"] is None

@@ -83,7 +83,10 @@ def apply_thesis_update(update: ThesisUpdate, topic_id: int, conn: sqlite3.Conne
         row = conn.execute(
             "SELECT confidence FROM theses WHERE id = ?", (update.thesis_id,)
         ).fetchone()
-        confidence_before = row["confidence"] if row else None
+        if row is None:
+            print(f"[memory] ignoring update for unknown thesis_id={update.thesis_id}")
+            return
+        confidence_before = row["confidence"]
         conn.execute(
             """UPDATE theses
                SET statement = ?, confidence = ?, status = ?, updated_at = datetime('now')

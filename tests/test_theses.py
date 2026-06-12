@@ -170,3 +170,13 @@ def test_render_multiple_theses_single_header():
     assert fragment.count("### Thesis updates") == 1
     assert "Thesis A" in fragment
     assert "Thesis B" in fragment
+
+
+def test_unknown_thesis_id_is_skipped_not_fatal(db, sample_topic):
+    apply_thesis_update(_update(), sample_topic.id, db)  # one real thesis
+    apply_thesis_update(_update(thesis_id=99999, rationale="hallucinated"), sample_topic.id, db)
+    # the bogus update is ignored: no orphan audit row, real thesis untouched
+    assert (
+        db.execute("SELECT COUNT(*) FROM thesis_updates WHERE thesis_id = 99999").fetchone()[0] == 0
+    )
+    assert len(get_active_theses(sample_topic.id, db)) == 1

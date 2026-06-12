@@ -110,7 +110,7 @@ def triage_items(
             conn.execute(
                 "UPDATE items SET triage_score = ?, triage_summary = ?,"
                 " status = CASE WHEN ? < ? THEN 'skipped' ELSE status END"
-                " WHERE id = ?",
+                " WHERE id = ? AND status = 'new'",
                 (result.score, result.summary, result.score, SKIP_THRESHOLD, result.item_id),
             )
             results.append(result)
