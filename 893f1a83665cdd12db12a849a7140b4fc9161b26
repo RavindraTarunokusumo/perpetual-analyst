@@ -1,0 +1,5 @@
+Task: Scheduler docs (TODO 10.4 - Task 10 complete)
+Summary: schtasks and cron entries with working-directory, retry, per-day-guard, and cold-start notes
+Docs: docs/commands.md
+TODO: Task 10 sub-item 4 crossed (Task 10 fully done)
+Validation: docs-only; pre-commit green
