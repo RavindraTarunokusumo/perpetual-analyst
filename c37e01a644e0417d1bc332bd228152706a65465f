@@ -1,0 +1,5 @@
+Task: Related-context wiring (TODO 8.3 - Task 8 complete)
+Summary: _render_item_block attaches top-5 related observations + top-3 related items per new item, queried from title+triage_summary, excluding the current batch; items stay last in prompt for caching
+Docs: N/A
+TODO: Task 8 sub-item 3 crossed (Task 8 fully done)
+Validation: 2 new tests; full suite passing; pre-commit green
