@@ -1,0 +1,5 @@
+Task: SDK response-shape fix (smoke-test finding)
+Summary: response.parsed does not exist on ParsedChatCompletion; switched to choices[0].message.parsed and corrected the conftest mock to mirror the real SDK shape so unit tests validate the true contract
+Docs: N/A
+TODO: Phase 2 extension logged
+Validation: full suite passing with corrected mock shape; pre-commit green
