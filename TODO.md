@@ -8,10 +8,10 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 ## Session: Phase 3 — Automated Delivery (active)
 
 ### Task 9 — Report assembly + rendering
-- [ ] Implement `report/assemble.py`: merge topic sections, build exec summary
+- [x] Implement `report/assemble.py`: merge topic sections, build exec summary
 - [x] Implement `report/render.py`: `[item:N]` → footnote conversion
 - [x] Write `analyst/prompts/digest.md` for Telegram digest generation
-- [ ] Write `reports` DB row + markdown file to `data/reports/`
+- [x] Write `reports` DB row + markdown file to `data/reports/`
 
 ### Task 10 — Telegram delivery + scheduler
 - [ ] Implement `delivery/telegram.py`: HTML digest ≤3,000 chars + document attach
