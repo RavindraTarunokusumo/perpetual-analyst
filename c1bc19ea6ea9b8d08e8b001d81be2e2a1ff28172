@@ -1,0 +1,7 @@
+@
+Task: doc-updater (Pre-PR)
+Summary: Docs refreshed for Phase 2 - rss/triage/retrieval modules, context assembly additions, item status lifecycle, config sync, CLI commands, smoke testing
+Docs: docs/architecture.md, docs/database.md, docs/commands.md, docs/testing.md, docs/patterns.md, docs/index.md
+TODO: Pre-PR step
+Validation: pre-commit green
+@
