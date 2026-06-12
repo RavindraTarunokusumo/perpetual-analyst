@@ -28,6 +28,7 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [x] CLI: `analyst topic add` and `analyst source add` (append to YAML, re-sync)
 - [x] Replace placeholder YAML entries with real "AI frontier labs" topic + 2-3 RSS feeds
 - [x] Live smoke test (`pytest -m smoke`): real feeds → triage → one analyst run on scratch DB
+- [x] (extension 2026-06-12) Fix Phase 1 schemas: numeric ge/le bounds rejected by provider structured outputs — replaced with clamping validators (found by live smoke test)
 
 ---
 

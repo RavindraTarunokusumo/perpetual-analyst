@@ -1,16 +1,28 @@
-"""Pydantic output models for the analyst's structured response. See SPEC §7."""
+"""Pydantic output models for the analyst's structured response. See SPEC §7.
 
-from pydantic import BaseModel, Field
+NOTE: Numeric range constraints (ge/le) are intentionally absent from fields that appear in
+provider-facing structured-output schemas. OpenRouter's Anthropic backend rejects JSON-schema
+properties ``minimum`` and ``maximum`` on integer/number types. Valid ranges are enforced by
+clamping field_validators instead, which correct out-of-range model output without serialising
+into the JSON schema.
+"""
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class NewObservation(BaseModel):
     kind: str = Field(description="One of: fact | signal | pattern | contradiction | question")
     content: str = Field(description="The observation text.")
-    importance: int = Field(description="1 = minor, 2 = notable, 3 = significant", ge=1, le=3)
+    importance: int = Field(description="1 = minor, 2 = notable, 3 = significant")
     source_item_ids: list[int] = Field(
         default_factory=list,
         description="Item IDs cited as evidence for this observation.",
     )
+
+    @field_validator("importance")
+    @classmethod
+    def _clamp_importance(cls, v: int) -> int:
+        return min(3, max(1, v))
 
 
 class ThesisUpdate(BaseModel):
@@ -19,10 +31,16 @@ class ThesisUpdate(BaseModel):
         description="Existing thesis ID to update. None if proposing a new thesis.",
     )
     statement: str = Field(description="Full thesis statement.")
-    confidence: float = Field(description="New confidence value, 0–1.", ge=0.0, le=1.0)
+    confidence: float = Field(description="New confidence value between 0 and 1.")
     change_rationale: str = Field(
         description="Why confidence changed, or why this new thesis is proposed."
     )
+
+    @field_validator("confidence")
+    @classmethod
+    def _clamp_confidence(cls, v: float) -> float:
+        return min(1.0, max(0.0, v))
+
     new_status: str = Field(
         default="active",
         description="One of: active | confirmed | revised | retired",
