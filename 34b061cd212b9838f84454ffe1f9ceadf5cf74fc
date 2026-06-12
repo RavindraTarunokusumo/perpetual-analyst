@@ -1,0 +1,5 @@
+Task: Real config + smoke marker (TODO 8.5.3)
+Summary: ai-frontier-labs topic with verified live feeds: arXiv cs.AI (https://rss.arxiv.org/rss/cs.AI), Simon Willison (https://simonwillison.net/atom/everything/), OpenAI News (https://openai.com/news/rss.xml); pytest smoke marker registered with default exclusion via addopts
+Docs: N/A
+TODO: Task 8.5 sub-item 3 crossed
+Validation: feeds verified reachable via httpx (all 5 candidates returned 200 with xml content-type); full suite 95 passed with marker config
