@@ -1,0 +1,5 @@
+Task: /simplify pass (Pre-PR)
+Summary: Consolidated duplicated settings fixture into conftest; extracted _read_yaml/_write_yaml in cli.py. Skipped with reasons: per-file item helpers (shapes differ), serial trafilatura fetching (behavior change, Phase 3 note), per-item FTS queries (trivial at scale)
+Docs: N/A
+TODO: Pre-PR step
+Validation: 99 passed + 1 deselected; pre-commit green
