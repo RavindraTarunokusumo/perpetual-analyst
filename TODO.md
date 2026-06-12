@@ -14,8 +14,8 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [x] Write `reports` DB row + markdown file to `data/reports/`
 
 ### Task 10 — Telegram delivery + scheduler
-- [ ] Implement `delivery/telegram.py`: HTML digest ≤3,000 chars + document attach
-- [ ] Retry logic for undelivered reports (check `delivered_at IS NULL`)
+- [x] Implement `delivery/telegram.py`: HTML digest ≤3,000 chars + document attach
+- [x] Retry logic for undelivered reports (check `delivered_at IS NULL`)
 - [ ] Implement `daily_run.py` orchestrator: ingest→triage→analyze-per-topic→assemble→deliver with per-stage error isolation
 - [ ] Document cron / Windows Task Scheduler entry in `docs/commands.md` (support both Windows and Linux per 2026-06-11 decision)
 - [x] (extension 2026-06-12, handoff) select_analyst_items helper + fetch_error_count reset on reactivation + smoke test topic-scoping
