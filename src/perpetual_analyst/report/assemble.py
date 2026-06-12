@@ -105,7 +105,11 @@ def persist_report(
     conn: sqlite3.Connection,
     reports_dir: str = "data/reports",
 ) -> int:
-    """INSERT (UNIQUE report_date raises loudly on a bypassed per-day guard) + write file."""
+    """INSERT (UNIQUE report_date raises loudly on a bypassed per-day guard) + write file.
+
+    The DB row is the authoritative record; the markdown file is a regenerable
+    convenience copy, so a file-write failure after the commit is acceptable.
+    """
     cur = conn.execute(
         "INSERT INTO reports (user_id, report_date, digest_text, full_markdown)"
         " VALUES (NULL, ?, ?, ?)",
