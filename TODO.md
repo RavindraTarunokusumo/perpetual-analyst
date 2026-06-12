@@ -19,8 +19,8 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [ ] Mark triaged items `status='analyzed'` or `status='skipped'` (skipped done; analyzed marking lands with run_topic task)
 
 ### Task 8 — Retrieval
-- [ ] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
-- [ ] Recency weighting in FTS queries
+- [x] Implement `retrieval/search.py`: `related_observations(text, topic, k)` and `related_items(text, topic, k)` using FTS5
+- [x] Recency weighting in FTS queries
 - [ ] Wire "related prior context" blocks into agent context assembly
 
 ### Task 8.5 — Sources/topics config + CLI (extension added 2026-06-11, approved)
