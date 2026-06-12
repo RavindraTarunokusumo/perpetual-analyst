@@ -1,0 +1,5 @@
+Task: Code review fixes for Task 5 (RSS)
+Summary: Moved commit out of _record_fetch_error to caller, annotated entry param, removed unreachable return, pinned undated-entry behavior with test. Declined: UTC strftime claim (empirically disproven - strftime formats struct fields without tz conversion) and per-entry insert_item try/except (DB errors must surface)
+Docs: N/A
+TODO: Task 7 (review hardening)
+Validation: 8 rss tests, full suite passing, pre-commit green
