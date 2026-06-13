@@ -16,3 +16,6 @@ logs/
 inbox/**/.processed/
 .worktree/
 .gitnexus/
+
+# Visual brainstorming companion (local-only mockups)
+.superpowers/
