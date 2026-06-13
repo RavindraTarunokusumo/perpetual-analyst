@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}perpetual-analyst{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <nav class="nav">
+    <span class="brand">perpetual-analyst</span>
+    <a href="{{ url_for('today') }}">Today</a>
+    {% block nav_extra %}{% endblock %}
+  </nav>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+  <main class="main">{% block content %}{% endblock %}</main>
+</body>
+</html>
