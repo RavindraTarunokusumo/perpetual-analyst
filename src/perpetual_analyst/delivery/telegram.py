@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import io
 import os
+import re
 import sqlite3
 
 from telegram import Bot
@@ -13,13 +14,32 @@ from perpetual_analyst.store.models import Report
 
 DIGEST_CHAR_LIMIT = 3000
 
+_TAG_RE = re.compile(r"</?([bi])>")
+
+
+def _balance_html(text: str) -> str:
+    text = re.sub(r"<[^>]*$", "", text)  # drop a dangling partial tag at the end
+    stack: list[str] = []
+    for match in _TAG_RE.finditer(text):
+        name = match.group(1)
+        if match.group(0).startswith("</"):
+            if stack and stack[-1] == name:
+                stack.pop()
+        else:
+            stack.append(name)
+    for name in reversed(stack):
+        text += f"</{name}>"
+    return text
+
 
 def _truncate_at_paragraph(text: str, limit: int = DIGEST_CHAR_LIMIT) -> str:
     if len(text) <= limit:
         return text
     cut = text[:limit]
     boundary = cut.rfind("\n\n")
-    return cut[:boundary] if boundary > 0 else cut
+    if boundary > 0:
+        cut = cut[:boundary]
+    return _balance_html(cut)
 
 
 async def _send(token: str, chat_id: str, digest: str, report: Report) -> None:

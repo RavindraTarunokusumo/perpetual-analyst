@@ -80,3 +80,16 @@ def test_digest_truncated_at_paragraph(db, tg_env, sent):
     sent_digest = sent.call_args.args[2]
     assert len(sent_digest) <= telegram.DIGEST_CHAR_LIMIT
     assert sent_digest.startswith("para one")
+
+
+def test_balance_html_unit():
+    assert telegram._balance_html("a <b>bold") == "a <b>bold</b>"
+    assert telegram._balance_html("a <b>x</b> <i>y") == "a <b>x</b> <i>y</i>"
+    assert telegram._balance_html("text <i") == "text "
+    assert telegram._balance_html("plain") == "plain"
+
+
+def test_truncation_closes_open_tags():
+    digest = "intro\n\n<b>" + "x" * 4000
+    result = telegram._truncate_at_paragraph(digest)
+    assert result.count("<b>") == result.count("</b>")
