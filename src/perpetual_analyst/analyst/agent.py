@@ -139,6 +139,10 @@ def run_topic(
             print(f"[{msg['role'].upper()}]\n{msg['content']}\n{'=' * 60}")
         return None
 
+    if not items:
+        print(f"[agent] topic={topic.slug} no new items today; nothing_significant")
+        return TopicAnalysis(report_section_markdown="", nothing_significant=True)
+
     extra = {"thinking": {"type": "adaptive"}} if settings.analyst.thinking else {}
     response = client.beta.chat.completions.parse(
         model=settings.analyst.id,
