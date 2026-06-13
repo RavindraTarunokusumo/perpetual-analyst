@@ -112,14 +112,14 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 
 | File | Responsibility |
 |---|---|
-| `assemble.py` | Merge per-topic `TopicAnalysis.report_section_markdown` sections; build exec summary; write `reports` row |
-| `render.py` | `[item:N]` → numbered footnote links (title + URL); apply Markdown template; write `.md` file to `data/reports/` |
+| `assemble.py` | `assemble_report(topic_results, conn, client, settings, report_date)` — builds SPEC §9 daily template (exec summary, per-topic sections with thesis fragments, open-questions/watch-next, citations); makes **one** daily `DigestOutput` structured call on the analyst model with a mechanical fallback on failure; `nothing_significant` topics get a one-liner. `persist_report(...)` INSERTs the `reports` row (UNIQUE on `report_date`; raises on duplicate) and writes `data/reports/brief-{date}.md` (DB row is authoritative; file is a regenerable copy). |
+| `render.py` | `render_citations(markdown, conn)` — rewrites `[item:N]` tags to `[^k]` numbered footnotes in stable first-appearance order and appends a `## Sources reviewed` footnote list from `items`; unknown IDs render as plain text; `[obs:N]`/`[thesis:N]` pass through unchanged. |
 
 ### `delivery/`
 
 | File | Responsibility |
 |---|---|
-| `telegram.py` | Send HTML digest (≤3,000 chars) + `.md` file attachment; retry undelivered reports (`delivered_at IS NULL`) |
+| `telegram.py` | `send_report(report, conn)` — env-gated on `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`; sends HTML digest truncated at a paragraph boundary (`_balance_html` closes any open `<b>`/`<i>`) + full markdown as file attachment; stamps `delivered_at` on success; never raises — prints exception *type* only (secret hygiene). `retry_undelivered(conn)` sweeps `delivered_at IS NULL` rows. |
 
 ## Background Jobs
 

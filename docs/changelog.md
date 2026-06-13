@@ -2,6 +2,17 @@
 
 Record notable behavior, architecture, API, persistence, or workflow changes.
 
+## 2026-06-13 — Phase 3: automated delivery
+
+Summary:
+
+- What changed: `report/render.py` (`render_citations` — `[item:N]` → `[^k]` numbered footnotes, stable first-appearance order, `## Sources reviewed` list; unknown IDs pass through as plain text), `report/assemble.py` (`assemble_report` + `persist_report` — SPEC §9 daily template, one daily `DigestOutput` call with mechanical fallback, `nothing_significant` one-liner, `reports` row UNIQUE on `report_date`), `analyst/schemas.py` (`DigestOutput {executive_summary, digest_text}` — no `ge`/`le` bounds), `analyst/prompts/digest.md` (finalized digest voice rules), `delivery/telegram.py` (`send_report` env-gated, HTML truncated at paragraph boundary with `_balance_html`, secret hygiene; `retry_undelivered` sweeps `delivered_at IS NULL`), `daily_run.py` (full orchestrator: sync → ingest → triage → analyze → assemble → deliver, per-topic and per-stage isolation, `dry_run` skips all API/delivery, `force_utf8_stdout` for Windows cp1252), `cli.py` (`analyst run` wired to `run_daily`), `analyst/triage.py` (`select_analyst_items` — topic-scoped, `status='new' AND triage_score >= SKIP_THRESHOLD`, best-first), `config.py` (`sync_config` resets `fetch_error_count = 0` on source reactivation), `analyst/agent.py` (`run_topic` short-circuits empty items — no LLM call when nothing to analyze).
+- Behavior: Complete end-to-end pipeline from cron/Task Scheduler to Telegram delivery. Item status lifecycle (`new` → `skipped` | `analyzed`) is fully exercised. A second run on the same day skips analysis and only retries delivery. Failed Telegram sends are retried on the next run.
+- User-visible impact: `analyst run` (and `python -m perpetual_analyst.daily_run`) now executes the full pipeline. `--dry-run` skips all API calls and delivery. Daily report is stored in `reports` table and written to `data/reports/brief-{date}.md`; HTML digest is sent to Telegram.
+- Architecture note: `assemble_report` makes one additional `DigestOutput` call per day (sanctioned Invariant 1 extension). All other invariants unchanged.
+- Migration notes: N/A — new tables (`reports`) created by `init_db()` via `CREATE TABLE IF NOT EXISTS`.
+- Related PR/commit: phase-3-automated-delivery branch
+
 ## 2026-06-12 — Phase 2: source ingestion + retrieval
 
 Summary:
