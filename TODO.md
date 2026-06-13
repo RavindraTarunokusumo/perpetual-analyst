@@ -5,9 +5,27 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Session: Web UI (next — out of SPEC v1, brainstorm pending)
+## Session: Web UI Dashboard (in progress)
 
-Dashboard over the existing SQLite data (reports, theses, observations, items). Brainstorm scope/stack before implementing.
+Flask + Jinja local single-user dashboard over the existing SQLite data.
+Spec: `docs/superpowers/specs/2026-06-14-web-ui-dashboard-design.md`
+Plan: `docs/superpowers/plans/2026-06-14-web-ui-dashboard.md`
+
+- [ ] Task 1: Scaffold package, deps (flask, markdown), app factory + Today page
+- [ ] Task 2: Reports archive + report detail
+- [ ] Task 3: Topics list, topic detail, thesis history
+- [ ] Task 4: Items feed (filterable) + Ops overview
+- [ ] Task 5: Global Reading mode (stacked dossiers)
+- [ ] Task 6: Add-inbox write action
+- [ ] Task 7: Retry-undelivered write action
+- [ ] Task 8: Trigger-run action (single-run lock + background thread + status poll)
+- [ ] Task 9: `analyst web` CLI command
+- [ ] Task 10: Full-suite gate + lint
+
+Notes / deviations:
+- Add-inbox narrowed to text-required (URL optional metadata); in-request URL
+  fetching deferred. Logged per Workflow Rule 2.
+- No thesis-edit action in V1 (keeps Invariant 3 untouched).
 
 ---
 
