@@ -1,0 +1,5 @@
+Task: PR review fix - Telegram HTML escaping
+Summary: Replaced lossy <[^>]*$ partial-tag strip (which deleted analyst prose after a literal <) with html.escape preserving <b>/<i>; every digest now escaped before HTML send, fixing both the introduced regression and the pre-existing literal-< parse risk; open tags still closed after truncation
+Docs: N/A
+TODO: PR #7 review finding
+Validation: literal-< / ampersand / unknown-tag / unclosed-tag tests; full suite passing; pre-commit green
