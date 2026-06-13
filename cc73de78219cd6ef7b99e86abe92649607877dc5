@@ -1,0 +1,7 @@
+@
+Task: doc-updater (Pre-PR)
+Summary: Docs refreshed for Phase 3 - report assembly + digest call, Telegram delivery, daily_run orchestrator, analyst run CLI, select_analyst_items, complete item status lifecycle
+Docs: docs/architecture.md, docs/patterns.md, docs/changelog.md
+TODO: Pre-PR step
+Validation: pre-commit green
+@
