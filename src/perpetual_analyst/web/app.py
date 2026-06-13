@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 import markdown as md
-from flask import Flask, g, render_template
+from flask import Flask, abort, g, render_template
 
 from perpetual_analyst.report.render import render_citations
 from perpetual_analyst.web import queries
@@ -43,5 +43,17 @@ def create_app(db_path: str) -> Flask:
         report = queries.latest_report(get_conn())
         report_html = render_report_html(report["full_markdown"]) if report else ""
         return render_template("today.html", report=report, report_html=report_html)
+
+    @app.route("/reports")
+    def reports():
+        return render_template("reports.html", reports=queries.report_list(get_conn()))
+
+    @app.route("/reports/<report_date>")
+    def report_detail(report_date: str):
+        report = queries.report_by_date(get_conn(), report_date)
+        if report is None:
+            abort(404)
+        report_html = render_report_html(report["full_markdown"])
+        return render_template("report_detail.html", report=report, report_html=report_html)
 
     return app
