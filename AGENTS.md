@@ -36,7 +36,7 @@ If a code graph or dependency map exists, use it before touching unfamiliar code
 
 ## Workflow
 
-1. (Preamble) Ensure you're in a dedicated local branch/worktree under `.worktree/<session-name>` and activate the virtual environment `.venv` located in the root directory. Read the `docs/insights.md` file and the [Workflow Rules](#workflow-rules).
+1. (Preamble) Ensure you're in a dedicated local branch/worktree under `.worktree/<session-name>` and activate the virtual environment `.venv` located in the root directory. Run `pip install -e .` so the package imports without a per-command `PYTHONPATH`. Read the `docs/insights.md` file and the [Workflow Rules](#workflow-rules).
 2. (GitNexus) Read the [GitNexus](#gitnexus--code-intelligence) section at the start of every session.
 3. (Planning) Brainstorm implementation plan and spec using the `/brainstorming` skill; read the docs (see [Project Map](#project-map)) and use GitNexus as your primary means to understand the codebase.
 4. (Implementing) After you get permission from user, log tasks and sub-items in `TODO.md` first before you start, then use the `/subagent-driven-development` skill to implement the tasks.
@@ -58,6 +58,14 @@ If a code graph or dependency map exists, use it before touching unfamiliar code
 8. After context compaction resumes, run `git status` before any other action — the summary describes intent, not exact commit state.
 9. Commit any files written by subagents (doc-updater, security-review, etc.) immediately; do not advance the workflow with a dirty tree.
 10. `gitnexus_impact` requires the exact function/class name, not the module or file name. Use the symbol name as indexed (e.g. `answer_chat`, not `routes_chat`).
+11. When a command needs a multi-line body (commit message, PR body, review comment), write the body to a file with the Write tool and pass it via `--body-file`/`-F`, then run `gh`/`git` as its own standalone command. Never chain a here-string with `gh` and `Remove-Item` in one compound command — it can fail silently and skip the action.
+12. When parallel subagent dispatch fails on a session limit, fall back to doing the work inline in the main context rather than retrying the dispatch.
+
+### Working in worktrees
+
+- Never run `npx gitnexus analyze` inside a worktree — it registers the worktree as a separate repo and rewrites the GitNexus block in `AGENTS.md`/`CLAUDE.md`. Reindex from the primary directory only. A stale-index warning is harmless for LOW-risk leaf additions.
+- Run `pre-commit` with the root `.pre-commit-config.yaml` from the **root** directory, not the worktree CWD (or set `PRE_COMMIT_ALLOW_NO_CONFIG=1`).
+- `git checkout main` fails from a worktree (main is checked out in the primary dir). Do post-PR work on main from the primary directory with `git -C <primary-path> ...` (e.g. `git -C <primary> pull --ff-only origin main`).
 
 ### Pre-PR
 
@@ -65,17 +73,22 @@ Use the following as the final steps before submitting a PR:
 
 - `/simplify` (skill)
 - `doc-updater` (subagent)
+- **Bounded live validation** — REQUIRED for any phase that touches external APIs, network, or file/stdout IO. Run the real pipeline (e.g. `analyst run --dry-run`) against a small/bounded input; mocks validate the mock, not the contract. If a feed or call is too slow, shrink its input (mark heavy feeds `last_fetched_at = now`) rather than skipping the check.
 
 **Invoke the following subagents IF changes affect security or significant architectural changes (or explicitly stated). Always cite your justification on why you decide to invoke them:**
 
 - `test-plan-writer` (subagent)
 - `security-review` (skill)
 
+Any fix made in response to a review is itself unreviewed code: after addressing review findings, run a focused review over the **fix delta** (not just the original branch) before proceeding.
+
 ### Submit PR
 
 - Fill out the **[Template](.github/pull_request_template.md)**.
 - Submit the PR and wait for about 20m for the GitHub Copilot Code Review agent to finish writing the reviews.
+- If Copilot is unavailable, dispatch a substitute Opus `/code-review` over the whole branch and treat its findings the same way.
 - Use the `/receiving-code-review` skill to address the issues in the Copilot Code Review.
+- Merge with a **merge commit, not squash**, so per-commit SHAs stay verifiable in `git log` for archive tagging.
 
 ### Reflection
 
@@ -84,7 +97,7 @@ After every session completion, you reflect on how the workflow pertaining to th
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **perpetual-analyst** (764 symbols, 829 relationships, 2 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **perpetual-analyst** (1163 symbols, 1374 relationships, 8 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
