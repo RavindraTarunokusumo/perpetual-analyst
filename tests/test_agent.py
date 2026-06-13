@@ -209,3 +209,19 @@ def test_memory_writes_and_analyzed_marking_are_atomic(
 
     assert db.execute("SELECT COUNT(*) FROM observations").fetchone()[0] == 0
     assert all(r["status"] == "new" for r in db.execute("SELECT status FROM items").fetchall())
+
+
+def test_run_topic_empty_items_makes_no_api_call(db, sample_topic, settings, mock_openrouter):
+    result = run_topic(sample_topic, [], db, mock_openrouter, settings)
+    assert result is not None
+    assert result.nothing_significant is True
+    assert mock_openrouter.beta.chat.completions.parse.call_count == 0
+    assert db.execute("SELECT COUNT(*) FROM observations").fetchone()[0] == 0
+
+
+def test_run_topic_empty_items_dry_run_still_returns_none(
+    db, sample_topic, settings, mock_openrouter
+):
+    result = run_topic(sample_topic, [], db, mock_openrouter, settings, dry_run=True)
+    assert result is None
+    assert mock_openrouter.beta.chat.completions.parse.call_count == 0

@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from perpetual_analyst.analyst.agent import make_client, run_topic
-from perpetual_analyst.analyst.triage import SKIP_THRESHOLD, triage_items
+from perpetual_analyst.analyst.triage import select_analyst_items, triage_items
 from perpetual_analyst.config import load_settings, load_sources, load_topics, sync_config
 from perpetual_analyst.ingestion.rss import fetch_rss
 from perpetual_analyst.store.db import init_db
@@ -54,14 +54,7 @@ def test_full_pipeline_live():
     results = triage_items(items, topic.brief or "", client, settings, conn)
     assert results, "triage returned no validated results"
 
-    keep = [
-        Item.from_row(r)
-        for r in conn.execute(
-            "SELECT * FROM items WHERE status = 'new' AND triage_score >= ?"
-            " ORDER BY triage_score DESC LIMIT ?",
-            (SKIP_THRESHOLD, MAX_ANALYST_ITEMS),
-        ).fetchall()
-    ]
+    keep = select_analyst_items(topic.id, conn, limit=MAX_ANALYST_ITEMS)
     assert keep, "triage skipped everything - check the topic brief or feeds"
 
     analysis = run_topic(topic, keep, conn, client, settings)

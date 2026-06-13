@@ -100,7 +100,7 @@ def sync_config(
         assert key_column in ("url", "name")  # bounded; never user-controlled
         key_value = sc.url or sc.name
         row = conn.execute(
-            f"SELECT id FROM sources WHERE {key_column} = ?", (key_value,)
+            f"SELECT id, active FROM sources WHERE {key_column} = ?", (key_value,)
         ).fetchone()
         if row:
             source_id = row["id"]
@@ -108,6 +108,8 @@ def sync_config(
                 "UPDATE sources SET name = ?, type = ?, url = ?, active = ? WHERE id = ?",
                 (sc.name, sc.type, sc.url, int(sc.active), source_id),
             )
+            if sc.active and row["active"] == 0:
+                conn.execute("UPDATE sources SET fetch_error_count = 0 WHERE id = ?", (source_id,))
         else:
             cur = conn.execute(
                 "INSERT INTO sources (name, type, url, active) VALUES (?, ?, ?, ?)",

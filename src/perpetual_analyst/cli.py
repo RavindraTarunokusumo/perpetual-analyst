@@ -97,9 +97,20 @@ def source_add(
 def run(
     topic: str = typer.Option(None, help="Topic slug to run (default: all active)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print prompt, skip API calls"),
+    db_path: str = typer.Option("data/analyst.db", help="SQLite DB path"),
 ) -> None:
     """Run the daily analyst pipeline."""
-    raise NotImplementedError("TODO Task 10 (Phase 3)")
+    from perpetual_analyst.analyst.agent import make_client
+    from perpetual_analyst.config import load_settings
+    from perpetual_analyst.daily_run import force_utf8_stdout, run_daily
+
+    force_utf8_stdout()
+    conn = init_db(db_path)
+    try:
+        client = None if dry_run else make_client()
+        run_daily(conn, client, load_settings(), topic_slug=topic, dry_run=dry_run)
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":

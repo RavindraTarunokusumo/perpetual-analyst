@@ -93,3 +93,18 @@ class TopicAnalysis(BaseModel):
             "This is a first-class output — use it when warranted."
         ),
     )
+
+
+class DigestOutput(BaseModel):
+    """Daily digest call output — one call per day (sanctioned Invariant 1 extension)."""
+
+    executive_summary: str = Field(
+        description="3-6 sentences, cross-topic, for the report's Executive summary section."
+    )
+    digest_text: str = Field(
+        description=(
+            "Telegram-ready digest, at most 3000 characters, first-person analyst voice. "
+            "Structure: exec summary, top 3 developments with why-it-matters, "
+            "thesis changes if any, watch next."
+        )
+    )

@@ -112,19 +112,29 @@ SELECT * FROM topics;
 SELECT count(*) FROM observations;
 ```
 
-## Scheduler
+## Scheduling the daily run
 
-**Linux/macOS cron** (run daily at 7am):
-```
-0 7 * * * cd /path/to/perpetual-analyst && .venv/bin/python -m perpetual_analyst.daily_run >> logs/daily.log 2>&1
-```
+The pipeline is `python -m perpetual_analyst.daily_run` executed from the repo root
+(it reads `config/*.yaml`, `.env`, and `data/analyst.db` relative to the working
+directory).
 
-**Windows Task Scheduler** (basic via PowerShell):
+**Windows (Task Scheduler):**
+
 ```powershell
-$action = New-ScheduledTaskAction -Execute "python" -Argument "-m perpetual_analyst.daily_run" -WorkingDirectory "C:\path\to\perpetual-analyst"
-$trigger = New-ScheduledTaskTrigger -Daily -At "07:00"
-Register-ScheduledTask -TaskName "PerpetualAnalyst" -Action $action -Trigger $trigger
+schtasks /Create /SC DAILY /ST 06:30 /TN "PerpetualAnalyst" `
+  /TR "cmd /c cd /d C:\path\to\perpetual-analyst && .venv\Scripts\python -m perpetual_analyst.daily_run"
 ```
+
+**Linux (cron):**
+
+```cron
+30 6 * * * cd /path/to/perpetual-analyst && .venv/bin/python -m perpetual_analyst.daily_run >> data/daily_run.log 2>&1
+```
+
+Notes: the working directory must be the repo root; failed Telegram deliveries are
+retried on the next run; a second run on the same day skips analysis (per-day guard)
+and only retries delivery. First fetch of a large feed (e.g. arXiv) extracts every
+article and can take tens of minutes; subsequent fetches are incremental.
 
 ## Environment Variables
 

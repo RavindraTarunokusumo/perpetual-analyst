@@ -123,6 +123,18 @@ Every item is presented to the analyst with a stable tag `[item:N]` where N is t
 - Delete dead code.
 - No multi-paragraph docstrings.
 
+## Env-Gated External Delivery Pattern
+
+External delivery (`delivery/telegram.py`) is gated on the presence of `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` at call time. The function never raises — on failure it prints the exception *type* only (no token/chat-id values) and returns. Undelivered reports are retried on the next run via `retry_undelivered(conn)`, which sweeps `reports` rows where `delivered_at IS NULL`. This decouples delivery failures from the analysis pipeline: a Telegram outage never prevents the report from being stored or the next day's analysis from proceeding.
+
+## Empty-Items Short-Circuit Pattern
+
+`run_topic` checks for an empty item list before making any LLM call. When no items pass triage (`nothing_significant` short-circuit), it returns a synthetic `TopicAnalysis(nothing_significant=True)` with no API call. This enforces Invariant 1 (one analyst call per topic per day) and avoids wasting API budget on topics with no new signal.
+
+## One Daily Digest Call Pattern
+
+`assemble_report` makes exactly one `DigestOutput` structured call per day on the analyst model after all per-topic sections are assembled. This is the only sanctioned extension to Invariant 1. The call uses a mechanical fallback (concatenated section text) if the model call fails, so a digest failure never blocks report persistence or delivery.
+
 ## Anti-Patterns (from SPEC §15)
 
 **Never do these:**

@@ -154,3 +154,55 @@ def test_triage_never_touches_non_new_items(db, sample_source, settings):
     row = db.execute("SELECT status, triage_score FROM items").fetchone()
     assert row["status"] == "analyzed"
     assert row["triage_score"] is None
+
+
+def test_select_analyst_items_scopes_by_topic(db, sample_topic, sample_source, settings):
+    from perpetual_analyst.analyst.triage import select_analyst_items
+
+    db.execute(
+        "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
+        (sample_topic.id, sample_source),
+    )
+    db.execute("INSERT INTO sources (type, name) VALUES ('rss', 'Other Source')")
+    other_source = db.execute("SELECT id FROM sources WHERE name='Other Source'").fetchone()["id"]
+    db.execute(
+        "INSERT INTO items (source_id, content_hash, title, triage_score, status)"
+        " VALUES (?, 'h_in', 'In Topic', 0.9, 'new')",
+        (sample_source,),
+    )
+    db.execute(
+        "INSERT INTO items (source_id, content_hash, title, triage_score, status)"
+        " VALUES (?, 'h_out', 'Other Topic', 0.9, 'new')",
+        (other_source,),
+    )
+    db.execute(
+        "INSERT INTO items (source_id, content_hash, title, triage_score, status)"
+        " VALUES (?, 'h_skip', 'Skipped', 0.9, 'skipped')",
+        (sample_source,),
+    )
+    db.execute(
+        "INSERT INTO items (source_id, content_hash, title, triage_score, status)"
+        " VALUES (?, 'h_low', 'Low', 0.1, 'new')",
+        (sample_source,),
+    )
+    db.commit()
+    items = select_analyst_items(sample_topic.id, db)
+    assert [i.title for i in items] == ["In Topic"]
+
+
+def test_select_analyst_items_orders_and_limits(db, sample_topic, sample_source, settings):
+    from perpetual_analyst.analyst.triage import select_analyst_items
+
+    db.execute(
+        "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
+        (sample_topic.id, sample_source),
+    )
+    for i, score in enumerate((0.3, 0.9, 0.6)):
+        db.execute(
+            "INSERT INTO items (source_id, content_hash, title, triage_score)"
+            " VALUES (?, ?, ?, ?)",
+            (sample_source, f"h{i}", f"Item{score}", score),
+        )
+    db.commit()
+    items = select_analyst_items(sample_topic.id, db, limit=2)
+    assert [i.triage_score for i in items] == [0.9, 0.6]
