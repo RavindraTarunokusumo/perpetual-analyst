@@ -35,3 +35,4 @@ Phase 2 final-review handoff notes for the orchestrator (2026-06-12):
 - [ ] Phase 5: Per-source quality metrics, weekly discovery run, Telegram approval buttons
 - [ ] Embeddings upgrade: sqlite-vec + Voyage (only when FTS proves insufficient)
 - [ ] (Phase 3 follow-up) Cap retry_undelivered per-run delivery count — first run after credentials appear delivers the entire backlog at once (Telegram rate-limit risk). Deferred operability, not correctness.
+- [x] (PR review 2026-06-13) Fix Telegram HTML: escape stray </>/& preserving <b>/<i> (replaces lossy partial-tag strip; fixes literal-'<' data loss + latent parse risk)

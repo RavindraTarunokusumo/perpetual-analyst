@@ -82,14 +82,36 @@ def test_digest_truncated_at_paragraph(db, tg_env, sent):
     assert sent_digest.startswith("para one")
 
 
-def test_balance_html_unit():
-    assert telegram._balance_html("a <b>bold") == "a <b>bold</b>"
-    assert telegram._balance_html("a <b>x</b> <i>y") == "a <b>x</b> <i>y</i>"
-    assert telegram._balance_html("text <i") == "text "
-    assert telegram._balance_html("plain") == "plain"
+def test_literal_lt_not_dropped():
+    # analyst prose with literal '<' must survive, escaped, not be truncated away
+    result = telegram._truncate_at_paragraph("rates < 2% and P/E < 15")
+    assert "&lt; 2%" in result
+    assert "&lt; 15" in result
 
 
-def test_truncation_closes_open_tags():
+def test_allowed_tags_preserved():
+    result = telegram._truncate_at_paragraph("<b>bold</b> and <i>ital</i>")
+    assert result == "<b>bold</b> and <i>ital</i>"
+
+
+def test_stray_ampersand_escaped():
+    assert telegram._truncate_at_paragraph("A & B") == "A &amp; B"
+
+
+def test_unknown_tag_escaped_not_sent_raw():
+    result = telegram._truncate_at_paragraph("<script>x</script>")
+    assert "<script>" not in result
+    assert "&lt;script&gt;" in result
+
+
+def test_unclosed_tag_closed_after_truncation():
     digest = "intro\n\n<b>" + "x" * 4000
     result = telegram._truncate_at_paragraph(digest)
     assert result.count("<b>") == result.count("</b>")
+
+
+def test_partial_tag_at_cut_escaped_not_dropped():
+    # a partial '<' left at the truncation tail becomes &lt;, never silently removed
+    digest = "lead\n\nbody text with a trailing <" + "\n\n" + "x" * 4000
+    result = telegram._truncate_at_paragraph(digest)
+    assert result.rstrip().endswith("&lt;") or "&lt;" in result
