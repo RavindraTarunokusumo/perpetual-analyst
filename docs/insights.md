@@ -2,6 +2,31 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-06-13 — Phase 3 implementation session
+
+### What worked well
+
+**Two-stage substitute review when Copilot is down (whole-branch, then fix-commit).** The pre-PR whole-branch Opus review found the empty-items double-call bug; after fixing it, a SECOND focused Opus review of only the fix commits caught that one of those fixes (`_balance_html`) had introduced a silent-data-loss regression. Lesson: fixes made in response to a review are themselves unreviewed code — run a focused pass over the fix delta, not just the original branch. The implementer's self-review is not a substitute.
+
+**Live `--dry-run` as a plan task caught a class of bug mocks never will.** The dry-run (real feed fetch, zero API calls) surfaced a Windows cp1252 `UnicodeEncodeError` on piped stdout — invisible to the test suite (pytest captures differently) and to interactive runs (console is UTF-8). Any CLI that prints unicode needs `sys.stdout.reconfigure(encoding="utf-8")` at the entry point for scheduled/piped execution.
+
+**Bounded the slow live validation instead of skipping it.** The first dry-run subagent timed out at 14 min on arXiv's full first-fetch and reported DONE_WITH_CONCERNS without completing the validation. The fix was a 6-line prep script marking the heavy feeds `last_fetched_at = now` so the dry-run exercised the full pipeline on a small feed in seconds. When a validation is too slow, shrink its input rather than declaring it unverifiable.
+
+### What to improve
+
+**PowerShell here-string piped to `gh ... --body-file` then `Remove-Item` failed as one compound command.** The `@'...'@ | Out-File ...; gh pr create ...; Remove-Item ...` chain errored (Remove-Item resolved oddly) and the PR was NOT created. Write PR/comment bodies with the Write tool to a file, then run `gh` as its own command, then clean up separately — don't chain heredoc + gh + delete.
+
+**`git checkout main` fails from inside a worktree** (main is checked out in the primary dir). For post-PR work on main, operate in the primary working directory with `git -C <main-path> ...` rather than trying to switch the worktree to main. Pull main with `git -C <main> pull --ff-only origin main`.
+
+**Subagents repeatedly hit the GitNexus stale-index warning** but correctly did not run `npx gitnexus analyze` (the worktree-rewrites-AGENTS/CLAUDE.md hazard from Phase 2). Keep telling subagents NOT to reindex in a worktree; the stale warning is harmless when impact analysis is run from the primary dir or skipped for LOW-risk leaf additions.
+
+### Patterns established this session
+
+- A review that produces fixes must be followed by a review OF those fixes (fix-delta review)
+- CLI entry points that print unicode must force UTF-8 stdout for piped/scheduled use
+- Telegram (and any `parse_mode=HTML` sink) requires escaping stray `<`/`>`/`&` while preserving the allowlisted tags — never a regex strip that can eat literal `<`
+- Slow live validations get a bounded-input harness, not a skip
+
 ## 2026-06-12 — Phase 2 implementation session
 
 ### What worked well
