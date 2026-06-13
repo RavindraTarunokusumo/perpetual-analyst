@@ -56,4 +56,22 @@ def create_app(db_path: str) -> Flask:
         report_html = render_report_html(report["full_markdown"])
         return render_template("report_detail.html", report=report, report_html=report_html)
 
+    @app.route("/topics")
+    def topics():
+        return render_template("topics.html", topics=queries.topic_list(get_conn()))
+
+    @app.route("/topics/<slug>")
+    def topic(slug: str):
+        detail = queries.topic_detail(get_conn(), slug)
+        if detail is None:
+            abort(404)
+        return render_template("topic.html", **detail)
+
+    @app.route("/topics/<slug>/thesis/<int:thesis_id>")
+    def thesis(slug: str, thesis_id: int):
+        detail = queries.thesis_detail(get_conn(), thesis_id)
+        if detail is None:
+            abort(404)
+        return render_template("thesis.html", slug=slug, **detail)
+
     return app

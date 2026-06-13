@@ -12,3 +12,34 @@ def test_report_by_date_returns_markdown(seeded_conn):
     row = queries.report_by_date(seeded_conn, "2026-06-12")
     assert row["full_markdown"] == "# Old report"
     assert queries.report_by_date(seeded_conn, "1999-01-01") is None
+
+
+def test_topic_list(seeded_conn):
+    rows = queries.topic_list(seeded_conn)
+    assert len(rows) == 1
+    assert rows[0]["slug"] == "ai-labs"
+    assert rows[0]["active_theses"] == 1  # the retired thesis is excluded
+
+
+def test_topic_detail_bundles_memory(seeded_conn):
+    detail = queries.topic_detail(seeded_conn, "ai-labs")
+    assert detail["topic"]["name"] == "AI Frontier Labs"
+    assert detail["dossier"]["content"].startswith("## State of play")
+    assert [t["id"] for t in detail["theses"]] == [1]  # active only
+    assert detail["theses"][0]["confidence"] == 0.62
+    assert detail["observations"][0]["kind"] == "signal"
+    assert {i["id"] for i in detail["items"]} == {1, 2, 3}  # all topic-source items
+
+
+def test_topic_detail_missing(seeded_conn):
+    assert queries.topic_detail(seeded_conn, "nope") is None
+
+
+def test_thesis_detail_includes_update_history(seeded_conn):
+    detail = queries.thesis_detail(seeded_conn, 1)
+    assert detail["thesis"]["statement"] == "Open-weight reaches parity"
+    assert [u["confidence_after"] for u in detail["updates"]] == [0.50, 0.62]
+
+
+def test_thesis_detail_missing(seeded_conn):
+    assert queries.thesis_detail(seeded_conn, 999) is None

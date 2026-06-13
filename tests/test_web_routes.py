@@ -32,3 +32,32 @@ def test_reports_empty_state(empty_client):
     resp = empty_client.get("/reports")
     assert resp.status_code == 200
     assert b"No reports yet" in resp.data
+
+
+def test_topics_route(client):
+    resp = client.get("/topics")
+    assert resp.status_code == 200
+    assert b"AI Frontier Labs" in resp.data
+
+
+def test_topic_detail_route(client):
+    resp = client.get("/topics/ai-labs")
+    assert resp.status_code == 200
+    assert b"State of play" in resp.data
+    assert b"Open-weight reaches parity" in resp.data
+
+
+def test_topic_detail_404(client):
+    assert client.get("/topics/nope").status_code == 404
+
+
+def test_thesis_route(client):
+    resp = client.get("/topics/ai-labs/thesis/1")
+    assert resp.status_code == 200
+    assert b"new MoE evidence" in resp.data
+
+
+def test_topics_empty_state(empty_client):
+    resp = empty_client.get("/topics")
+    assert resp.status_code == 200
+    assert b"No topics" in resp.data

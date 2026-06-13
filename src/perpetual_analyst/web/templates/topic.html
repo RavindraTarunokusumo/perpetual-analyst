@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ topic.name }}</h1>
+{% if dossier %}
+<section class="card">
+  <div class="label">Dossier · updated {{ dossier.updated_at or '—' }}</div>
+  <pre class="muted" style="white-space:pre-wrap">{{ dossier.content }}</pre>
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="label">Active theses ({{ theses|length }} / 7)</div>
+  {% for t in theses %}
+  <div>
+    <a href="{{ url_for('thesis', slug=topic.slug, thesis_id=t.id) }}">{{ t.statement }}</a>
+    — conf {{ '%.2f'|format(t.confidence or 0) }}
+    <span class="bar-track"><span class="bar" style="width:{{ ((t.confidence or 0) * 90)|int }}px"></span></span>
+  </div>
+  {% else %}
+  <p class="empty">No active theses.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <div class="label">Recent observations</div>
+  {% for o in observations %}
+  <div>● {{ o.kind }} — {{ o.content }} <span class="muted">imp {{ o.importance }} · {{ o.source_item_ids or '' }}</span></div>
+  {% else %}
+  <p class="empty">No observations.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <div class="label">Recent items</div>
+  {% for i in items %}
+  <div>{{ i.title or '(untitled)' }} <span class="muted">{{ '%.2f'|format(i.triage_score or 0) }} · {{ i.status }}</span></div>
+  {% else %}
+  <p class="empty">No items.</p>
+  {% endfor %}
+</section>
+{% endblock %}
