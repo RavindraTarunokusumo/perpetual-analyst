@@ -1,0 +1,5 @@
+Task: Phase 3 post-PR wrap-up
+Summary: Archived Phase 3 session with per-commit SHAs and merge ID 203a7b8; recorded workflow insights (fix-delta review, UTF-8 stdout for piped CLI, bounded live validation, gh heredoc pitfall); TODO trimmed to Web UI + backlog
+Docs: docs/iterations/archive/2026-06-13-phase-3-automated-delivery.md, docs/insights.md
+TODO: Phase 3 session archived; Web UI marked next
+Validation: docs-only
