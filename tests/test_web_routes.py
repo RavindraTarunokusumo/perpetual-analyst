@@ -131,3 +131,13 @@ def test_run_status_endpoint(client):
     resp = client.get("/actions/run/status")
     assert resp.status_code == 200
     assert resp.json["state"] in {"idle", "running", "done", "error"}
+
+
+def test_cli_web_command_registered():
+    from typer.testing import CliRunner
+
+    from perpetual_analyst.cli import app
+
+    result = CliRunner().invoke(app, ["web", "--help"])
+    assert result.exit_code == 0
+    assert "host" in result.output.lower()
