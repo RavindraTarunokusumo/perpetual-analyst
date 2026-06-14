@@ -110,3 +110,10 @@ def test_home_redirects_to_reading_when_cookie_set(client):
 def test_thesis_route_wrong_slug_404(client):
     # thesis 1 belongs to ai-labs; a mismatched slug must not render it
     assert client.get("/topics/not-ai-labs/thesis/1").status_code == 404
+
+
+def test_inbox_post_redirects_and_inserts(client):
+    resp = client.post("/actions/inbox", data={"topic_id": "1", "text": "via the web"})
+    assert resp.status_code == 302
+    follow = client.get("/items")
+    assert b"via the web" in follow.data

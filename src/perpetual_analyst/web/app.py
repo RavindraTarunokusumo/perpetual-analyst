@@ -5,7 +5,17 @@ from __future__ import annotations
 import sqlite3
 
 import markdown as md
-from flask import Flask, abort, g, make_response, redirect, render_template, request, url_for
+from flask import (
+    Flask,
+    abort,
+    flash,
+    g,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
 from perpetual_analyst.report.render import render_citations
 from perpetual_analyst.web import queries
@@ -85,14 +95,30 @@ def create_app(db_path: str) -> Flask:
         status = request.args.get("status") or None
         source_id = request.args.get("source_id", type=int)
         rows = queries.items_feed(get_conn(), status=status, source_id=source_id)
-        ov = queries.ops_overview(get_conn())
         return render_template(
             "items.html",
             items=rows,
-            inbox_sources=ov["inbox_sources"],
+            inbox_sources=queries.inbox_sources(get_conn()),
             topics=queries.topic_list(get_conn()),
             status=status,
         )
+
+    @app.route("/actions/inbox", methods=["POST"])
+    def action_inbox():
+        from perpetual_analyst.web import actions
+
+        topic_id = request.form.get("topic_id", type=int)
+        text = request.form.get("text", "")
+        title = request.form.get("title") or None
+        url = request.form.get("url") or None
+        try:
+            ok = actions.add_inbox_item(get_conn(), topic_id, title, url, text)
+            flash("Item added." if ok else "Duplicate — already present.", "info")
+        except actions.NoInboxSource:
+            flash("No inbox source for that topic.", "error")
+        except ValueError as exc:
+            flash(f"Could not add item: {type(exc).__name__}", "error")
+        return redirect(url_for("items"))
 
     @app.route("/ops")
     def ops():

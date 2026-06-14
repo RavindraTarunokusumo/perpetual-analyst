@@ -121,6 +121,13 @@ def ops_overview(conn: sqlite3.Connection) -> dict:
     }
 
 
+def inbox_sources(conn: sqlite3.Connection) -> list[dict]:
+    rows = conn.execute(
+        "SELECT id, name FROM sources WHERE type = 'inbox' AND active = 1 ORDER BY name"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def all_dossiers(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
         """SELECT t.slug, t.name, d.content, d.updated_at

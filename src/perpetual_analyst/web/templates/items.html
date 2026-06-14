@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Items</h1>
+{% if inbox_sources %}
+<form method="post" action="{{ url_for('action_inbox') }}" class="card">
+  <div class="label">Add inbox item</div>
+  <select name="topic_id">
+    {% for t in topics %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+  </select>
+  <input name="title" placeholder="title (optional)">
+  <input name="url" placeholder="url (optional)">
+  <input name="text" placeholder="paste text" required>
+  <button class="btn" type="submit">Add</button>
+</form>
+{% endif %}
 <form method="get" class="inline">
   <select name="status" onchange="this.form.submit()">
     <option value="">all statuses</option>
