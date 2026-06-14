@@ -2,6 +2,17 @@
 
 Record notable behavior, architecture, API, persistence, or workflow changes.
 
+## 2026-06-14 — Web UI: local dashboard (out of SPEC v1)
+
+Summary:
+
+- What changed: New package `src/perpetual_analyst/web/` — `app.py` (Flask factory `create_app(db_path)` with all routes and a `before_request` Origin-check CSRF guard), `queries.py` (read-only view-model builders for all dashboard pages), `actions.py` (3 write actions + run lock/thread/status). New `analyst web` CLI command (binds `127.0.0.1:8080` by default; `--host/--port/--db-path` options). New deps: `flask`, `markdown`.
+- Behavior: 8 read pages (Today, Topics, Topic detail, Thesis history, Reports, Report detail, Items, Ops, Reading mode). 3 write actions reuse existing guarded paths: `add_inbox_item` → `store.db.insert_item` (silent content-hash dedupe); `retry_all` → `delivery.telegram.retry_undelivered` (disabled when Telegram env unset); `trigger_run` → `daily_run.run_daily` in a daemon thread guarded by `threading.Lock` (single active run enforced). Reading mode is cookie-backed (`SameSite=Lax, httponly`); `/` redirects to `/reading` when set. Report markdown is rendered with `|safe` (analyst-controlled local source; loopback-only tool). Action errors surface `type(exc).__name__` only (Invariant 7 preserved).
+- User-visible impact: `analyst web` opens a browser-accessible local dashboard at `http://127.0.0.1:8080`. No new CLI commands beyond `analyst web`.
+- Architecture note: No schema changes — the web layer reads existing tables. `queries.py` contains all dashboard SELECTs; no bare SQL in routes. The Origin check is the CSRF guard for the no-auth loopback tool.
+- Migration notes: `pip install -e .` (or `uv pip install -e .`) to pull in `flask` and `markdown`.
+- Related PR/commit: web-ui-dashboard branch
+
 ## 2026-06-13 — Phase 3: automated delivery
 
 Summary:

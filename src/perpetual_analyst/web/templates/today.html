@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Today</h1>
+{% if report %}
+  <p class="meta">{{ report.report_date }}{% if not report.delivered_at %} · <span class="warn">undelivered</span>{% endif %}</p>
+  <article class="report">{{ report_html|safe }}</article>
+{% else %}
+  <p class="empty">No report yet — run the pipeline from Ops.</p>
+{% endif %}
+{% endblock %}

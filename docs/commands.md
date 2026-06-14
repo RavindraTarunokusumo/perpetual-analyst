@@ -55,6 +55,26 @@ analyst report show
 analyst report show --date 2026-06-10
 ```
 
+## Web Dashboard
+
+```bash
+# Start the local dashboard (default: http://127.0.0.1:8080)
+analyst web
+
+# Custom host/port or non-default DB
+analyst web --host 127.0.0.1 --port 9000
+analyst web --db-path data/alt.db
+```
+
+The dashboard is a read-mostly local tool. Three write actions are available via the UI:
+- **Add inbox item** (`POST /actions/inbox`) — inserts an item into the inbox source for a topic; silent dedupe on `content_hash`.
+- **Retry undelivered** (`POST /actions/retry`) — calls `retry_undelivered`; disabled when Telegram env vars are unset.
+- **Trigger run** (`POST /actions/run`) — launches `run_daily` in a background thread; a second click is a no-op while a run is active. Dry-run mode available via the checkbox.
+
+The run status is polled at `GET /actions/run/status`.
+
+Security: binds loopback only; cross-origin POSTs are rejected by a `before_request` Origin check. No authentication (single-user by design).
+
 ## Daily Pipeline (Direct)
 
 ```bash

@@ -113,5 +113,17 @@ def run(
         conn.close()
 
 
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", help="Bind host (loopback by default)"),
+    port: int = typer.Option(8080, help="Port"),
+    db_path: str = typer.Option("data/analyst.db", help="SQLite DB path"),
+) -> None:
+    """Launch the local dashboard."""
+    from perpetual_analyst.web.app import create_app
+
+    create_app(db_path).run(host=host, port=port)
+
+
 if __name__ == "__main__":
     app()

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Reports</h1>
+{% if reports and reports|selectattr('delivered_at', 'none')|list %}
+<form method="post" action="{{ url_for('action_retry') }}" class="inline">
+  <button class="btn" type="submit" {% if not telegram_ok %}disabled title="Telegram not configured"{% endif %}>
+    Retry undelivered
+  </button>
+</form>
+{% endif %}
+{% if reports %}
+<table>
+  <tr><th>Date</th><th>Delivered</th></tr>
+  {% for r in reports %}
+  <tr>
+    <td><a href="{{ url_for('report_detail', report_date=r.report_date) }}">{{ r.report_date }}</a></td>
+    <td>{% if r.delivered_at %}{{ r.delivered_at }}{% else %}<span class="warn">undelivered</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty">No reports yet — run the pipeline from Ops.</p>
+{% endif %}
+{% endblock %}

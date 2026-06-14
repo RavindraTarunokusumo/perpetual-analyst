@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Ops</h1>
+<section class="card">
+  <div class="label">Item status</div>
+  {% for k, v in ov.status_counts.items() %}<span>{{ k }}: {{ v }} &nbsp;</span>{% endfor %}
+  <div>Undelivered reports: {{ ov.undelivered }}</div>
+</section>
+<section class="card">
+  <div class="label">Sources</div>
+  <table>
+    <tr><th>Name</th><th>Type</th><th>Active</th><th>Last fetched</th><th>Errors</th></tr>
+    {% for s in ov.sources %}
+    <tr>
+      <td>{{ s.name }}</td><td>{{ s.type }}</td>
+      <td>{{ 'yes' if s.active else 'no' }}</td>
+      <td>{{ s.last_fetched_at or '—' }}</td>
+      <td>{{ s.fetch_error_count }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+<section class="card">
+  <div class="label">Daily run</div>
+  <div id="run-state">state: {{ run_status.state }}{% if run_status.error %} ({{ run_status.error }}){% endif %}</div>
+  <form method="post" action="{{ url_for('action_run') }}" class="inline">
+    <button class="btn" type="submit">Trigger run</button>
+  </form>
+  <form method="post" action="{{ url_for('action_run') }}" class="inline">
+    <input type="hidden" name="dry_run" value="1">
+    <button class="btn" type="submit">Trigger dry-run</button>
+  </form>
+</section>
+<script>
+  async function poll() {
+    try {
+      const r = await fetch("{{ url_for('action_run_status') }}");
+      const s = await r.json();
+      document.getElementById("run-state").textContent =
+        "state: " + s.state + (s.error ? " (" + s.error + ")" : "");
+      if (s.state === "running") setTimeout(poll, 2000);
+    } catch (e) {}
+  }
+  if ("{{ run_status.state }}" === "running") poll();
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}perpetual-analyst{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <nav class="nav">
+    <span class="brand">perpetual-analyst</span>
+    <a href="{{ url_for('today') }}">Today</a>
+    <a href="{{ url_for('topics') }}">Topics</a>
+    <a href="{{ url_for('reports') }}">Reports</a>
+    <a href="{{ url_for('items') }}">Items</a>
+    <a href="{{ url_for('ops') }}">Ops</a>
+    <span class="spacer"></span>
+    <form method="post" action="{{ url_for('reading_toggle') }}" class="inline">
+      <button class="btn" type="submit">
+        {% if request.cookies.get('reading') == '1' %}Exit reading{% else %}Reading mode{% endif %}
+      </button>
+    </form>
+    {% block nav_extra %}{% endblock %}
+  </nav>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+  <main class="main">{% block content %}{% endblock %}</main>
+</body>
+</html>

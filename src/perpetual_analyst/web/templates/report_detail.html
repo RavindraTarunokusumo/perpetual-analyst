@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('reports') }}">← Reports</a></p>
+<h1>{{ report.report_date }}</h1>
+{% if report_html %}
+<article class="report">{{ report_html|safe }}</article>
+{% else %}
+<p class="empty">No content.</p>
+{% endif %}
+{% endblock %}

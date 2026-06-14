@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Topics</h1>
+{% if topics %}
+<table>
+  <tr><th>Topic</th><th>Active theses</th></tr>
+  {% for t in topics %}
+  <tr>
+    <td><a href="{{ url_for('topic', slug=t.slug) }}">{{ t.name }}</a></td>
+    <td>{{ t.active_theses }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty">No topics configured.</p>
+{% endif %}
+{% endblock %}
