@@ -86,3 +86,22 @@ def test_items_empty_state(empty_client):
     resp = empty_client.get("/items")
     assert resp.status_code == 200
     assert b"No items" in resp.data
+
+
+def test_reading_route_lists_dossiers(client):
+    resp = client.get("/reading")
+    assert resp.status_code == 200
+    assert b"State of play" in resp.data
+
+
+def test_reading_toggle_sets_cookie_and_redirects_home(client):
+    resp = client.post("/reading/toggle")
+    assert resp.status_code == 302
+    assert "reading=1" in resp.headers.get("Set-Cookie", "")
+
+
+def test_home_redirects_to_reading_when_cookie_set(client):
+    client.set_cookie("reading", "1")
+    resp = client.get("/")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/reading")

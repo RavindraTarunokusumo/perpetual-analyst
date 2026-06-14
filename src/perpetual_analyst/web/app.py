@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 import markdown as md
-from flask import Flask, abort, g, render_template, request
+from flask import Flask, abort, g, make_response, redirect, render_template, request, url_for
 
 from perpetual_analyst.report.render import render_citations
 from perpetual_analyst.web import queries
@@ -40,6 +40,8 @@ def create_app(db_path: str) -> Flask:
 
     @app.route("/")
     def today():
+        if request.cookies.get("reading") == "1":
+            return redirect(url_for("reading"))
         report = queries.latest_report(get_conn())
         report_html = render_report_html(report["full_markdown"]) if report else ""
         return render_template("today.html", report=report, report_html=report_html)
@@ -91,5 +93,19 @@ def create_app(db_path: str) -> Flask:
     @app.route("/ops")
     def ops():
         return render_template("ops.html", ov=queries.ops_overview(get_conn()))
+
+    @app.route("/reading")
+    def reading():
+        return render_template("reading.html", dossiers=queries.all_dossiers(get_conn()))
+
+    @app.route("/reading/toggle", methods=["POST"])
+    def reading_toggle():
+        on = request.cookies.get("reading") == "1"
+        resp = make_response(redirect(url_for("today")))
+        if on:
+            resp.delete_cookie("reading")
+        else:
+            resp.set_cookie("reading", "1")
+        return resp
 
     return app

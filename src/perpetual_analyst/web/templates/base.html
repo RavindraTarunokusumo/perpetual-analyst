@@ -14,6 +14,12 @@
     <a href="{{ url_for('reports') }}">Reports</a>
     <a href="{{ url_for('items') }}">Items</a>
     <a href="{{ url_for('ops') }}">Ops</a>
+    <span class="spacer"></span>
+    <form method="post" action="{{ url_for('reading_toggle') }}" class="inline">
+      <button class="btn" type="submit">
+        {% if request.cookies.get('reading') == '1' %}Exit reading{% else %}Reading mode{% endif %}
+      </button>
+    </form>
     {% block nav_extra %}{% endblock %}
   </nav>
   {% with messages = get_flashed_messages(with_categories=true) %}

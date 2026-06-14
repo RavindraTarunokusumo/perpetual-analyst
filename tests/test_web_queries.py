@@ -69,3 +69,10 @@ def test_ops_overview(seeded_conn):
     assert ov["status_counts"]["new"] == 1
     assert ov["undelivered"] == 1
     assert {s["id"] for s in ov["inbox_sources"]} == {2}
+
+
+def test_all_dossiers(seeded_conn):
+    rows = queries.all_dossiers(seeded_conn)
+    assert len(rows) == 1
+    assert rows[0]["slug"] == "ai-labs"
+    assert rows[0]["content"].startswith("## State of play")

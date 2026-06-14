@@ -114,3 +114,12 @@ def ops_overview(conn: sqlite3.Connection) -> dict:
         "status_counts": {r["status"]: r["n"] for r in counts},
         "undelivered": undelivered,
     }
+
+
+def all_dossiers(conn: sqlite3.Connection) -> list[dict]:
+    rows = conn.execute(
+        """SELECT t.slug, t.name, d.content, d.updated_at
+           FROM topics t JOIN dossiers d ON d.topic_id = t.id
+           WHERE t.active = 1 ORDER BY t.name"""
+    ).fetchall()
+    return [dict(r) for r in rows]
