@@ -26,11 +26,13 @@ The guiding rule: **the Analyst Agent is the product; everything else is plumbin
    │  items, chunks, topics, sources, theses,    │
    │  observations, dossiers, reports            │
    └─────────────────────────────────────────────┘
-             ▲
-   ┌─────────┴───────────┐
-   │ retrieval/          │  FTS5 keyword search + BM25 recency boost
-   │  search.py          │  optional: embeddings.py (sqlite-vec) only if FTS proves insufficient
-   └─────────────────────┘
+             ▲                       ▲
+   ┌─────────┴───────────┐   ┌───────┴─────────────────┐
+   │ retrieval/          │   │ web/  — local dashboard  │
+   │  search.py          │   │  app.py (Flask factory)  │
+   │  FTS5 + BM25 boost  │   │  queries.py (read-only)  │
+   └─────────────────────┘   │  actions.py (3 writes)   │
+                             └─────────────────────────┘
 ```
 
 ## Data Flow
@@ -54,6 +56,7 @@ The triage step exists to protect the analyst's context: the expensive model see
 
 - `daily_run.py` — main orchestrator; called by cron/Task Scheduler as `python -m perpetual_analyst.daily_run`
 - `cli.py` — typer CLI app, installed as `analyst` script; `analyst topic add`, `analyst source add`, `analyst run --topic x --dry-run`
+- `analyst web` — starts the local Flask dashboard on `127.0.0.1:8080` (read-mostly; 3 write actions reuse existing guarded paths)
 
 ## Module Boundaries
 
@@ -121,6 +124,30 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 |---|---|
 | `telegram.py` | `send_report(report, conn)` — env-gated on `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`; sends HTML digest truncated at a paragraph boundary (`_balance_html` closes any open `<b>`/`<i>`) + full markdown as file attachment; stamps `delivered_at` on success; never raises — prints exception *type* only (secret hygiene). `retry_undelivered(conn)` sweeps `delivered_at IS NULL` rows. |
 
+### `web/`
+
+Local, single-user read dashboard over the existing SQLite DB. Started by `analyst web`; binds `127.0.0.1:8080` by default. No schema changes — all reads go through `queries.py`; the three write actions reuse existing guarded paths in `store` and `delivery`.
+
+| File | Responsibility |
+|---|---|
+| `app.py` | Flask factory `create_app(db_path)` — registers all routes and a `before_request` Origin check that rejects cross-origin POSTs (CSRF guard for the loopback tool) |
+| `queries.py` | Read-only view-model builders: `latest_report`, `report_list`, `report_by_date`, `topic_list`, `topic_detail`, `thesis_detail`, `items_feed`, `inbox_sources`, `ops_overview`, `all_dossiers` |
+| `actions.py` | Three write actions: `add_inbox_item` (→ `store.db.insert_item`, silent dedupe), `retry_all` (→ `delivery.telegram.retry_undelivered`, disabled when Telegram env unset), `trigger_run` (→ `daily_run.run_daily` in a daemon thread guarded by a single-run `threading.Lock`); `run_status()` returns live status polled at `GET /actions/run/status` |
+| `templates/` | Jinja2 templates for each page |
+| `static/app.css` | Minimal stylesheet |
+
+**Pages (all GET):**
+
+| Route | Page |
+|---|---|
+| `/` | Today's report (redirects to `/reading` when reading mode cookie is set) |
+| `/topics`, `/topics/<slug>` | Topic list and topic detail (dossier, theses, recent observations) |
+| `/topics/<slug>/thesis/<id>` | Thesis revision history |
+| `/reports`, `/reports/<date>` | Report archive and report detail |
+| `/items` | Item feed, filterable by `status` and `source_id` |
+| `/ops` | Ops overview: source health, run status |
+| `/reading` | Reading mode — all topic dossiers stacked; toggled by a cookie via `POST /reading/toggle` |
+
 ## Background Jobs
 
 - **Daily run:** orchestrated by `daily_run.py` called by cron/Task Scheduler
@@ -146,6 +173,7 @@ system prompt → topic brief → dossier → active theses (+ last update each)
 | Embeddings | sqlite-vec + Voyage AI `voyage-3.5` — deferred; add only if FTS5 retrieval proves insufficient |
 | Fetching | feedparser, httpx, trafilatura, pypdf |
 | Telegram | python-telegram-bot (send-only V1) |
+| Web dashboard | Flask + Jinja2, `markdown` for report rendering |
 | Scheduling | OS cron / Windows Task Scheduler |
 | Config | `config/settings.yaml`, `.env` |
 | CLI | typer |

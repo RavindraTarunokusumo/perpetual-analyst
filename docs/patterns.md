@@ -135,6 +135,32 @@ External delivery (`delivery/telegram.py`) is gated on the presence of `TELEGRAM
 
 `assemble_report` makes exactly one `DigestOutput` structured call per day on the analyst model after all per-topic sections are assembled. This is the only sanctioned extension to Invariant 1. The call uses a mechanical fallback (concatenated section text) if the model call fails, so a digest failure never blocks report persistence or delivery.
 
+## Web Layer Write Pattern
+
+All web write actions must route through existing guarded paths — never issue bare SQL from routes or `actions.py`. The three sanctioned writes are:
+
+- `add_inbox_item` → `store.db.insert_item` (enforces content-hash dedupe)
+- `retry_all` → `delivery.telegram.retry_undelivered` (env-gated)
+- `trigger_run` → `daily_run.run_daily` (threading.Lock — single active run)
+
+Action error handlers expose `type(exc).__name__` only; never the exception message (Invariant 7 — no secret leakage through the UI).
+
+## CSRF Guard Pattern (Loopback Tool)
+
+For a no-auth loopback-only tool, reject cross-origin state-changing requests in `before_request`:
+
+```python
+@app.before_request
+def _csrf_origin_guard() -> None:
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return
+    origin = request.headers.get("Origin")
+    if origin is not None and urlparse(origin).netloc != request.host:
+        abort(403)
+```
+
+Browsers always send `Origin` on cross-origin POSTs; same-origin form submits and non-browser clients (no `Origin` header) pass through. This is sufficient for a single-user loopback tool — it is not a substitute for session auth on a networked service.
+
 ## Anti-Patterns (from SPEC §15)
 
 **Never do these:**
