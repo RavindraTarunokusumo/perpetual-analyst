@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from urllib.parse import urlparse
 
 import markdown as md
 from flask import (
@@ -40,6 +41,17 @@ def create_app(db_path: str) -> Flask:
         conn = g.pop("conn", None)
         if conn is not None:
             conn.close()
+
+    @app.before_request
+    def _csrf_origin_guard() -> None:
+        # CSRF defense for a no-auth loopback tool: reject any cross-origin
+        # state-changing request. Browsers always send Origin on such POSTs;
+        # same-origin form posts and non-browser clients (no Origin) pass.
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return
+        origin = request.headers.get("Origin")
+        if origin is not None and urlparse(origin).netloc != request.host:
+            abort(403)
 
     def render_report_html(full_markdown: str | None) -> str:
         if not full_markdown:

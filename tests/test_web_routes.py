@@ -141,3 +141,28 @@ def test_cli_web_command_registered():
     result = CliRunner().invoke(app, ["web", "--help"])
     assert result.exit_code == 0
     assert "host" in result.output.lower()
+
+
+def test_post_foreign_origin_rejected(client):
+    resp = client.post(
+        "/actions/inbox",
+        data={"topic_id": "1", "text": "csrf attempt"},
+        headers={"Origin": "http://evil.example"},
+    )
+    assert resp.status_code == 403
+
+
+def test_post_same_origin_allowed(client):
+    # Flask test client serves on host "localhost"; a matching Origin passes the guard
+    resp = client.post(
+        "/actions/inbox",
+        data={"topic_id": "1", "text": "same-origin ok"},
+        headers={"Origin": "http://localhost"},
+    )
+    assert resp.status_code == 302
+
+
+def test_post_without_origin_allowed(client):
+    # non-browser clients (no Origin header) are not blocked
+    resp = client.post("/actions/inbox", data={"topic_id": "1", "text": "no origin"})
+    assert resp.status_code == 302
