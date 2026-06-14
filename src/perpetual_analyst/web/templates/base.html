@@ -12,6 +12,8 @@
     <a href="{{ url_for('today') }}">Today</a>
     <a href="{{ url_for('topics') }}">Topics</a>
     <a href="{{ url_for('reports') }}">Reports</a>
+    <a href="{{ url_for('items') }}">Items</a>
+    <a href="{{ url_for('ops') }}">Ops</a>
     {% block nav_extra %}{% endblock %}
   </nav>
   {% with messages = get_flashed_messages(with_categories=true) %}

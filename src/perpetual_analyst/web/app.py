@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 import markdown as md
-from flask import Flask, abort, g, render_template
+from flask import Flask, abort, g, render_template, request
 
 from perpetual_analyst.report.render import render_citations
 from perpetual_analyst.web import queries
@@ -73,5 +73,23 @@ def create_app(db_path: str) -> Flask:
         if detail is None:
             abort(404)
         return render_template("thesis.html", slug=slug, **detail)
+
+    @app.route("/items")
+    def items():
+        status = request.args.get("status") or None
+        source_id = request.args.get("source_id", type=int)
+        rows = queries.items_feed(get_conn(), status=status, source_id=source_id)
+        ov = queries.ops_overview(get_conn())
+        return render_template(
+            "items.html",
+            items=rows,
+            inbox_sources=ov["inbox_sources"],
+            topics=queries.topic_list(get_conn()),
+            status=status,
+        )
+
+    @app.route("/ops")
+    def ops():
+        return render_template("ops.html", ov=queries.ops_overview(get_conn()))
 
     return app

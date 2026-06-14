@@ -72,3 +72,45 @@ def thesis_detail(conn: sqlite3.Connection, thesis_id: int) -> dict | None:
         (thesis_id,),
     ).fetchall()
     return {"thesis": dict(thesis), "updates": [dict(r) for r in updates]}
+
+
+def items_feed(
+    conn: sqlite3.Connection,
+    status: str | None = None,
+    source_id: int | None = None,
+    limit: int = 100,
+) -> list[dict]:
+    clauses, params = [], []
+    if status:
+        clauses.append("i.status = ?")
+        params.append(status)
+    if source_id:
+        clauses.append("i.source_id = ?")
+        params.append(source_id)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    params.append(limit)
+    rows = conn.execute(
+        f"""SELECT i.id, i.title, i.url, i.triage_summary, i.triage_score,
+                   i.status, i.fetched_at, s.name AS source_name
+            FROM items i LEFT JOIN sources s ON s.id = i.source_id
+            {where} ORDER BY i.fetched_at DESC LIMIT ?""",
+        params,
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def ops_overview(conn: sqlite3.Connection) -> dict:
+    sources = conn.execute(
+        "SELECT id, type, name, active, last_fetched_at, fetch_error_count "
+        "FROM sources ORDER BY type, name"
+    ).fetchall()
+    counts = conn.execute("SELECT status, COUNT(*) AS n FROM items GROUP BY status").fetchall()
+    undelivered = conn.execute(
+        "SELECT COUNT(*) AS n FROM reports WHERE delivered_at IS NULL"
+    ).fetchone()["n"]
+    return {
+        "sources": [dict(r) for r in sources],
+        "inbox_sources": [dict(r) for r in sources if r["type"] == "inbox" and r["active"]],
+        "status_counts": {r["status"]: r["n"] for r in counts},
+        "undelivered": undelivered,
+    }

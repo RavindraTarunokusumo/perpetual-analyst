@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Ops</h1>
+<section class="card">
+  <div class="label">Item status</div>
+  {% for k, v in ov.status_counts.items() %}<span>{{ k }}: {{ v }} &nbsp;</span>{% endfor %}
+  <div>Undelivered reports: {{ ov.undelivered }}</div>
+</section>
+<section class="card">
+  <div class="label">Sources</div>
+  <table>
+    <tr><th>Name</th><th>Type</th><th>Active</th><th>Last fetched</th><th>Errors</th></tr>
+    {% for s in ov.sources %}
+    <tr>
+      <td>{{ s.name }}</td><td>{{ s.type }}</td>
+      <td>{{ 'yes' if s.active else 'no' }}</td>
+      <td>{{ s.last_fetched_at or '—' }}</td>
+      <td>{{ s.fetch_error_count }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

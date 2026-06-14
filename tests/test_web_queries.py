@@ -43,3 +43,29 @@ def test_thesis_detail_includes_update_history(seeded_conn):
 
 def test_thesis_detail_missing(seeded_conn):
     assert queries.thesis_detail(seeded_conn, 999) is None
+
+
+def test_items_feed_unfiltered(seeded_conn):
+    rows = queries.items_feed(seeded_conn)
+    assert {r["id"] for r in rows} == {1, 2, 3}
+    assert rows[0]["source_name"]  # joined source name present
+
+
+def test_items_feed_filter_by_status(seeded_conn):
+    rows = queries.items_feed(seeded_conn, status="skipped")
+    assert {r["id"] for r in rows} == {2}
+
+
+def test_items_feed_filter_by_source(seeded_conn):
+    rows = queries.items_feed(seeded_conn, source_id=2)
+    assert {r["id"] for r in rows} == {3}
+
+
+def test_ops_overview(seeded_conn):
+    ov = queries.ops_overview(seeded_conn)
+    assert any(s["name"] == "arXiv cs.LG" for s in ov["sources"])
+    assert ov["status_counts"]["analyzed"] == 1
+    assert ov["status_counts"]["skipped"] == 1
+    assert ov["status_counts"]["new"] == 1
+    assert ov["undelivered"] == 1
+    assert {s["id"] for s in ov["inbox_sources"]} == {2}

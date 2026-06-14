@@ -61,3 +61,28 @@ def test_topics_empty_state(empty_client):
     resp = empty_client.get("/topics")
     assert resp.status_code == 200
     assert b"No topics" in resp.data
+
+
+def test_items_route(client):
+    resp = client.get("/items")
+    assert resp.status_code == 200
+    assert b"Scaling laws" in resp.data
+
+
+def test_items_route_status_filter(client):
+    resp = client.get("/items?status=skipped")
+    assert resp.status_code == 200
+    assert b"Noise" in resp.data
+    assert b"Scaling laws" not in resp.data
+
+
+def test_ops_route(client):
+    resp = client.get("/ops")
+    assert resp.status_code == 200
+    assert b"arXiv cs.LG" in resp.data
+
+
+def test_items_empty_state(empty_client):
+    resp = empty_client.get("/items")
+    assert resp.status_code == 200
+    assert b"No items" in resp.data
