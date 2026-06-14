@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Reports</h1>
+{% if reports and reports|selectattr('delivered_at', 'none')|list %}
+<form method="post" action="{{ url_for('action_retry') }}" class="inline">
+  <button class="btn" type="submit" {% if not telegram_ok %}disabled title="Telegram not configured"{% endif %}>
+    Retry undelivered
+  </button>
+</form>
+{% endif %}
 {% if reports %}
 <table>
   <tr><th>Date</th><th>Delivered</th></tr>

@@ -38,3 +38,21 @@ def test_add_inbox_item_no_inbox_source_raises(db_path):
         raised = True
     assert raised
     conn.close()
+
+
+def test_telegram_configured_reads_env(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    assert actions.telegram_configured() is False
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "x")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "y")
+    assert actions.telegram_configured() is True
+
+
+def test_retry_all_calls_delivery(db_path, monkeypatch):
+    calls = {}
+    monkeypatch.setattr(actions, "retry_undelivered", lambda conn: calls.setdefault("n", 3))
+    conn = _conn(db_path)
+    assert actions.retry_all(conn) == 3
+    assert calls["n"] == 3
+    conn.close()

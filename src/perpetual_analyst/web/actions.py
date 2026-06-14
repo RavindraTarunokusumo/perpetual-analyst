@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import sqlite3
 
+from perpetual_analyst.delivery.telegram import retry_undelivered
 from perpetual_analyst.store.db import insert_item
 
 
@@ -43,3 +45,11 @@ def add_inbox_item(
     )
     conn.commit()
     return inserted
+
+
+def telegram_configured() -> bool:
+    return bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
+
+
+def retry_all(conn: sqlite3.Connection) -> int:
+    return retry_undelivered(conn)

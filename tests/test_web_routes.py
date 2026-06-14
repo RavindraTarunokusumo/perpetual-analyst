@@ -117,3 +117,11 @@ def test_inbox_post_redirects_and_inserts(client):
     assert resp.status_code == 302
     follow = client.get("/items")
     assert b"via the web" in follow.data
+
+
+def test_retry_route_redirects(client, monkeypatch):
+    from perpetual_analyst.web import actions
+
+    monkeypatch.setattr(actions, "retry_undelivered", lambda conn: 1)
+    resp = client.post("/actions/retry")
+    assert resp.status_code == 302

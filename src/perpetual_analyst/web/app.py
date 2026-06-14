@@ -60,7 +60,27 @@ def create_app(db_path: str) -> Flask:
 
     @app.route("/reports")
     def reports():
-        return render_template("reports.html", reports=queries.report_list(get_conn()))
+        from perpetual_analyst.web import actions
+
+        return render_template(
+            "reports.html",
+            reports=queries.report_list(get_conn()),
+            telegram_ok=actions.telegram_configured(),
+        )
+
+    @app.route("/actions/retry", methods=["POST"])
+    def action_retry():
+        from perpetual_analyst.web import actions
+
+        if not actions.telegram_configured():
+            flash("Telegram not configured — set TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.", "error")
+            return redirect(url_for("reports"))
+        try:
+            n = actions.retry_all(get_conn())
+            flash(f"Delivered {n} report(s).", "info")
+        except Exception as exc:  # secret hygiene: type name only, never the message
+            flash(f"Retry failed: {type(exc).__name__}", "error")
+        return redirect(url_for("reports"))
 
     @app.route("/reports/<report_date>")
     def report_detail(report_date: str):
