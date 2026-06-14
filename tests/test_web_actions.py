@@ -83,3 +83,25 @@ def test_trigger_run_lock_rejects_concurrent(db_path, monkeypatch):
             break
         time.sleep(0.02)
     assert actions.run_status()["state"] == "done"
+
+
+def test_trigger_run_releases_lock_if_thread_fails(db_path, monkeypatch):
+    actions.reset_run_status()
+
+    class BoomThread:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            raise RuntimeError("cannot start thread")
+
+    monkeypatch.setattr(actions.threading, "Thread", BoomThread)
+    try:
+        actions.trigger_run(db_path, dry_run=True)
+        raised = False
+    except RuntimeError:
+        raised = True
+    assert raised
+    # the lock must have been released, not stuck in a permanent "in progress" state
+    assert actions._run_lock.acquire(blocking=False) is True
+    actions._run_lock.release()

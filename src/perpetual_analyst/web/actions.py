@@ -102,9 +102,15 @@ def trigger_run(db_path: str, dry_run: bool) -> bool:
     """Start a daily run in a background thread. Returns False if one is in flight."""
     if not _run_lock.acquire(blocking=False):
         return False
-    _run_status.update(
-        state="running", started_at=_now(), finished_at=None, error=None, dry_run=dry_run
-    )
-    thread = threading.Thread(target=_run_worker, args=(db_path, dry_run), daemon=True)
-    thread.start()
+    try:
+        _run_status.update(
+            state="running", started_at=_now(), finished_at=None, error=None, dry_run=dry_run
+        )
+        thread = threading.Thread(target=_run_worker, args=(db_path, dry_run), daemon=True)
+        thread.start()
+    except BaseException:
+        # If we never handed the lock to a running worker, release it here so the
+        # dashboard does not deadlock into a permanent "already in progress" state.
+        _run_lock.release()
+        raise
     return True
