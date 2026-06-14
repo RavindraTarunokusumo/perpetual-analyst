@@ -166,3 +166,22 @@ def test_post_without_origin_allowed(client):
     # non-browser clients (no Origin header) are not blocked
     resp = client.post("/actions/inbox", data={"topic_id": "1", "text": "no origin"})
     assert resp.status_code == 302
+
+
+def test_retry_route_configured_calls_delivery(client, monkeypatch):
+    # With Telegram configured, the route must actually reach the delivery path.
+    from perpetual_analyst.web import actions
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "x")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "y")
+    calls = {}
+    monkeypatch.setattr(actions, "retry_undelivered", lambda conn: calls.setdefault("n", 2))
+    resp = client.post("/actions/retry")
+    assert resp.status_code == 302
+    assert calls.get("n") == 2  # configured branch invoked retry_undelivered
+
+
+def test_inbox_post_missing_topic_id_redirects(client):
+    # Missing topic_id must be handled gracefully (guard flashes + redirects).
+    resp = client.post("/actions/inbox", data={"text": "no topic"})
+    assert resp.status_code == 302

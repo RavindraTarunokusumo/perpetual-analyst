@@ -83,6 +83,13 @@ def test_trigger_run_lock_rejects_concurrent(db_path, monkeypatch):
             break
         time.sleep(0.02)
     assert actions.run_status()["state"] == "done"
+    # The worker sets state="done" just before releasing the lock in its finally
+    # block; wait for the lock to actually free so we don't leak it to the next test.
+    for _ in range(50):
+        if not actions._run_lock.locked():
+            break
+        time.sleep(0.02)
+    assert not actions._run_lock.locked()
 
 
 def test_trigger_run_releases_lock_if_thread_fails(db_path, monkeypatch):

@@ -11,6 +11,7 @@ from flask import (
     abort,
     flash,
     g,
+    jsonify,
     make_response,
     redirect,
     render_template,
@@ -143,6 +144,9 @@ def create_app(db_path: str) -> Flask:
         text = request.form.get("text", "")
         title = request.form.get("title") or None
         url = request.form.get("url") or None
+        if topic_id is None:
+            flash("Invalid topic.", "error")
+            return redirect(url_for("items"))
         try:
             ok = actions.add_inbox_item(get_conn(), topic_id, title, url, text)
             flash("Item added." if ok else "Duplicate — already present.", "info")
@@ -178,7 +182,7 @@ def create_app(db_path: str) -> Flask:
     def action_run_status():
         from perpetual_analyst.web import actions
 
-        return actions.run_status()
+        return jsonify(actions.run_status())
 
     @app.route("/reading")
     def reading():
