@@ -2,6 +2,28 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-06-14 — Web UI dashboard session
+
+### What worked well
+
+**The `pip install -e .` Preamble step (added this session) removed real friction.** Every implementer and the live-validation step imported the package and ran `pytest`/`analyst web` with no `PYTHONPATH` dance. The console script (`analyst.exe`) re-pointed at the worktree's `src/` after the editable install, so live-validating the *worktree* code Just Worked. Worth keeping as a hard Preamble step.
+
+**Cost-tuned the subagent-driven loop without losing rigor.** Instead of the skill's 2 review subagents per task (≈20 dispatches), I verified spec-compliance *inline* by reading each committed diff (cheap; I authored the plan) and ran **consolidated Sonnet code-quality reviews at group boundaries** (read-pages, then actions) plus **one final whole-branch review** — far fewer dispatches, and it still caught real bugs at every stage (thesis slug/topic 404, run-lock deadlock window, CSRF, a test that passed via the wrong code path). When the plan is fully prescribed and you authored it, inline spec-checking + grouped quality reviews is a good cost/quality trade.
+
+**The final whole-branch review earns its place even after per-group reviews.** Group reviews see code in isolation; the whole-branch pass caught *cross-cutting* defects the group passes structurally couldn't — most valuably a test that returned 302 via the unconfigured fast-path and never exercised the function it monkeypatched (a false-green). Always run the final pass; treat "a test that would pass even if the code were broken" as a first-class finding.
+
+### What to improve
+
+**A review subagent silently hit a stream-idle-timeout (~31 min, zero output).** The actions-group reviewer never returned. Inline fallback worked (I did the review myself and found the lock-release deadlock). Lesson: the inline-fallback rule isn't only for session-limit errors — a long review/analysis subagent can time out with nothing; when it does, review inline rather than re-dispatching and waiting again.
+
+**The visual-companion server idle-timed-out (30 min) during a long stretch of terminal Q&A.** I started it at the top of brainstorming, then spent many turns on *conceptual* (terminal) questions, so no screen was pushed and it self-exited; I had to restart it right before the first mockup. Lesson: start the companion **immediately before pushing the first visual**, not when the user first accepts it — and push a screen promptly to reset the idle timer.
+
+**`doc-updater` invented a version label.** It titled the changelog entry "Phase 4: …" although Phase 4 is reserved (weekly compaction); the feature was out-of-SPEC. Caught and fixed. Lesson: review doc-updater output for invented phase/version naming, not just content accuracy.
+
+**`ruff-format` reformats multi-line SQL strings on every commit.** Each implementer wrote `conn.execute("..." "...")` split strings and ruff collapsed/implicit-joined them on the pre-commit hook, forcing a re-stage + re-commit. Minor but recurring across all ~13 task commits. Pre-empt by writing SQL in ruff's preferred single-line/implicit-concat form, or run `ruff format` before staging so the first commit is clean.
+
+**Workflow Rule 11 (file-based bodies) held up.** PR body written with the Write tool → `gh pr create --body-file` as its own command → no silent failure (the Phase-3 chained-heredoc breakage did not recur). The `git commit -F - <<'MSGEOF'` heredoc form also worked reliably for multi-line commit messages in the Bash tool.
+
 ## 2026-06-13 — Phase 3 implementation session
 
 ### What worked well
