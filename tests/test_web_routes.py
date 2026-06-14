@@ -105,3 +105,8 @@ def test_home_redirects_to_reading_when_cookie_set(client):
     resp = client.get("/")
     assert resp.status_code == 302
     assert resp.headers["Location"].endswith("/reading")
+
+
+def test_thesis_route_wrong_slug_404(client):
+    # thesis 1 belongs to ai-labs; a mismatched slug must not render it
+    assert client.get("/topics/not-ai-labs/thesis/1").status_code == 404

@@ -34,6 +34,8 @@ def create_app(db_path: str) -> Flask:
     def render_report_html(full_markdown: str | None) -> str:
         if not full_markdown:
             return ""
+        # Source is analyst-controlled markdown stored locally; rendered with |safe
+        # and no HTML sanitization (loopback-only single-user tool).
         # render_citations is a no-op when no [item:N] tags remain (idempotent).
         text = render_citations(full_markdown, get_conn())
         return md.markdown(text, extensions=["fenced_code", "tables", "footnotes"])
@@ -71,8 +73,10 @@ def create_app(db_path: str) -> Flask:
 
     @app.route("/topics/<slug>/thesis/<int:thesis_id>")
     def thesis(slug: str, thesis_id: int):
-        detail = queries.thesis_detail(get_conn(), thesis_id)
-        if detail is None:
+        conn = get_conn()
+        detail = queries.thesis_detail(conn, thesis_id)
+        topic_id = queries.topic_id_for_slug(conn, slug)
+        if detail is None or topic_id is None or detail["thesis"]["topic_id"] != topic_id:
             abort(404)
         return render_template("thesis.html", slug=slug, **detail)
 
@@ -105,7 +109,7 @@ def create_app(db_path: str) -> Flask:
         if on:
             resp.delete_cookie("reading")
         else:
-            resp.set_cookie("reading", "1")
+            resp.set_cookie("reading", "1", httponly=True, samesite="Lax")
         return resp
 
     return app

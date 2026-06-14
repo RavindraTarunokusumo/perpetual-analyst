@@ -63,6 +63,11 @@ def topic_detail(conn: sqlite3.Connection, slug: str) -> dict | None:
     }
 
 
+def topic_id_for_slug(conn: sqlite3.Connection, slug: str) -> int | None:
+    row = conn.execute("SELECT id FROM topics WHERE slug = ?", (slug,)).fetchone()
+    return row["id"] if row else None
+
+
 def thesis_detail(conn: sqlite3.Connection, thesis_id: int) -> dict | None:
     thesis = conn.execute("SELECT * FROM theses WHERE id = ?", (thesis_id,)).fetchone()
     if thesis is None:
@@ -84,7 +89,7 @@ def items_feed(
     if status:
         clauses.append("i.status = ?")
         params.append(status)
-    if source_id:
+    if source_id is not None:
         clauses.append("i.source_id = ?")
         params.append(source_id)
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
