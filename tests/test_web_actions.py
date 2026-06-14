@@ -1,4 +1,6 @@
 import sqlite3
+import threading
+import time
 
 from perpetual_analyst.web import actions
 
@@ -56,3 +58,28 @@ def test_retry_all_calls_delivery(db_path, monkeypatch):
     assert actions.retry_all(conn) == 3
     assert calls["n"] == 3
     conn.close()
+
+
+def test_trigger_run_lock_rejects_concurrent(db_path, monkeypatch):
+    gate = threading.Event()
+
+    def fake_run_daily(conn, client, settings, dry_run=False):
+        gate.wait(timeout=5)
+
+    monkeypatch.setattr(actions, "run_daily", fake_run_daily)
+    monkeypatch.setattr(actions, "make_client", lambda: None)
+    monkeypatch.setattr(actions, "load_settings", lambda: None)
+
+    actions.reset_run_status()
+    assert actions.trigger_run(db_path, dry_run=True) is True
+    for _ in range(50):
+        if actions.run_status()["state"] == "running":
+            break
+        time.sleep(0.02)
+    assert actions.trigger_run(db_path, dry_run=True) is False
+    gate.set()
+    for _ in range(50):
+        if actions.run_status()["state"] == "done":
+            break
+        time.sleep(0.02)
+    assert actions.run_status()["state"] == "done"

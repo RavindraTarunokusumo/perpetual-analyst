@@ -5,9 +5,14 @@ from __future__ import annotations
 import hashlib
 import os
 import sqlite3
+import threading
+from datetime import UTC, datetime
 
+from perpetual_analyst.analyst.agent import make_client
+from perpetual_analyst.config import load_settings
+from perpetual_analyst.daily_run import force_utf8_stdout, run_daily
 from perpetual_analyst.delivery.telegram import retry_undelivered
-from perpetual_analyst.store.db import insert_item
+from perpetual_analyst.store.db import init_db, insert_item
 
 
 class NoInboxSource(Exception):
@@ -53,3 +58,53 @@ def telegram_configured() -> bool:
 
 def retry_all(conn: sqlite3.Connection) -> int:
     return retry_undelivered(conn)
+
+
+_run_lock = threading.Lock()
+_run_status: dict = {
+    "state": "idle",
+    "started_at": None,
+    "finished_at": None,
+    "error": None,
+    "dry_run": False,
+}
+
+
+def run_status() -> dict:
+    return dict(_run_status)
+
+
+def reset_run_status() -> None:
+    _run_status.update(state="idle", started_at=None, finished_at=None, error=None, dry_run=False)
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def _run_worker(db_path: str, dry_run: bool) -> None:
+    try:
+        force_utf8_stdout()
+        conn = init_db(db_path)
+        try:
+            client = None if dry_run else make_client()
+            run_daily(conn, client, load_settings(), dry_run=dry_run)
+        finally:
+            conn.close()
+        _run_status.update(state="done", finished_at=_now())
+    except Exception as exc:  # secret hygiene: type name only
+        _run_status.update(state="error", finished_at=_now(), error=type(exc).__name__)
+    finally:
+        _run_lock.release()
+
+
+def trigger_run(db_path: str, dry_run: bool) -> bool:
+    """Start a daily run in a background thread. Returns False if one is in flight."""
+    if not _run_lock.acquire(blocking=False):
+        return False
+    _run_status.update(
+        state="running", started_at=_now(), finished_at=None, error=None, dry_run=dry_run
+    )
+    thread = threading.Thread(target=_run_worker, args=(db_path, dry_run), daemon=True)
+    thread.start()
+    return True

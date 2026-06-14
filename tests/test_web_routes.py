@@ -125,3 +125,9 @@ def test_retry_route_redirects(client, monkeypatch):
     monkeypatch.setattr(actions, "retry_undelivered", lambda conn: 1)
     resp = client.post("/actions/retry")
     assert resp.status_code == 302
+
+
+def test_run_status_endpoint(client):
+    resp = client.get("/actions/run/status")
+    assert resp.status_code == 200
+    assert resp.json["state"] in {"idle", "running", "done", "error"}

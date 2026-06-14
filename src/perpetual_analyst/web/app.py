@@ -142,7 +142,31 @@ def create_app(db_path: str) -> Flask:
 
     @app.route("/ops")
     def ops():
-        return render_template("ops.html", ov=queries.ops_overview(get_conn()))
+        from perpetual_analyst.web import actions
+
+        return render_template(
+            "ops.html",
+            ov=queries.ops_overview(get_conn()),
+            run_status=actions.run_status(),
+        )
+
+    @app.route("/actions/run", methods=["POST"])
+    def action_run():
+        from perpetual_analyst.web import actions
+
+        dry_run = request.form.get("dry_run") == "1"
+        started = actions.trigger_run(app.config["DB_PATH"], dry_run=dry_run)
+        flash(
+            "Run started." if started else "A run is already in progress.",
+            "info" if started else "error",
+        )
+        return redirect(url_for("ops"))
+
+    @app.route("/actions/run/status")
+    def action_run_status():
+        from perpetual_analyst.web import actions
+
+        return actions.run_status()
 
     @app.route("/reading")
     def reading():
