@@ -2,20 +2,21 @@
 
 Project: `perpetual-analyst`
 
-**Follow the [Workflow](#workflow) strictly for feature implementation**. Do not start implementation until Steps 1-5 are complete. Before editing, show which step you are on. Before finishing, confirm Step 6 and Step 7. Finally, do Step 8 and 9 to wrap up the session.
+**Follow the [Workflow](#workflow) strictly for feature implementation**. Do not start implementation until Steps 1-3 are complete. Before editing, show which step you are on.
 
 Any change made to `AGENTS.md` should also be applied to `CLAUDE.md`.
 
 ## Project Map
 
+**Add more when needed**
+
 - Architecture: [docs/architecture.md](docs/architecture.md)
 - Database / Persistence: [docs/database.md](docs/database.md)
-- Patterns & Anti-patterns: [docs/patterns.md](docs/patterns.md)
+- Patterns: [docs/patterns.md](docs/patterns.md)
 - Testing: [docs/testing.md](docs/testing.md)
 - Commands: [docs/commands.md](docs/commands.md)
 - Agent Harness: [docs/agent-harness.md](docs/agent-harness.md)
 - Full Index: [docs/index.md](docs/index.md)
-- Spec: [SPEC.md](SPEC.md)
 
 ## Core Invariants
 
@@ -32,19 +33,24 @@ Any change made to `AGENTS.md` should also be applied to `CLAUDE.md`.
 
 ## Code Graph / Repo Map
 
-If a code graph or dependency map exists, use it before touching unfamiliar code. Only rebuild on a clean working tree. Query the graph first, then read files directly.
+If a code graph, dependency map, or architecture index exists, use it before touching unfamiliar code.
+
+Rules:
+
+- Do not rebuild the graph while files are being modified.
+- Only rebuild on a clean working tree.
+- Use the graph as a snapshot, not a live source of truth.
+- Query the graph first, then read files directly.
 
 ## Workflow
 
-1. (Preamble) Ensure you're in a dedicated local branch/worktree under `.worktree/<session-name>` and activate the virtual environment `.venv` located in the root directory. Run `pip install -e .` so the package imports without a per-command `PYTHONPATH`. Read the `docs/insights.md` file and the [Workflow Rules](#workflow-rules).
+1. (Preamble) Ensure you're in a dedicated local branch/worktree under `.worktree/<session-name>` and activate the virtual environment `.venv` located in the root directory. Read the `docs/insights.md` file and the [Workflow Rules](#workflow-rules).
 2. (GitNexus) Read the [GitNexus](#gitnexus--code-intelligence) section at the start of every session.
-3. (Planning) Brainstorm implementation plan and spec using the `/brainstorming` skill; read the docs (see [Project Map](#project-map)) and use GitNexus as your primary means to understand the codebase.
-4. (Implementing) After you get permission from user, log tasks and sub-items in `TODO.md` first before you start, then use the `/subagent-driven-development` skill to implement the tasks.
-5. (Commit) Run `pre-commit run --all-files` before each commit and attach a git note afterwards using the [template](.github/git_notes_template.md). Cross each sub-items and items once done.
-6. (Pre-PR) Once every items are crossed, do the [Pre-PR](#pre-pr) workflow.
-7. (Submit PR) Finally, follow the instructions in the [Submit PR](#submit-pr) workflow and notify the user once every step have been completed.
-8. (Post-PR) Archive completed TODO items from `TODO.md` into `docs/iterations/archive/` and ensure each subitem in the TODO are tagged with the commmit hash and each session are tagged with the merge ID. `TODO.md` should only contain **active or future** work only.
-9. (Reflection) Conclude the session by doing the [Reflection](#reflection) exercise. After receiving confirmation from the user, delete the worktree and branch.
+3. (Planning) For feature implementation, brainstorm implementation plan using the `/brainstorming` skill; read the docs (see [Project Map](#project-map)) and use GitNexus as your primary means to understand the codebase. For debugging or minor patching, skip this step.
+4. (Implementing) Log tasks and sub-items in `TODO.md` first, then use the `/subagent-driven-development` skill to implement the tasks. Run `pre-commit run --all-files` before each commit and attach a git note afterwards using the [template](.github/git_notes_template.md). Cross each sub-items and items once done. Before opening the PR, run a **bounded live validation** for any change that touches external APIs, network, or file/stdout IO — exercise the real pipeline (e.g. `analyst run --dry-run`) against a small/bounded input; mocks validate the mock, not the contract. If a feed or call is too slow, shrink its input rather than skipping the check.
+5. (Submit PR) Finally, follow the instructions in the [Submit PR](#submit-pr) workflow — using non-interactive `grok -p` commands where possible to trigger reviews — and notify the user once every step has been completed. If Grok fails, spawn native subagents as a fallback.
+6. (Post-PR) Update documentation files once the PR has been merged and archive completed TODO items from `TODO.md` into `docs/iterations/archive/`; ensure each subitem in the TODO are tagged with the commmit hash and each session are tagged with the merge ID - `TODO.md` should only contain **active or future** work only.
+7. (Reflection) Conclude the session by doing the [Reflection](#reflection) exercise. After receiving confirmation from the user, delete the worktree and branch.
 
 ### Workflow Rules
 
@@ -54,45 +60,74 @@ If a code graph or dependency map exists, use it before touching unfamiliar code
 4. Never force-push, reset `--hard`, merge or amend unless explicitly asked.
 5. Keep comments sparse, naming clear, abstractions minimal, and avoid compatibility shims.
 6. When `pre-commit run --all-files` fails only on files you did not touch, note it as pre-existing and proceed — do not attempt workarounds that affect other files.
-7. After subscribing to PR activity, wait for Copilot Code Review (allow ~20 min) and address all findings before marking the session complete.
+7. After submitting the PR, delegate the code review (and optional security review) to Grok as ephemeral subagent sessions via the non-interactive CLI (`grok -p ... --output-format json --yolo`). Capture the `sessionId` from the JSON result, process the review output/side-effects (e.g. PENDING review posts), then immediately delete the corresponding `~/.grok/sessions/.../<sessionId>` directory for that security-review or code-review subagent task. See the detailed examples and cleanup logic in the [Submit PR](#submit-pr) section. Do not rely on GitHub Copilot Code Review. Rigorously address findings using the reception protocol.
 8. After context compaction resumes, run `git status` before any other action — the summary describes intent, not exact commit state.
-9. Commit any files written by subagents (doc-updater, security-review, etc.) immediately; do not advance the workflow with a dirty tree.
-10. `gitnexus_impact` requires the exact function/class name, not the module or file name. Use the symbol name as indexed (e.g. `answer_chat`, not `routes_chat`).
-11. When a command needs a multi-line body (commit message, PR body, review comment), write the body to a file with the Write tool and pass it via `--body-file`/`-F`, then run `gh`/`git` as its own standalone command. Never chain a here-string with `gh` and `Remove-Item` in one compound command — it can fail silently and skip the action.
-12. When parallel subagent dispatch fails on a session limit, fall back to doing the work inline in the main context rather than retrying the dispatch.
+9. Commit any files written by subagents immediately; do not advance the workflow with a dirty tree. For Grok-based subagents (security-review, bundled code-review, etc.), always capture the sessionId via `--output-format json` and delete the ephemeral chat session directory after the delegation completes and findings are processed.
+10. When a command needs a multi-line body (commit message, PR body, review comment), write the body to a file with the Write tool and pass it via `--body-file`/`-F`, then run `gh`/`git` as its own standalone command. Never chain a here-string with `gh` and `Remove-Item` in one compound command — it can fail silently and skip the action.
 
 ### Working in worktrees
 
 - Never run `npx gitnexus analyze` inside a worktree — it registers the worktree as a separate repo and rewrites the GitNexus block in `AGENTS.md`/`CLAUDE.md`. Reindex from the primary directory only. A stale-index warning is harmless for LOW-risk leaf additions.
 - Run `pre-commit` with the root `.pre-commit-config.yaml` from the **root** directory, not the worktree CWD (or set `PRE_COMMIT_ALLOW_NO_CONFIG=1`).
 - `git checkout main` fails from a worktree (main is checked out in the primary dir). Do post-PR work on main from the primary directory with `git -C <primary-path> ...` (e.g. `git -C <primary> pull --ff-only origin main`).
-
-### Pre-PR
-
-Use the following as the final steps before submitting a PR:
-
-- `/simplify` (skill)
-- `doc-updater` (subagent)
-- **Bounded live validation** — REQUIRED for any phase that touches external APIs, network, or file/stdout IO. Run the real pipeline (e.g. `analyst run --dry-run`) against a small/bounded input; mocks validate the mock, not the contract. If a feed or call is too slow, shrink its input (mark heavy feeds `last_fetched_at = now`) rather than skipping the check.
-
-**Invoke the following subagents IF changes affect security or significant architectural changes (or explicitly stated). Always cite your justification on why you decide to invoke them:**
-
-- `test-plan-writer` (subagent)
-- `security-review` (skill)
-
-Any fix made in response to a review is itself unreviewed code: after addressing review findings, run a focused review over the **fix delta** (not just the original branch) before proceeding.
+- On teardown, run `pip install -e .` from the **primary** directory before deleting the worktree: it re-points the editable install (and the `analyst` console script) back to the primary `src/` and releases the file handle that otherwise blocks worktree directory removal on Windows/OneDrive.
 
 ### Submit PR
 
-- Fill out the **[Template](.github/pull_request_template.md)**.
-- Submit the PR and wait for about 20m for the GitHub Copilot Code Review agent to finish writing the reviews.
-- If Copilot is unavailable, dispatch a substitute Opus `/code-review` over the whole branch and treat its findings the same way.
-- Use the `/receiving-code-review` skill to address the issues in the Copilot Code Review.
-- Merge with a **merge commit, not squash**, so per-commit SHAs stay verifiable in `git log` for archive tagging.
+1. Fill out the **[Template](.github/pull_request_template.md)** and submit the PR (capture the PR number/URL, e.g. via `gh pr create --json number,url`).
+
+2. (Optional) If the changes affect security (or explicitly stated), delegate a non-interactive security review to a Grok subagent (ephemeral session). Always cite justification. Capture the session ID and clean it up afterwards so the review chat session is deleted. PowerShell example:
+   ```powershell
+   $prNum = gh pr view --json number -q .number
+   $prompt = "Use the /security-review skill on PR #$prNum. Report only HIGH-confidence newly introduced vulnerabilities from the diff."
+   $json = grok -p $prompt --yolo --output-format json
+   $reviewText = ($json | ConvertFrom-Json).text
+   $sessionId = ($json | ConvertFrom-Json).sessionId
+
+   # Main agent (Claude Code etc.) processes $reviewText here (e.g. incorporate findings, address via receiving-code-review logic)
+
+   # Delete the ephemeral Grok subagent chat session created for this review
+   Get-ChildItem -Path "$env:USERPROFILE\.grok\sessions" -Recurse -Directory -Filter $sessionId |
+       Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+   ```
+
+3. Non-interactively generate the main professional code review by delegating to the Grok bundled reviewer as a subagent. This uses an ephemeral Grok chat session. Capture the session ID from JSON output, let the skill post the PENDING review as a side-effect, then delete the session when done (no TUI, clean final output only):
+   ```powershell
+   $prNum = gh pr view --json number -q .number
+   $prompt = "Use /bundled:review --pr #$prNum. The skill should post a PENDING GitHub review. After it completes, provide a very brief summary of what was done."
+   $json = grok -p $prompt --yolo --output-format json
+   $reviewSummary = ($json | ConvertFrom-Json).text
+   $sessionId = ($json | ConvertFrom-Json).sessionId
+
+   # Main agent processes the summary. The PENDING review was already posted by the Grok skill.
+
+   # Delete the ephemeral Grok subagent chat session for this code-review task
+   Get-ChildItem -Path "$env:USERPROFILE\.grok\sessions" -Recurse -Directory -Filter $sessionId |
+       Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+   ```
+
+   **Key points for Grok-as-subagent delegation (main agent e.g. Claude Code):**
+   - `-p` / `--single`: Headless single-turn mode — creates an ephemeral chat session, no interactive terminal/TUI.
+   - `--yolo` (or `--always-approve`): Auto-approves tools so the delegated review runs unattended.
+   - `--output-format json`: Returns structured output including `text` (the final summary) and `sessionId` (required for later cleanup). The actual review work and any PENDING GitHub posts happen inside the Grok invocation.
+   - After the main agent has used the review output/findings, immediately delete the session directory to remove the ephemeral chat history for that security-review or code-review subagent task.
+   - The session directories live under `~/.grok/sessions/<encoded-cwd>/<session-id>/`. The recursive filter by exact session ID is reliable across worktrees.
+
+   The invoked skills handle the heavy lifting (diff collection, subagent reviewer persona, posting PENDING reviews where applicable). The `grok -p` wrapper is just the delegation + cleanup mechanism.
+
+- Rigorously address the review findings before considering the task complete. Use the reception protocol defined in [Skills/receiving-code-review/SKILL.md](Skills/receiving-code-review/SKILL.md):
+  - Read the full feedback first.
+  - Verify each item technically against the actual codebase.
+  - Push back (with clear technical reasoning) on items that seem incorrect, unclear, or low-value.
+  - Implement one change at a time and test it.
+  - Avoid performative agreement ("You're right!", "Great catch!"); just state what was done or ask for clarification.
+  - After addressing findings, re-review the **fix delta** — fixes made in response to a review are themselves unreviewed code.
+
+**Note for mixed Claude/Grok environments:** In Claude Code sessions you may use `/code-review:code-review` (the official plugin) as a fallback, but prefer the Grok bundled reviewer when available for higher-quality structural feedback and proper PENDING review workflow.
 
 ### Reflection
 
-After every session completion, you reflect on how the workflow pertaining to the workflow and agent harness - the commands you executed (and which failed consistently), the tools you used, skills invoked, MCP accessed, etc. **Do not include anything feature-specific**. For example, when the Graphify output is too verbose or if certain powershell commands keeps failing. This is not about the features you implemented, but about *how* you implemented them. Write this down in [Insights](docs/insights.md) and then report it to the user in chat. Wait until user gives explicit permission to conclude the session.
+After every session completion, you reflect on how the workflow pertaining to the workflow and agent harness - the commands you executed (and which failed consistently), the tools you used, skills invoked, MCP accessed, etc. **Do not include anything feature-specific**. For example, when the Codebase Graph output is too verbose or if certain powershell commands keeps failing. This is not about the features you implemented, but about *how* you implemented them. Write this down in [Insights](docs/insights.md) and then suggest workflow updates to the user in chat.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
