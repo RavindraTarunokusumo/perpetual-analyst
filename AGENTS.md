@@ -82,6 +82,28 @@ During implementation:
 - The orchestrating agent reviews Grok Build's diff, verifies that it matches the plan and invariants, runs required checks, and sends any necessary fix requests back through a new Grok Build handoff.
 - If a review finding requires code changes, route the fix through Grok Build as well, then re-review the fix delta before proceeding.
 
+For Grok CLI delegations, use non-interactive commands so the handoff is reproducible and leaves no long-lived chat state:
+
+```powershell
+$prNum = gh pr view --json number -q .number
+$prompt = "Use /bundled:review --pr #$prNum. The skill should post a PENDING GitHub review. After it completes, provide a very brief summary of what was done."
+$json = grok -p $prompt --yolo --output-format json
+$reviewSummary = ($json | ConvertFrom-Json).text
+$sessionId = ($json | ConvertFrom-Json).sessionId
+
+# Main agent processes $reviewSummary and any side-effects before cleanup.
+Get-ChildItem -Path "$env:USERPROFILE\.grok\sessions" -Recurse -Directory -Filter $sessionId |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+Grok CLI argument rules:
+
+- `-p` / `--single`: headless single-turn mode; creates an ephemeral chat session without opening an interactive terminal/TUI.
+- `--yolo` / `--always-approve`: auto-approves delegated tools so the handoff runs unattended.
+- `--output-format json`: returns structured output with `text` and `sessionId`; always capture `sessionId` before cleanup.
+- Delete `~/.grok/sessions/.../<sessionId>` after processing the result or side-effects. The recursive exact-ID filter is reliable across worktrees.
+- The invoked Grok skill does the actual delegated work, such as diff collection, reviewer persona, and posting PENDING GitHub reviews. The `grok -p` command is the delegation and cleanup wrapper.
+
 ### Working in worktrees
 
 - Never run `npx gitnexus analyze` inside a worktree — it registers the worktree as a separate repo and rewrites the GitNexus block in `AGENTS.md`/`CLAUDE.md`. Reindex from the primary directory only. A stale-index warning is harmless for LOW-risk leaf additions.
@@ -108,29 +130,7 @@ During implementation:
        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
    ```
 
-3. Non-interactively generate the main professional code review by delegating to the Grok bundled reviewer as a subagent. This uses an ephemeral Grok chat session. Capture the session ID from JSON output, let the skill post the PENDING review as a side-effect, then delete the session when done (no TUI, clean final output only):
-   ```powershell
-   $prNum = gh pr view --json number -q .number
-   $prompt = "Use /bundled:review --pr #$prNum. The skill should post a PENDING GitHub review. After it completes, provide a very brief summary of what was done."
-   $json = grok -p $prompt --yolo --output-format json
-   $reviewSummary = ($json | ConvertFrom-Json).text
-   $sessionId = ($json | ConvertFrom-Json).sessionId
-
-   # Main agent processes the summary. The PENDING review was already posted by the Grok skill.
-
-   # Delete the ephemeral Grok subagent chat session for this code-review task
-   Get-ChildItem -Path "$env:USERPROFILE\.grok\sessions" -Recurse -Directory -Filter $sessionId |
-       Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-   ```
-
-   **Key points for Grok-as-subagent delegation (main agent e.g. Claude Code):**
-   - `-p` / `--single`: Headless single-turn mode — creates an ephemeral chat session, no interactive terminal/TUI.
-   - `--yolo` (or `--always-approve`): Auto-approves tools so the delegated review runs unattended.
-   - `--output-format json`: Returns structured output including `text` (the final summary) and `sessionId` (required for later cleanup). The actual review work and any PENDING GitHub posts happen inside the Grok invocation.
-   - After the main agent has used the review output/findings, immediately delete the session directory to remove the ephemeral chat history for that security-review or code-review subagent task.
-   - The session directories live under `~/.grok/sessions/<encoded-cwd>/<session-id>/`. The recursive filter by exact session ID is reliable across worktrees.
-
-   The invoked skills handle the heavy lifting (diff collection, subagent reviewer persona, posting PENDING reviews where applicable). The `grok -p` wrapper is just the delegation + cleanup mechanism.
+3. Non-interactively generate the main professional code review by delegating to the Grok bundled reviewer as a subagent. Use the CLI command pattern and cleanup rules in [Grok Build Handoff](#grok-build-handoff): invoke `/bundled:review --pr #<number>`, capture `sessionId` from `--output-format json`, process the result and PENDING review side-effects, then delete the ephemeral Grok session.
 
 - Rigorously address the review findings before considering the task complete. Use the reception protocol defined in [Skills/receiving-code-review/SKILL.md](Skills/receiving-code-review/SKILL.md):
   - Read the full feedback first.

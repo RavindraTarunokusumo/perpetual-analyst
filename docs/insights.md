@@ -12,6 +12,8 @@ Record reusable lessons from completed sessions.
 
 **The implementation handoff needed an explicit boundary.** The workflow already used Grok for PR review, but implementation still pointed to native subagents. A dedicated Grok Build handoff makes the planner/reviewer vs implementer split explicit for future sessions.
 
+**Keep Grok CLI mechanics in one place.** Review delegation and implementation handoff both rely on the same `grok -p ... --output-format json` pattern. Centralizing the command arguments, `sessionId` capture, and session cleanup rules avoids drift between workflow sections.
+
 ## 2026-06-14 — Web UI dashboard session
 
 ### What worked well
