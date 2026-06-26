@@ -1,0 +1,5 @@
+Task: Centralize Grok CLI handoff details
+Summary: Move the Grok CLI command pattern and argument rules into the Grok Build Handoff section, then make Submit PR step 3 refer back to that handoff.
+Docs: AGENTS.md, CLAUDE.md, docs/insights.md
+TODO: N/A - workflow documentation update
+Validation: pre-commit run --all-files passed; gitnexus_detect_changes reported low risk and no affected execution flows
