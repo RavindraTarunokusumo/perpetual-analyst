@@ -2,6 +2,16 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-06-26 — Workflow docs session
+
+### What worked well
+
+**Checking open PR state before acting avoided merging a nonexistent branch.** `gh pr list --state open` returned no open PRs, so the requested workflow update could proceed directly on `main` without trying to combine it with another branch.
+
+### What to improve
+
+**The implementation handoff needed an explicit boundary.** The workflow already used Grok for PR review, but implementation still pointed to native subagents. A dedicated Grok Build handoff makes the planner/reviewer vs implementer split explicit for future sessions.
+
 ## 2026-06-14 — Web UI dashboard session
 
 ### What worked well

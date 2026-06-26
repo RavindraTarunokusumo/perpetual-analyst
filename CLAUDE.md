@@ -47,7 +47,7 @@ Rules:
 1. (Preamble) Ensure you're in a dedicated local branch/worktree under `.worktree/<session-name>` and activate the virtual environment `.venv` located in the root directory. Read the `docs/insights.md` file and the [Workflow Rules](#workflow-rules).
 2. (GitNexus) Read the [GitNexus](#gitnexus--code-intelligence) section at the start of every session.
 3. (Planning) For feature implementation, brainstorm implementation plan using the `/brainstorming` skill; read the docs (see [Project Map](#project-map)) and use GitNexus as your primary means to understand the codebase. For debugging or minor patching, skip this step.
-4. (Implementing) Log tasks and sub-items in `TODO.md` first, then use the `/subagent-driven-development` skill to implement the tasks. Run `pre-commit run --all-files` before each commit and attach a git note afterwards using the [template](.github/git_notes_template.md). Cross each sub-items and items once done. Before opening the PR, run a **bounded live validation** for any change that touches external APIs, network, or file/stdout IO — exercise the real pipeline (e.g. `analyst run --dry-run`) against a small/bounded input; mocks validate the mock, not the contract. If a feed or call is too slow, shrink its input rather than skipping the check.
+4. (Implementing) Log tasks and sub-items in `TODO.md` first, then use the dedicated [Grok Build Handoff](#grok-build-handoff) for all implementation. ChatGPT/Claude may plan, decompose, review, verify, and orchestrate, but Grok Build owns the actual coding work: tests, implementation edits, and fix edits. Run `pre-commit run --all-files` before each commit and attach a git note afterwards using the [template](.github/git_notes_template.md). Cross each sub-items and items once done. Before opening the PR, run a **bounded live validation** for any change that touches external APIs, network, or file/stdout IO — exercise the real pipeline (e.g. `analyst run --dry-run`) against a small/bounded input; mocks validate the mock, not the contract. If a feed or call is too slow, shrink its input rather than skipping the check.
 5. (Submit PR) Finally, follow the instructions in the [Submit PR](#submit-pr) workflow — using non-interactive `grok -p` commands where possible to trigger reviews — and notify the user once every step has been completed. If Grok fails, spawn native subagents as a fallback.
 6. (Post-PR) Update documentation files once the PR has been merged and archive completed TODO items from `TODO.md` into `docs/iterations/archive/`; ensure each subitem in the TODO are tagged with the commmit hash and each session are tagged with the merge ID - `TODO.md` should only contain **active or future** work only.
 7. (Reflection) Conclude the session by doing the [Reflection](#reflection) exercise. After receiving confirmation from the user, delete the worktree and branch.
@@ -64,6 +64,23 @@ Rules:
 8. After context compaction resumes, run `git status` before any other action — the summary describes intent, not exact commit state.
 9. Commit any files written by subagents immediately; do not advance the workflow with a dirty tree. For Grok-based subagents (security-review, bundled code-review, etc.), always capture the sessionId via `--output-format json` and delete the ephemeral chat session directory after the delegation completes and findings are processed.
 10. When a command needs a multi-line body (commit message, PR body, review comment), write the body to a file with the Write tool and pass it via `--body-file`/`-F`, then run `gh`/`git` as its own standalone command. Never chain a here-string with `gh` and `Remove-Item` in one compound command — it can fail silently and skip the action.
+
+### Grok Build Handoff
+
+Use Grok Build for all feature implementation after Steps 1-3 are complete. ChatGPT/Claude remains the planner and reviewer; Grok Build is the implementer.
+
+Before starting Grok Build, the orchestrating agent must provide:
+
+- The approved plan or spec, with the exact `TODO.md` item/sub-item to implement.
+- Relevant Core Invariants, GitNexus findings, impact-analysis blast radius, and docs read.
+- Expected files/modules, tests to add or update, validation commands, and bounded live-validation requirements.
+- Commit expectations: one TODO sub-item per commit, specific staging only, pre-commit before commit, git note after commit.
+
+During implementation:
+
+- Grok Build writes the tests, implementation edits, and review/fix edits. ChatGPT/Claude should not hand-code implementation unless the user explicitly approves a fallback because Grok Build is unavailable or repeatedly fails.
+- The orchestrating agent reviews Grok Build's diff, verifies that it matches the plan and invariants, runs required checks, and sends any necessary fix requests back through a new Grok Build handoff.
+- If a review finding requires code changes, route the fix through Grok Build as well, then re-review the fix delta before proceeding.
 
 ### Working in worktrees
 
