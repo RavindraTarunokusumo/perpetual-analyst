@@ -5,6 +5,33 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
+## Active: PA ↔ Nexus integration
+
+Spec: `docs/specs/2026-07-08-pa-nexus-integration.md`
+Plan: `docs/specs/2026-07-08-pa-nexus-integration-plan.md`
+Branch: `pa-nexus-integration` (PA) · Nexus-repo change on its own branch.
+
+Environment blockers (gate Phases B–F validation/commit):
+- No Postgres reachable in this env (`pg_isready` absent) — needed for migrations/ingest/loop.
+- No `.env` / DashScope (Qwen) key at PA root — needed for live retrieval/synthesis.
+- GitNexus MCP not loaded this session → impact analysis via direct source reads (CLAUDE.md fallback).
+
+Tasks (per plan):
+- [ ] A1 — Qwen provider defaults + deps + DashScope key + Nexus editable install (PA)
+- [ ] N1 — corpus/topic-scoped retrieval, scope param default-None (Nexus repo)
+- [ ] A2 — `substrate.py` ingest+retrieve boundary (PA) — needs Postgres to validate
+- [ ] B1 — Alembic analytical-tables migration (Postgres)
+- [ ] B2 — SQLite↔Postgres topic mapping
+- [ ] C1/C2 — daily ingest → corpus (triage kept)
+- [ ] D1 — NarrativeUpdate schema; deprecate TopicAnalysis
+- [ ] D2 — substrate synthesize + transactional persist_bundle
+- [ ] D3 — synthesis orchestration
+- [ ] D4 — daily_run analyst stage + render briefing from narrative version
+- [ ] E1 — cross-session ask; E2 — prediction scoring + claim decay
+- [ ] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps; backfill
+
+---
+
 ## Future Backlog
 
 - [ ] Web UI: source-candidate approval flow (approve/dismiss discovered candidates; SSRF/validation on approved-URL fetch), source/quality dashboard. Supersedes the deferred Telegram approval buttons.
