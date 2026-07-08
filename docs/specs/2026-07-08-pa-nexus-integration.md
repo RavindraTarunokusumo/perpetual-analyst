@@ -119,6 +119,28 @@ ANN is deferred.
 4. Render briefing from the new narrative version → **Telegram** digest + full report
    (unchanged delivery). `nothing_significant: true` stays a first-class one-line output.
 
+### 6.2b Persist-bundle mapping (D2b decisions)
+The transactional write of a `NarrativeUpdate` (invariant #5) resolves the bundle's index-space
+references using the synthesis **context** (the retrieved windows + the ordered prior-claim list
+`synthesize` used), returned alongside the bundle. Mapping:
+- **claims** → new `claims` rows (`claim_type` NULL, `document_id` NULL — migration 0010 makes it
+  nullable; a synthesized claim isn't owned by one document). `evidence_span_indices` index the
+  retrieved windows; each resolves to that window's `span_ids` → `claim_evidence` rows (real
+  provenance for the inspector).
+- **superseded_claim_ids** index the prior active-claim list → flip those claims to `superseded`.
+- **events** → `events`; `claim_refs` index the bundle's new claims → stored as `claim_ids`.
+- **narrative** → a new `narrative_states` version (`version=prev+1`, `prev_version_id` linked);
+  `supporting_claim_ids` = the new claim ids.
+- **hypotheses (deviation from invariant #3):** the bundle's hypotheses are treated as the new
+  active set — prior active hypotheses are **retired** and the new ones inserted (capped ≤7),
+  rather than edited in place with an explicit before/after confidence log. History is preserved
+  as `retired` rows; the confidence trajectory is visible across rows but there is no per-edit
+  delta record. Simpler and snapshot-consistent for the MVP; revisit if per-hypothesis audit is needed.
+- **predictions** → open `predictions`; `resolve_by = today + horizon_days`; `hypothesis_id` NULL
+  (the schema carries no hypothesis ref in the MVP).
+- **source_profiles** → `source_profiles`.
+If `nothing_significant`, persist writes nothing (no new narrative version).
+
 ### 6.3 Cross-session query & lifecycle
 - Ask ("current view" / "competing hypotheses" / "did your prediction resolve") answered from
   persistent objects via `substrate.answer` (Nexus Chain-of-Note reader), topic-scoped.

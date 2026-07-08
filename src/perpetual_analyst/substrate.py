@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,16 @@ from app.api.routes_ingestion import (  # noqa: E402
     _persist_document,
 )
 from app.config import settings  # noqa: E402
-from app.db.models import Claim, Hypothesis, NarrativeState, Prediction, WatchTopic  # noqa: E402
+from app.db.models import (  # noqa: E402
+    Claim,
+    ClaimEvidence,
+    Event,
+    Hypothesis,
+    NarrativeState,
+    Prediction,
+    SourceProfile,
+    WatchTopic,
+)
 from app.db.session import make_engine, make_session_factory  # noqa: E402
 from app.intelligence.embedder import Embedder  # noqa: E402
 from app.intelligence.llm_client import LLMClient, LLMSchemaError  # noqa: E402
@@ -55,6 +65,14 @@ _SYNTHESIS_SYSTEM = (
 )
 
 _SCHEMA_RETRY_SUFFIX = "\n\nReturn ONLY valid JSON matching the schema."
+
+
+@dataclass
+class SynthesisContext:
+    windows: list[dict]
+    prior_claim_ids: list[uuid.UUID]
+    prev_version: int
+    prev_narrative_id: uuid.UUID | None
 
 
 def _session_factory() -> async_sessionmaker[AsyncSession]:
@@ -234,12 +252,21 @@ def _build_synthesis_user_prompt(
     return preamble + "\n\n" + "\n\n".join(sections)
 
 
+def _parse_event_time(s: str) -> datetime | None:
+    if not s or not s.strip():
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
 async def synthesize(
     topic_id: uuid.UUID,
     scope: str,
     focus: str,
     k: int | None = None,
-) -> tuple[NarrativeUpdate, int]:
+) -> tuple[NarrativeUpdate, int, SynthesisContext]:
     windows = await retrieve(scope, focus, k)
 
     factory = _session_factory()
@@ -281,6 +308,13 @@ async def synthesize(
             ).all()
         )
 
+    ctx = SynthesisContext(
+        windows=windows,
+        prior_claim_ids=[c.id for c in claims],
+        prev_version=narrative.version if narrative else 0,
+        prev_narrative_id=narrative.id if narrative else None,
+    )
+
     user = _build_synthesis_user_prompt(narrative, claims, hypotheses, predictions, windows)
     client = LLMClient(settings.llm_api_key, _session_factory(), base_url=settings.llm_base_url)
 
@@ -303,4 +337,173 @@ async def synthesize(
             max_tokens=4000,
         )
 
-    return result, tokens
+    return result, tokens, ctx
+
+
+async def persist_bundle(
+    topic_id: uuid.UUID,
+    bundle: NarrativeUpdate,
+    ctx: SynthesisContext,
+) -> dict[str, Any]:
+    if bundle.nothing_significant:
+        return {
+            "skipped": True,
+            "narrative_version": None,
+            "claims_created": 0,
+            "superseded": 0,
+            "hypotheses_created": 0,
+            "predictions_created": 0,
+            "events_created": 0,
+        }
+
+    factory = _session_factory()
+    async with factory() as session:
+        new_claim_ids: list[uuid.UUID] = []
+        for claim in bundle.claims:
+            evidence_windows = [
+                ctx.windows[i] for i in claim.evidence_span_indices if 0 <= i < len(ctx.windows)
+            ]
+            document_id = evidence_windows[0]["document_id"] if evidence_windows else None
+            row = Claim(
+                topic_id=topic_id,
+                document_id=document_id,
+                claim_text=claim.claim_text,
+                claim_type=None,
+                entities_json={"entities": claim.entities},
+                confidence=claim.confidence,
+                source_authority=claim.source_authority,
+                status="active",
+            )
+            session.add(row)
+            await session.flush()
+            new_claim_ids.append(row.id)
+            for window in evidence_windows:
+                span_ids = window.get("span_ids") or []
+                if span_ids:
+                    session.add(
+                        ClaimEvidence(
+                            claim_id=row.id,
+                            span_id=span_ids[0],
+                            evidence_role="supporting",
+                            quote=None,
+                        )
+                    )
+
+        superseded = 0
+        for idx in bundle.superseded_claim_ids:
+            if 0 <= idx < len(ctx.prior_claim_ids):
+                prior = await session.get(Claim, ctx.prior_claim_ids[idx])
+                if prior is not None and prior.status == "active":
+                    prior.status = "superseded"
+                    superseded += 1
+
+        events_created = 0
+        for event in bundle.events:
+            session.add(
+                Event(
+                    topic_id=topic_id,
+                    document_id=None,
+                    event_time=_parse_event_time(event.event_time),
+                    description=event.description,
+                    entities_json={"entities": event.entities},
+                    claim_ids=[
+                        str(new_claim_ids[r])
+                        for r in event.claim_refs
+                        if 0 <= r < len(new_claim_ids)
+                    ],
+                )
+            )
+            events_created += 1
+
+        version = ctx.prev_version + 1
+        session.add(
+            NarrativeState(
+                topic_id=topic_id,
+                version=version,
+                summary=bundle.narrative_summary,
+                change_summary=bundle.change_summary,
+                prev_version_id=ctx.prev_narrative_id,
+                supporting_claim_ids=[str(x) for x in new_claim_ids],
+            )
+        )
+
+        now = datetime.now(UTC)
+        active_hyps = list(
+            (
+                await session.scalars(
+                    select(Hypothesis).where(
+                        Hypothesis.topic_id == topic_id,
+                        Hypothesis.status == "active",
+                    )
+                )
+            ).all()
+        )
+        for h in active_hyps:
+            h.status = "retired"
+            h.updated_at = now
+
+        hypotheses_created = 0
+        for h in bundle.hypotheses[:7]:
+            session.add(
+                Hypothesis(
+                    topic_id=topic_id,
+                    statement=h.statement,
+                    confidence=h.confidence,
+                    status=h.status or "active",
+                    supporting_claim_ids=[
+                        str(new_claim_ids[i])
+                        for i in h.supporting_claim_ids
+                        if 0 <= i < len(new_claim_ids)
+                    ],
+                    contradicting_claim_ids=[
+                        str(new_claim_ids[i])
+                        for i in h.contradicting_claim_ids
+                        if 0 <= i < len(new_claim_ids)
+                    ],
+                    invalidation_criteria=h.invalidation_criteria,
+                )
+            )
+            hypotheses_created += 1
+
+        predictions_created = 0
+        for p in bundle.predictions:
+            resolve_by = None
+            if isinstance(p.horizon_days, int) and p.horizon_days >= 0:
+                resolve_by = now + timedelta(days=p.horizon_days)
+            session.add(
+                Prediction(
+                    topic_id=topic_id,
+                    hypothesis_id=None,
+                    statement=p.statement,
+                    probability=p.probability,
+                    horizon_days=p.horizon_days,
+                    resolve_by=resolve_by,
+                    resolution_criteria=p.resolution_criteria,
+                    status="open",
+                )
+            )
+            predictions_created += 1
+
+        for sp in bundle.source_profiles:
+            session.add(
+                SourceProfile(
+                    topic_id=topic_id,
+                    document_id=None,
+                    name=None,
+                    source_type=sp.source_type,
+                    incentive_note=sp.incentive_note,
+                    reliability=sp.reliability,
+                )
+            )
+
+        await session.commit()
+
+    return {
+        "skipped": False,
+        "narrative_version": version,
+        "claims_created": len(new_claim_ids),
+        "superseded": superseded,
+        "hypotheses_created": hypotheses_created,
+        "predictions_created": predictions_created,
+        "events_created": events_created,
+    }
