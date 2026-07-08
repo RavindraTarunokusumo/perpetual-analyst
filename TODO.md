@@ -43,10 +43,21 @@ PRs opened:
 
 ## Future Backlog
 
+### From PA #9 Grok review (verified against code) — address before/soon after merge
+
+- [ ] **quality.py citation metrics dead (HIGH, F regression).** `compute_source_quality` reads `FROM citations` for `citation_rate` (0.35 weight) but F removed `_record_citations`; post-F reports write no citation rows → citation_rate→0 → weekly probation/bottom-decile scoring corrupts. Rewire to Postgres `claim_evidence`, or drop the weight and redistribute. Weekly subsystem only.
+- [ ] **synthesize schema-retry = 2nd analyst call (MED, invariant #1).** `substrate.py:382` retries `qwen3.7-max` on `LLMSchemaError`. Fail the topic (daily_run isolates) or repair without a model round-trip.
+- [ ] **ingest doc-then-spans two transactions (MED).** `substrate.ingest` commits the document, then spans separately; a crash orphans a document (dedupe then skips re-ingest → permanently unretrievable). Single transaction. (Also flagged by security review.)
+- [ ] **hypotheses: non-`active` status not retired (MED).** `persist_bundle` retires only `status=='active'`; free-form status (e.g. `leading`) accumulates and can drift past the ≤7 hard cap while staying invisible to synthesis context. Constrain `HypothesisOut.status` to an enum or retire all non-terminal.
+- [ ] **hypothesis claim-index mapping (MED, verify).** `supporting/contradicting_claim_ids` resolve against new-claim indices; confirm prior-claim indices can't collide/mis-attribute provenance.
+- [ ] **daily_run double `asyncio.run` per topic (LOW).** `_ingest_to_corpus` + `run_daily_for_topic` each open a loop → engine rebuild + `get_or_create_watch_topic` twice. Collapse to one loop per topic.
+- [ ] **cross-topic dedupe hides shared corpus (LOW, documented §10).** Global `content_hash` dedupe gives a document one scope; a shared RSS/inbox item is invisible to later topics. Per-topic doc rows or a scope alias if multi-topic sharing matters.
+
+### Pre-existing
+
 - [ ] Web UI: source-candidate approval flow (approve/dismiss discovered candidates; SSRF/validation on approved-URL fetch), source/quality dashboard. Supersedes the deferred Telegram approval buttons.
 - [ ] Discovery metrics: add uniqueness (sole-source-for-a-cited-development) + freshness-lead to `quality_score` (deferred from Phase 5).
 - [ ] Discovery provider: optionally swap OpenRouter web search → Perplexity (seam = `analyst.discovery.web_search_extra` + `analyst.agent.make_client`).
-- [ ] Embeddings upgrade: sqlite-vec + Voyage (only when FTS proves insufficient)
 
 ---
 
