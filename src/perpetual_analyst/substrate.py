@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from perpetual_analyst.analyst.schemas import NarrativeUpdate
@@ -38,6 +38,7 @@ from app.db.session import make_engine, make_session_factory  # noqa: E402
 from app.intelligence.embedder import Embedder  # noqa: E402
 from app.intelligence.llm_client import LLMClient, LLMSchemaError  # noqa: E402
 from app.intelligence.sentence_window import (  # noqa: E402
+    answer_sentence_window,
     ingest_sentence_spans,
     retrieve_windows,
 )
@@ -145,6 +146,56 @@ async def ingest(
 
     await ingest_sentence_spans(factory, embedder, document_id, text)
     return document_id
+
+
+async def answer(scope: str, question: str, k: int | None = None) -> dict[str, Any]:
+    factory = _session_factory()
+    embedder = _embedder()
+    client = LLMClient(settings.llm_api_key, factory, base_url=settings.llm_base_url)
+    return await answer_sentence_window(
+        factory,
+        client,
+        embedder,
+        question,
+        settings.t3_model,
+        fetch_k=settings.sentence_window_fetch_k,
+        window=settings.sentence_window_size,
+        k=(k or settings.sentence_window_top_k),
+        as_of=None,
+        pack=None,
+        scope=scope,
+    )
+
+
+async def resolve_lifecycle(
+    stale_after_days: int = 45,
+    scope: str | None = None,
+) -> dict[str, int]:
+    factory = _session_factory()
+    scope_clause = ""
+    params: dict[str, Any] = {}
+    if scope is not None:
+        scope_clause = " AND topic_id IN (SELECT id FROM watch_topics WHERE slug = :scope)"
+        params["scope"] = scope
+
+    expire_sql = (
+        "UPDATE predictions SET status = 'expired', resolved_at = now() "
+        "WHERE status = 'open' AND resolve_by IS NOT NULL AND resolve_by < now()" + scope_clause
+    )
+    stale_sql = (
+        "UPDATE claims SET status = 'stale' "
+        "WHERE status = 'active' AND created_at < now() - (:days || ' days')::interval"
+        + scope_clause
+    )
+
+    async with factory() as session:
+        expire_result = await session.execute(text(expire_sql), params)
+        stale_result = await session.execute(
+            text(stale_sql), {**params, "days": str(stale_after_days)}
+        )
+        await session.commit()
+
+    return {"expired": expire_result.rowcount, "staled": stale_result.rowcount}
 
 
 async def retrieve(

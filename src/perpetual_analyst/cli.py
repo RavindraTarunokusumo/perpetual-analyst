@@ -201,6 +201,43 @@ def run(
     daily_main(dry_run=dry_run, topic_slug=topic)
 
 
+@app.command()
+def ask(
+    question: str = typer.Argument(..., help="Question to ask over the topic corpus"),
+    topic: str = typer.Option(..., help="Topic slug"),
+) -> None:
+    """Ask a grounded question over a topic's ingested corpus."""
+    import asyncio
+
+    from perpetual_analyst import substrate
+
+    res = asyncio.run(substrate.answer(topic, question))
+    typer.echo(res["answer"])
+    citations = res.get("citations") or res.get("citation_labels")
+    if citations:
+        typer.echo("\nSources:")
+        for cite in citations:
+            if isinstance(cite, dict):
+                label = cite.get("label") or cite.get("title") or str(cite)
+            else:
+                label = str(cite)
+            typer.echo(f"  - {label}")
+
+
+@app.command()
+def score(
+    topic: str = typer.Option(None, help="Topic slug (default: all)"),
+    stale_after: int = typer.Option(45, help="Days before an active claim goes stale"),
+) -> None:
+    """Expire overdue predictions and mark aged claims as stale."""
+    import asyncio
+
+    from perpetual_analyst import substrate
+
+    res = asyncio.run(substrate.resolve_lifecycle(stale_after, topic))
+    typer.echo(f"expired predictions: {res['expired']} · staled claims: {res['staled']}")
+
+
 @report_app.command("show")
 def report_show(
     date: str = typer.Option(None, help="Report date YYYY-MM-DD (default: latest)"),

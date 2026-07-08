@@ -30,7 +30,7 @@ Tasks (per plan):
 - [x] D2b — substrate.persist_bundle (transactional write) — `6414959` (2-day live: v1→v2, superseded, claim_evidence)
 - [x] D3 — synthesis orchestration — `a22336c`
 - [x] D4 — daily_run narrative loop + Qwen client + briefing via DTO — end-to-end verified
-- [ ] E1 — cross-session ask; E2 — prediction scoring + claim decay
+- [x] E1/E2 — cross-session `ask` + `score` (expire/decay) — CLI-verified (+ Nexus answer-scope `2ac181b`)
 - [ ] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps; backfill
 
 ---
