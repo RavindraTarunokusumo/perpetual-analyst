@@ -29,7 +29,7 @@ Any change made to `AGENTS.md` must also be applied to `CLAUDE.md`.
 4. **`nothing_significant: true` is a first-class output.** Never treat it as an error or omit it from the schema. Topics with nothing to report get one line.
 5. **All memory writes are transactional.** The analyst call returns a bundle (observations, thesis updates, dossier edits). All writes either succeed together or none succeed; no partial state.
 6. **No feature earns its place without justifying against:** *"does this make the analyst's reasoning measurably better?"*
-7. **Runtime secrets must not be logged.** `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `PERPLEXITY_API_KEY`, and `TELEGRAM_BOT_TOKEN` must never appear in logs or stdout.
+7. **Runtime secrets must not be logged.** `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `PERPLEXITY_API_KEY`, `FIRECRAWL_API_KEY`, and `TELEGRAM_BOT_TOKEN` must never appear in logs or stdout.
 8. **`content_hash` is the dedupe key for items.** Inserting duplicate content must silently skip, never raise.
 
 ## Code Graph / Repo Map
