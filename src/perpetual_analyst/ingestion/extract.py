@@ -1,7 +1,8 @@
-"""Text extraction helpers: trafilatura for web pages, pypdf for PDFs."""
+"""Text extraction helpers: trafilatura for web pages, Firecrawl fallback, pypdf for PDFs."""
 
 from __future__ import annotations
 
+import os
 from typing import NamedTuple
 
 import httpx
@@ -56,6 +57,53 @@ def _looks_like_bot_wall(html: str, text: str | None, status_code: int) -> bool:
     return False
 
 
+def _extract_with_trafilatura(html: str, status_code: int) -> FetchedArticle | None:
+    text = trafilatura.extract(html, include_comments=False, include_tables=True)
+    if _looks_like_bot_wall(html, text, status_code):
+        return None
+    if not text or len(text.strip()) < _MIN_ARTICLE_CHARS:
+        return None
+
+    title = None
+    metadata = trafilatura.extract_metadata(html)
+    if metadata and metadata.title:
+        title = metadata.title
+    return FetchedArticle(title=title, text=text)
+
+
+def _scrape_with_firecrawl(url: str, *, timeout: float) -> FetchedArticle:
+    api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
+    if not api_key:
+        raise ArticleFetchError(
+            f"Could not extract article text from {url}: trafilatura failed and "
+            "FIRECRAWL_API_KEY is not set. Save the article to a file and use --file, "
+            "or paste text via stdin."
+        )
+
+    from firecrawl import Firecrawl
+
+    client = Firecrawl(api_key=api_key)
+    try:
+        doc = client.scrape(
+            url,
+            formats=["markdown"],
+            only_main_content=True,
+            timeout=int(timeout * 1000),
+        )
+    except Exception as exc:
+        raise ArticleFetchError(f"Firecrawl scrape failed for {url}: {exc}") from exc
+
+    markdown = (doc.markdown or "").strip()
+    if len(markdown) < _MIN_ARTICLE_CHARS:
+        raise ArticleFetchError(
+            f"Could not extract article text from {url} "
+            f"(Firecrawl returned {len(markdown)} chars)."
+        )
+
+    title = doc.metadata.title if doc.metadata and doc.metadata.title else None
+    return FetchedArticle(title=title, text=markdown)
+
+
 def extract_url(url: str, *, timeout: float = 30.0) -> FetchedArticle:
     """Fetch a URL and extract article text. Raises ArticleFetchError on failure."""
     try:
@@ -69,24 +117,8 @@ def extract_url(url: str, *, timeout: float = 30.0) -> FetchedArticle:
         raise ArticleFetchError(f"Failed to fetch {url}: {exc}") from exc
 
     html = response.text
-    text = trafilatura.extract(html, include_comments=False, include_tables=True)
+    article = _extract_with_trafilatura(html, response.status_code)
+    if article is not None:
+        return article
 
-    if _looks_like_bot_wall(html, text, response.status_code):
-        raise ArticleFetchError(
-            f"Could not extract article text from {url}: the site returned a "
-            f"bot-protection page (HTTP {response.status_code}). "
-            "Save the article to a file and use --file, or paste text via stdin."
-        )
-
-    if not text or len(text.strip()) < _MIN_ARTICLE_CHARS:
-        raise ArticleFetchError(
-            f"Could not extract article text from {url} "
-            f"(HTTP {response.status_code}, extracted {len(text or '')} chars)."
-        )
-
-    title = None
-    metadata = trafilatura.extract_metadata(html)
-    if metadata and metadata.title:
-        title = metadata.title
-
-    return FetchedArticle(title=title, text=text)
+    return _scrape_with_firecrawl(url, timeout=timeout)
