@@ -1,0 +1,4 @@
+Task: E ask + lifecycle
+Summary: Grok junior (session 019f41d4-cd7e-7703-a791-c2d50e2570a5) + senior CLI re-verification
+Validation: ruff clean; analyst ask returns grounded scoped answer; analyst score expired=1/staled=1 (statuses verified)
+TODO: E1/E2
