@@ -30,13 +30,7 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
       citation_rate = COUNT(DISTINCT cited item_id) / total_items  (capped at 1.0)
       uniqueness_rate     = share of cited reports where this is the only cited source
       freshness_lead_rate = share of cited reports where this source has the earliest item
-      score = round(
-          0.35 * hit_rate
-          + 0.35 * citation_rate
-          + 0.15 * uniqueness_rate
-          + 0.15 * freshness_lead_rate,
-          4,
-      )
+      score = hit_rate
 
     Writes quality_score back to sources in a single transaction.
 
@@ -118,13 +112,8 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
             if cited_reports
             else 0.0
         )
-        score = round(
-            0.35 * hit_rate
-            + 0.35 * citation_rate
-            + 0.15 * uniqueness_rate
-            + 0.15 * freshness_lead_rate,
-            4,
-        )
+        # citation/uniqueness/freshness weights retired (citations table unpopulated post-Nexus); reserved for a third-party source-rating API — see TODO backlog  # noqa: E501
+        score = round(hit_rate, 4)
 
         results.append(
             SourceQuality(

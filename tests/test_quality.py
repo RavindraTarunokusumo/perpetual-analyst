@@ -167,7 +167,7 @@ def test_freshness_lead_rate_counts_earliest_published_cited_item(
 
 
 def test_score_formula_and_persistence(db: sqlite3.Connection) -> None:
-    """Four-factor quality score is written to sources.quality_score."""
+    """Hit-rate quality score is written to sources.quality_score."""
     sid = _insert_source(db, "src-d")
     i1 = _insert_item(db, sid, "d1", 0.8)  # hit
     i2 = _insert_item(db, sid, "d2", 0.8)  # hit
@@ -181,9 +181,10 @@ def test_score_formula_and_persistence(db: sqlite3.Connection) -> None:
     results = compute_source_quality(db)
     sq = next(r for r in results if r.source_id == sid)
 
-    # hit_rate = 2/4 = 0.5; citation_rate = 2/4 = 0.5; score = 0.5
+    # hit_rate = 2/4 = 0.5; citation_rate = 2/4 = 0.5; score = hit_rate = 0.5
     assert sq.hit_rate == pytest.approx(0.5)
     assert sq.citation_rate == pytest.approx(0.5)
+    assert sq.score == pytest.approx(sq.hit_rate)
     assert sq.score == pytest.approx(0.5)
 
     # Persisted to DB
