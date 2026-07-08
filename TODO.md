@@ -32,7 +32,12 @@ Tasks (per plan):
 - [x] D4 — daily_run narrative loop + Qwen client + briefing via DTO — end-to-end verified
 - [x] E1/E2 — cross-session `ask` + `score` (expire/decay) — CLI-verified (+ Nexus answer-scope `2ac181b`)
 - [x] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps — `544c1fb` (e2e re-verified: ingest→narrative v1→report from briefing_markdown)
-- [x] G — embedder honors spec §4: pin substrate._embedder to Qwen3-Embedding-0.6B @384 (was silently using Nexus bge default); wipe stale bge-embedded test corpus + re-verify retrieval — `86a11ca`
+- [x] G — embedder honors spec §4: pin substrate._embedder to Qwen3-Embedding-0.6B @384 (was silently using Nexus bge default); re-verify retrieval on Qwen — `86a11ca`
+- [x] Pre-PR — docs reconciled (`2e011ad`); security review (Grok, clean); dead `mask_env_value` removed (`5aaaa81`); Nexus wired as submodule pinned to 2ac181b (`41a20da`)
+
+PRs opened:
+- Nexus: https://github.com/RavindraTarunokusumo/Nexus/pull/33 (pa-corpus-scope → main) — **merge first**, then bump PA submodule to the merge commit
+- PA: https://github.com/RavindraTarunokusumo/perpetual-analyst/pull/9 (pa-nexus-integration → phase-1-analyst-prototype) — Grok PR review in progress
 
 ---
 
