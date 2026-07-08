@@ -43,15 +43,17 @@ PRs opened:
 
 ## Future Backlog
 
-### From PA #9 Grok review (verified against code) — address before/soon after merge
+### From PA #9 Grok review (verified against code) — addressed
 
-- [ ] **quality.py citation metrics dead (HIGH, F regression).** `compute_source_quality` reads `FROM citations` for `citation_rate` (0.35 weight) but F removed `_record_citations`; post-F reports write no citation rows → citation_rate→0 → weekly probation/bottom-decile scoring corrupts. Rewire to Postgres `claim_evidence`, or drop the weight and redistribute. Weekly subsystem only.
-- [ ] **synthesize schema-retry = 2nd analyst call (MED, invariant #1).** `substrate.py:382` retries `qwen3.7-max` on `LLMSchemaError`. Fail the topic (daily_run isolates) or repair without a model round-trip.
-- [ ] **ingest doc-then-spans two transactions (MED).** `substrate.ingest` commits the document, then spans separately; a crash orphans a document (dedupe then skips re-ingest → permanently unretrievable). Single transaction. (Also flagged by security review.)
-- [ ] **hypotheses: non-`active` status not retired (MED).** `persist_bundle` retires only `status=='active'`; free-form status (e.g. `leading`) accumulates and can drift past the ≤7 hard cap while staying invisible to synthesis context. Constrain `HypothesisOut.status` to an enum or retire all non-terminal.
-- [ ] **hypothesis claim-index mapping (MED, verify).** `supporting/contradicting_claim_ids` resolve against new-claim indices; confirm prior-claim indices can't collide/mis-attribute provenance.
-- [ ] **daily_run double `asyncio.run` per topic (LOW).** `_ingest_to_corpus` + `run_daily_for_topic` each open a loop → engine rebuild + `get_or_create_watch_topic` twice. Collapse to one loop per topic.
-- [ ] **cross-topic dedupe hides shared corpus (LOW, documented §10).** Global `content_hash` dedupe gives a document one scope; a shared RSS/inbox item is invisible to later topics. Per-topic doc rows or a scope alias if multi-topic sharing matters.
+- [x] **quality.py citation metrics dead (HIGH, F regression)** — score on `hit_rate` only; citations-derived weights retired, reserved for a future third-party source-rating API — `a923446`
+- [x] **synthesize schema-retry = 2nd analyst call (MED, invariant #1)** — retry removed; error propagates, daily_run isolates the topic — `2813c9d`
+- [x] **ingest doc-then-spans two transactions (MED)** — compensating-delete on span-ingest failure (ponytail: hard-crash window noted; true atomicity needs session-based upstream) — `2813c9d`
+- [x] **hypotheses: non-`active` status not retired (MED)** — retire all non-`retired`; insert fixed `status='active'`; removed `HypothesisOut.status` — `2813c9d`
+- [x] **hypothesis claim-index mapping (MED)** — prior claims labelled `[P#]`; schema descriptions disambiguate prior vs this-response indices; live 2-day e2e confirmed correct supersede — `2813c9d`
+- [x] **daily_run double `asyncio.run` per topic (LOW)** — folded ingest into `run_daily_for_topic`; one loop per topic — `5a7b9a5`
+- [x] **Inspection harness** (`./try.sh` run/show/ask/reset) for hands-on accuracy checks — `5b04843`
+- [ ] **cross-topic dedupe hides shared corpus (LOW, documented §10)** — DEFERRED: needs a schema change (scope is single-valued). Global `content_hash` dedupe gives a document one scope; a shared RSS/inbox item is invisible to later topics. Per-topic doc rows or a scope join-table if multi-topic sharing becomes common.
+- [ ] **Third-party source-rating API** — replace the retired citation/uniqueness/freshness quality signals (seam: `quality.compute_source_quality`).
 
 ### Pre-existing
 
