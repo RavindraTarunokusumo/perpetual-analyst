@@ -1,0 +1,4 @@
+Task: C daily ingest->corpus
+Summary: Grok junior (session 019f4188-ef11-7180-a501-4c3f4ef5ad55) + senior fix (loop-aware engine) + multi-topic live validation
+Validation: ruff clean; multi-topic multi-loop ingest t1=2/t2=2/dup=0 PASS; daily_run imports clean; pre-existing schema_phase5 failures noted
+TODO: C
