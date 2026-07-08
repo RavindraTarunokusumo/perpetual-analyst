@@ -28,6 +28,7 @@ from app.config import settings  # noqa: E402
 from app.db.models import (  # noqa: E402
     Claim,
     ClaimEvidence,
+    Document,
     Event,
     Hypothesis,
     NarrativeState,
@@ -37,7 +38,7 @@ from app.db.models import (  # noqa: E402
 )
 from app.db.session import make_engine, make_session_factory  # noqa: E402
 from app.intelligence.embedder import Embedder  # noqa: E402
-from app.intelligence.llm_client import LLMClient, LLMSchemaError  # noqa: E402
+from app.intelligence.llm_client import LLMClient  # noqa: E402
 from app.intelligence.sentence_window import (  # noqa: E402
     answer_sentence_window,
     ingest_sentence_spans,
@@ -68,9 +69,6 @@ _SYNTHESIS_SYSTEM = (
     "passages do not materially change the understanding, set nothing_significant=true and leave "
     "briefing_markdown empty. Otherwise write briefing_markdown as the user-facing daily briefing."
 )
-
-_SCHEMA_RETRY_SUFFIX = "\n\nReturn ONLY valid JSON matching the schema."
-
 
 @dataclass
 class SynthesisContext:
@@ -145,7 +143,16 @@ async def ingest(
         await session.refresh(persisted)
         document_id = persisted.id
 
-    await ingest_sentence_spans(factory, embedder, document_id, text)
+    try:
+        await ingest_sentence_spans(factory, embedder, document_id, text)
+    except Exception:
+        # ponytail: hard-crash between document commit and span ingest still possible; true atomicity needs session-based ingest_sentence_spans upstream
+        async with factory() as session:
+            doc = await session.get(Document, document_id)
+            if doc is not None:
+                await session.delete(doc)
+                await session.commit()
+        raise
     return document_id
 
 
@@ -263,10 +270,10 @@ def _build_synthesis_user_prompt(
         sections.append("CURRENT NARRATIVE\n(none yet)")
 
     if claims:
-        claim_lines = [f"[{i}] {c.claim_text} (conf={c.confidence})" for i, c in enumerate(claims)]
-        sections.append("ACTIVE CLAIMS\n" + "\n".join(claim_lines))
+        claim_lines = [f"[P{i}] {c.claim_text} (conf={c.confidence})" for i, c in enumerate(claims)]
+        sections.append("ACTIVE CLAIMS (prior)\n" + "\n".join(claim_lines))
     else:
-        sections.append("ACTIVE CLAIMS\n(none)")
+        sections.append("ACTIVE CLAIMS (prior)\n(none)")
 
     if hypotheses:
         hyp_lines = [
@@ -370,24 +377,14 @@ async def synthesize(
     user = _build_synthesis_user_prompt(narrative, claims, hypotheses, predictions, windows)
     client = LLMClient(settings.llm_api_key, _session_factory(), base_url=settings.llm_base_url)
 
-    try:
-        result, tokens = await client.complete_json(
-            model=settings.t3_model,
-            system=_SYNTHESIS_SYSTEM,
-            user=user,
-            response_model=NarrativeUpdate,
-            run_type="narrative_update",
-            max_tokens=4000,
-        )
-    except LLMSchemaError:
-        result, tokens = await client.complete_json(
-            model=settings.t3_model,
-            system=_SYNTHESIS_SYSTEM + _SCHEMA_RETRY_SUFFIX,
-            user=user,
-            response_model=NarrativeUpdate,
-            run_type="narrative_update",
-            max_tokens=4000,
-        )
+    result, tokens = await client.complete_json(
+        model=settings.t3_model,
+        system=_SYNTHESIS_SYSTEM,
+        user=user,
+        response_model=NarrativeUpdate,
+        run_type="narrative_update",
+        max_tokens=4000,
+    )
 
     return result, tokens, ctx
 
@@ -480,17 +477,17 @@ async def persist_bundle(
         )
 
         now = datetime.now(UTC)
-        active_hyps = list(
+        non_retired_hyps = list(
             (
                 await session.scalars(
                     select(Hypothesis).where(
                         Hypothesis.topic_id == topic_id,
-                        Hypothesis.status == "active",
+                        Hypothesis.status != "retired",
                     )
                 )
             ).all()
         )
-        for h in active_hyps:
+        for h in non_retired_hyps:
             h.status = "retired"
             h.updated_at = now
 
@@ -501,7 +498,7 @@ async def persist_bundle(
                     topic_id=topic_id,
                     statement=h.statement,
                     confidence=h.confidence,
-                    status=h.status or "active",
+                    status="active",
                     supporting_claim_ids=[
                         str(new_claim_ids[i])
                         for i in h.supporting_claim_ids

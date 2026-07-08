@@ -32,7 +32,10 @@ class EventOut(BaseModel):
     )
     claim_refs: list[int] = Field(
         default_factory=list,
-        description="Indices into the claims list of this bundle that back the event.",
+        description=(
+            "0-based indices into the claims array you emit in THIS response "
+            "(not the prior [P#] list)."
+        ),
     )
 
 
@@ -41,18 +44,20 @@ class HypothesisOut(BaseModel):
     confidence: float = Field(description="Current confidence, 0–1.")
     supporting_claim_ids: list[int] = Field(
         default_factory=list,
-        description="Claim indices or IDs that support this hypothesis.",
+        description=(
+            "0-based indices into the claims array you emit in THIS response "
+            "(not the prior [P#] list)."
+        ),
     )
     contradicting_claim_ids: list[int] = Field(
         default_factory=list,
-        description="Claim indices or IDs that contradict this hypothesis.",
+        description=(
+            "0-based indices into the claims array you emit in THIS response "
+            "(not the prior [P#] list)."
+        ),
     )
     invalidation_criteria: str = Field(
         description="What evidence would retire or invalidate this hypothesis."
-    )
-    status: str = Field(
-        default="active",
-        description="One of: active | leading | retired | invalidated.",
     )
 
 
@@ -80,7 +85,10 @@ class NarrativeUpdate(BaseModel):
     )
     superseded_claim_ids: list[int] = Field(
         default_factory=list,
-        description="Indices or IDs of prior claims superseded or contradicted by new evidence.",
+        description=(
+            "0-based indices into the ACTIVE CLAIMS (prior) [P#] list superseded or "
+            "contradicted by new evidence."
+        ),
     )
     narrative_summary: str = Field(description="The new living interpretation of the topic.")
     change_summary: str = Field(
