@@ -20,9 +20,9 @@ Tasks (per plan):
 - [x] A1 — Qwen provider defaults + DashScope key + ruff-exclude Nexus (PA) — `b39a2b1`
 - [x] N1 — corpus/topic-scoped retrieval, scope param default-None (Nexus repo) — `cd4be18` (branch pa-corpus-scope). Scope-filter integration test deferred until Postgres available.
 - [x] D1 — NarrativeUpdate + analytical Pydantic schemas; deprecate TopicAnalysis (PA) — `429d88b`
-- [ ] A2 — `substrate.py` ingest+retrieve boundary (PA) — GATED: needs Postgres + Qwen key
-- [ ] B1 — Alembic analytical-tables migration (Postgres) — GATED: needs Postgres
-- [ ] B2 — SQLite↔Postgres topic mapping
+- [x] A2 — `substrate.py` ingest+retrieve boundary (PA) — `16b1a06` (live-verified: scope isolation + dedupe)
+- [x] B1 — analytical tables migration 0009 (Nexus repo) — `8a776a4` (round-trip + CASCADE verified; head=0009)
+- [ ] B2 — get_or_create_watch_topic (slug→topic_id) in substrate.py
 - [ ] C1/C2 — daily ingest → corpus (triage kept)
 - [ ] D1 — NarrativeUpdate schema; deprecate TopicAnalysis
 - [ ] D2 — substrate synthesize + transactional persist_bundle

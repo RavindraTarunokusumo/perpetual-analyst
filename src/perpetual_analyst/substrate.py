@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 _NEXUS_ENV = Path(__file__).resolve().parents[2] / "Nexus" / ".env"
@@ -18,6 +19,7 @@ from app.api.routes_ingestion import (  # noqa: E402
     _persist_document,
 )
 from app.config import settings  # noqa: E402
+from app.db.models import WatchTopic  # noqa: E402
 from app.db.session import make_engine, make_session_factory  # noqa: E402
 from app.intelligence.embedder import Embedder  # noqa: E402
 from app.intelligence.sentence_window import (  # noqa: E402
@@ -124,3 +126,24 @@ async def retrieve(
             hybrid=settings.sentence_window_hybrid,
             scope=scope,
         )
+
+
+async def get_or_create_watch_topic(
+    slug: str,
+    name: str,
+    *,
+    description: str | None = None,
+    domain: str | None = None,
+) -> uuid.UUID:
+    # ponytail: no concurrency guard; retry on unique-violation only if PA runs topics concurrently
+    factory = _session_factory()
+    async with factory() as session:
+        existing = await session.scalar(select(WatchTopic).where(WatchTopic.slug == slug))
+        if existing is not None:
+            return existing.id
+
+        topic = WatchTopic(slug=slug, name=name, description=description, domain=domain)
+        session.add(topic)
+        await session.commit()
+        await session.refresh(topic)
+        return topic.id
