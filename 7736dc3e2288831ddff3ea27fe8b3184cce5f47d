@@ -1,0 +1,5 @@
+Task: PA<->Nexus integration spec + plan
+Summary: accepted design doc + lightweight Grok-handoff plan; env blockers (no Postgres/Qwen key) recorded
+Docs: docs/specs/2026-07-08-pa-nexus-integration.md, docs/specs/2026-07-08-pa-nexus-integration-plan.md
+TODO: Active: PA <-> Nexus integration
+Validation: N/A (docs)
