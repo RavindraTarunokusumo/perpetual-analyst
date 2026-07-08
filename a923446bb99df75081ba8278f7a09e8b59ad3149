@@ -1,0 +1,4 @@
+Task: [review] quality scores on hit_rate only
+Summary: retire citations-derived weights (dead post-F); reserve for third-party source-rating API.
+Validation: ruff clean; pytest test_quality 14 passed; full 138 passed.
+Spec: docs/specs/2026-07-08-pa-nexus-integration.md
