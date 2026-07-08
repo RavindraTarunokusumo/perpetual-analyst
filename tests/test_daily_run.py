@@ -64,10 +64,10 @@ def test_main_isolates_topic_failures(db: sqlite3.Connection) -> None:
 
     good_bundle = _make_narrative_update()
 
-    def synthesis_side_effect(slug, name, brief, titles, k=8):
+    def synthesis_side_effect(slug, name, brief, items, k=8):
         if slug == "topic-a":
             raise RuntimeError("topic-a exploded")
-        return good_bundle, "ok", 100
+        return good_bundle, {"corpus_ingested": 0}, 100
 
     with (
         patch("perpetual_analyst.daily_run.init_db", return_value=db),
@@ -75,7 +75,6 @@ def test_main_isolates_topic_failures(db: sqlite3.Connection) -> None:
         patch("perpetual_analyst.daily_run.retry_undelivered"),
         patch("perpetual_analyst.daily_run.make_client", return_value=MagicMock()),
         patch("perpetual_analyst.daily_run.scan_inbox", return_value=[]),
-        patch("perpetual_analyst.daily_run._ingest_to_corpus", return_value=0),
         patch(
             "perpetual_analyst.analyst.synthesis.run_daily_for_topic",
             side_effect=synthesis_side_effect,

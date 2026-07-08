@@ -2,9 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 
 from perpetual_analyst.analyst.schemas import NarrativeUpdate
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 async def run_topic_update(
@@ -33,15 +44,33 @@ def run_daily_for_topic(
     slug: str,
     name: str,
     brief: str | None,
-    item_titles: list[str],
+    items: Sequence[Any],
     k: int | None = None,
 ) -> tuple[NarrativeUpdate, dict[str, Any], int]:
     async def _run():
         from perpetual_analyst import substrate
 
         topic_id = await substrate.get_or_create_watch_topic(slug, name, description=brief)
+        ingested = 0
+        for it in items:
+            if not it.raw_text:
+                continue
+            published = _parse_iso(it.published_at)
+            doc_id = await substrate.ingest(
+                slug,
+                title=(it.title or ""),
+                url=it.url,
+                text=it.raw_text,
+                published_at=published,
+            )
+            if doc_id is not None:
+                ingested += 1
+
+        item_titles = [it.title or "" for it in items]
         focus = build_focus(brief, item_titles)
-        return await run_topic_update(topic_id, slug, focus, k)
+        bundle, result, tokens = await run_topic_update(topic_id, slug, focus, k)
+        result = {**result, "corpus_ingested": ingested}
+        return bundle, result, tokens
 
     return asyncio.run(_run())
 

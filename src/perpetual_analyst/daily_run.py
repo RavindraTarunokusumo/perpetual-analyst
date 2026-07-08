@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -26,45 +26,6 @@ load_dotenv()
 load_dotenv(Path(__file__).resolve().parents[2] / "Nexus" / ".env")
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_iso(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
-def _ingest_to_corpus(topic, items) -> int:
-    """Ensure watch_topic exists and ingest item text into the Nexus corpus.
-
-    Uses scope=topic.slug. Returns count newly ingested; dedupe skips return None.
-    """
-    import asyncio
-
-    from perpetual_analyst import substrate
-
-    async def _run() -> int:
-        await substrate.get_or_create_watch_topic(topic.slug, topic.name, description=topic.brief)
-        n = 0
-        for it in items:
-            if not it.raw_text:
-                continue
-            published = _parse_iso(it.published_at)
-            doc_id = await substrate.ingest(
-                topic.slug,
-                title=(it.title or ""),
-                url=it.url,
-                text=it.raw_text,
-                published_at=published,
-            )
-            if doc_id is not None:
-                n += 1
-        return n
-
-    return asyncio.run(_run())
 
 
 def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
@@ -117,10 +78,6 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
 
             print(f"[daily_run] topic={topic.slug} items={len(items)}")
 
-            if not dry_run:
-                ingested = _ingest_to_corpus(topic, items)
-                print(f"[daily_run] topic={topic.slug} corpus_ingested={ingested}")
-
             if dry_run:
                 bundle = None
             else:
@@ -130,7 +87,11 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
                     topic.slug,
                     topic.name,
                     topic.brief,
-                    [it.title or "" for it in items],
+                    items,
+                )
+                print(
+                    f"[daily_run] topic={topic.slug} "
+                    f"corpus_ingested={write_result.get('corpus_ingested', 0)}"
                 )
                 print(f"[daily_run] topic={topic.slug} narrative={write_result}")
 
