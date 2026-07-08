@@ -5,60 +5,18 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Active: PA ↔ Nexus integration
-
-Spec: `docs/specs/2026-07-08-pa-nexus-integration.md`
-Plan: `docs/specs/2026-07-08-pa-nexus-integration-plan.md`
-Branch: `pa-nexus-integration` (PA) · Nexus-repo change on its own branch.
-
-Environment blockers (gate Phases B–F validation/commit):
-- No Postgres reachable in this env (`pg_isready` absent) — needed for migrations/ingest/loop.
-- No `.env` / DashScope (Qwen) key at PA root — needed for live retrieval/synthesis.
-- GitNexus MCP not loaded this session → impact analysis via direct source reads (CLAUDE.md fallback).
-
-Tasks (per plan):
-- [x] A1 — Qwen provider defaults + DashScope key + ruff-exclude Nexus (PA) — `b39a2b1`
-- [x] N1 — corpus/topic-scoped retrieval, scope param default-None (Nexus repo) — `cd4be18` (branch pa-corpus-scope). Scope-filter integration test deferred until Postgres available.
-- [x] D1 — NarrativeUpdate + analytical Pydantic schemas; deprecate TopicAnalysis (PA) — `429d88b`
-- [x] A2 — `substrate.py` ingest+retrieve boundary (PA) — `16b1a06` (live-verified: scope isolation + dedupe)
-- [x] B1 — analytical tables migration 0009 (Nexus repo) — `8a776a4` (round-trip + CASCADE verified; head=0009)
-- [x] B2 — get_or_create_watch_topic (slug→topic_id) in substrate.py — `1aa126f`
-- [x] C — daily ingest → corpus (triage kept) — `b16e209` (+ substrate loop fix `78b7be6`)
-- [x] D1 — NarrativeUpdate schema; deprecate TopicAnalysis — `429d88b`
-- [x] D2a — substrate.synthesize (retrieve + one qwen3.7-max NarrativeUpdate call) — `95cf947`
-- [x] 0010 — claims.document_id nullable (Nexus) — `37e87b2`/`27ab8ff`
-- [x] D2b — substrate.persist_bundle (transactional write) — `6414959` (2-day live: v1→v2, superseded, claim_evidence)
-- [x] D3 — synthesis orchestration — `a22336c`
-- [x] D4 — daily_run narrative loop + Qwen client + briefing via DTO — end-to-end verified
-- [x] E1/E2 — cross-session `ask` + `score` (expire/decay) — CLI-verified (+ Nexus answer-scope `2ac181b`)
-- [x] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps — `544c1fb` (e2e re-verified: ingest→narrative v1→report from briefing_markdown)
-- [x] G — embedder honors spec §4: pin substrate._embedder to Qwen3-Embedding-0.6B @384 (was silently using Nexus bge default); re-verify retrieval on Qwen — `86a11ca`
-- [x] Pre-PR — docs reconciled (`2e011ad`); security review (Grok, clean); dead `mask_env_value` removed (`5aaaa81`); Nexus wired as submodule pinned to 2ac181b (`41a20da`)
-
-PRs opened:
-- Nexus: https://github.com/RavindraTarunokusumo/Nexus/pull/33 (pa-corpus-scope → main) — **merge first**, then bump PA submodule to the merge commit
-- PA: https://github.com/RavindraTarunokusumo/perpetual-analyst/pull/9 (pa-nexus-integration → phase-1-analyst-prototype) — Grok PR review in progress
-
----
-
 ## Future Backlog
 
-### From PA #9 Grok review (verified against code) — addressed
+### From the PA ↔ Nexus integration (2026-07-08)
 
-- [x] **quality.py citation metrics dead (HIGH, F regression)** — score on `hit_rate` only; citations-derived weights retired, reserved for a future third-party source-rating API — `a923446`
-- [x] **synthesize schema-retry = 2nd analyst call (MED, invariant #1)** — retry removed; error propagates, daily_run isolates the topic — `2813c9d`
-- [x] **ingest doc-then-spans two transactions (MED)** — compensating-delete on span-ingest failure (ponytail: hard-crash window noted; true atomicity needs session-based upstream) — `2813c9d`
-- [x] **hypotheses: non-`active` status not retired (MED)** — retire all non-`retired`; insert fixed `status='active'`; removed `HypothesisOut.status` — `2813c9d`
-- [x] **hypothesis claim-index mapping (MED)** — prior claims labelled `[P#]`; schema descriptions disambiguate prior vs this-response indices; live 2-day e2e confirmed correct supersede — `2813c9d`
-- [x] **daily_run double `asyncio.run` per topic (LOW)** — folded ingest into `run_daily_for_topic`; one loop per topic — `5a7b9a5`
-- [x] **Inspection harness** (`./try.sh` run/show/ask/reset) for hands-on accuracy checks — `5b04843`
-- [ ] **cross-topic dedupe hides shared corpus (LOW, documented §10)** — DEFERRED: needs a schema change (scope is single-valued). Global `content_hash` dedupe gives a document one scope; a shared RSS/inbox item is invisible to later topics. Per-topic doc rows or a scope join-table if multi-topic sharing becomes common.
-- [ ] **Third-party source-rating API** — replace the retired citation/uniqueness/freshness quality signals (seam: `quality.compute_source_quality`).
+- [ ] **Cross-topic dedupe hides shared corpus** (documented spec §10). Global `content_hash` dedupe gives a document one `scope`; a source item shared across topics is invisible to later topics. Needs a schema change — per-topic document rows or a `scope` join-table — so defer until multi-topic shared sources become common.
+- [ ] **Third-party source-rating API.** Replace the retired citation/uniqueness/freshness quality signals (dead since the FTS citation path was removed). Seam: `quality.compute_source_quality` (currently scores on `hit_rate` only).
+- [ ] **`substrate.ingest` true atomicity.** Currently compensating-delete on span-ingest failure; a hard crash between the document commit and span ingest can still orphan a document. True atomicity needs a session-based `ingest_sentence_spans` upstream in Nexus.
 
 ### Pre-existing
 
 - [ ] Web UI: source-candidate approval flow (approve/dismiss discovered candidates; SSRF/validation on approved-URL fetch), source/quality dashboard. Supersedes the deferred Telegram approval buttons.
-- [ ] Discovery metrics: add uniqueness (sole-source-for-a-cited-development) + freshness-lead to `quality_score` (deferred from Phase 5).
+- [ ] Discovery metrics: add uniqueness (sole-source-for-a-cited-development) + freshness-lead to `quality_score` (deferred from Phase 5; note these also depend on the citation/provenance signal being restored).
 - [ ] Discovery provider: optionally swap OpenRouter web search → Perplexity (seam = `analyst.discovery.web_search_extra` + `analyst.agent.make_client`).
 
 ---
@@ -69,3 +27,4 @@ PRs opened:
 - Phase 2 + 3 + CLI — `docs/iterations/archive/2026-06-10-phase-2-3-cli.md`
 - Phase 4 (memory & thesis maturity) — `docs/iterations/archive/2026-06-11-phase-4-compaction.md`
 - Phase 5 (source discovery & quality) — `docs/iterations/archive/2026-06-11-phase-5-discovery.md`
+- PA ↔ Nexus integration — `docs/iterations/archive/2026-07-08-pa-nexus-integration.md` (PA #9 / Nexus #33)

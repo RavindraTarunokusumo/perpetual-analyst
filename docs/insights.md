@@ -2,6 +2,24 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-07-08 — PA ↔ Nexus integration (multi-repo, Grok-delegated)
+
+### Workflow / harness lessons
+
+**`cd` persists across Bash tool calls — it pollutes later commands.** A `cd Nexus` in one call silently changed the repo for subsequent calls, producing wrong-repo results. Prefix every command with `cd /abs/repo/path || exit 1`, or use absolute paths throughout. Never rely on inherited cwd.
+
+**The auto-mode classifier blocks destructive DB operations — scope them.** `TRUNCATE … CASCADE` and an unfiltered `DELETE FROM <table>` (even off an unfiltered `SELECT … FROM watch_topics`) were denied because they could wipe real data. Scope cleanup to session-created rows by a known slug prefix (`WHERE slug LIKE 'scratch-%'`); expect broad destructive DB cleanup to need explicit filters or to run outside auto-mode.
+
+**Standalone scripts must not use stdlib module names.** A helper at `scripts/inspect.py` shadowed the stdlib `inspect` module (its dir lands on `sys.path[0]` when run directly), breaking `typing_extensions` deep inside SQLAlchemy import. Name scripts distinctively (`pa_inspect.py`).
+
+**`gh` gotchas.** `gh pr create` has no `--json`; capture the URL from stdout. Pushing over an HTTPS remote with no credential helper fails ("could not read Username"); run `gh auth setup-git` first (SSH remotes push directly).
+
+**Multi-repo submodule finalization order.** Merge the upstream repo's PR first, bump the submodule to the *merge commit* (not the branch tip — a squash could orphan the pinned SHA), then merge the dependent PR. Use a merge commit (not squash) so per-commit SHAs survive for archive tracing.
+
+**Grok delegation.** Grok sometimes runs a task "inline" and reports `sessionId: N/A` in prose — still parse the JSON `sessionId` and clean up the CLI session dir. It correctly *declined* to edit a test outside its stated file scope and flagged it instead (good boundary discipline; the senior applies the out-of-scope test fix during review). It also strips trailing newlines and can quietly change unrelated `pyproject` pins — normalize newlines and diff `pyproject` for scope creep before committing.
+
+**Live e2e with the real provider beats unit tests for behavior/estimates.** A degenerate test doc (one sentence repeated) produced 1 claim and a misleading cost estimate; realistic input produced 7 claims. Always validate model-facing behavior and cost/latency numbers with realistic inputs, not synthetic filler.
+
 ## 2026-07-08 — Harness workflow blocker session
 
 ### What worked well
