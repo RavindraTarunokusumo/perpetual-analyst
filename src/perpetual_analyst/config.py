@@ -12,9 +12,11 @@ DEFAULT_TRIAGE_MODEL_ID = "qwen3.6-flash"
 DEFAULT_ANALYST_MODEL_ID = "qwen3.7-plus"
 DEFAULT_LLM_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
+# The substrate reuses Nexus's settings/LLMClient, which read QWEN_CLOUD_API_KEY
+# from Nexus/.env. PA references the same name so there is one source of truth.
 SECRET_ENV_VARS: tuple[str, ...] = (
     "ANTHROPIC_API_KEY",
-    "DASHSCOPE_API_KEY",
+    "QWEN_CLOUD_API_KEY",
     "OPENROUTER_API_KEY",
     "PERPLEXITY_API_KEY",
     "TELEGRAM_BOT_TOKEN",
@@ -27,8 +29,8 @@ def mask_env_value(name: str, value: str) -> str:
     return value
 
 
-def get_dashscope_api_key() -> str:
-    return os.environ.get("DASHSCOPE_API_KEY", "")
+def get_qwen_api_key() -> str:
+    return os.environ.get("QWEN_CLOUD_API_KEY", "")
 
 
 def get_llm_base_url() -> str:
