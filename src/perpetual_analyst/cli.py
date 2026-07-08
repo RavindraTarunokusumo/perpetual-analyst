@@ -5,14 +5,11 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
-import sys
 
 import typer
 from dotenv import load_dotenv
 
-from perpetual_analyst.ingestion.inbox import get_or_create_inbox_source
 from perpetual_analyst.store.db import init_db
-from perpetual_analyst.store.models import Topic
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 
@@ -172,6 +169,17 @@ def source_candidates(
 
 
 @app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", help="Host interface for the local operator UI"),
+    port: int = typer.Option(8765, help="Port for the local operator UI"),
+) -> None:
+    """Serve the local source approval and quality dashboard."""
+    from perpetual_analyst.web import serve_dashboard
+
+    serve_dashboard(host=host, port=port)
+
+
+@app.command()
 def weekly(
     topic: str = typer.Option(None, help="Topic slug to compact (default: all active)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print prompt, skip API calls"),
@@ -187,60 +195,47 @@ def run(
     topic: str = typer.Option(None, help="Topic slug to run (default: all active)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print prompt, skip API calls"),
 ) -> None:
-    """Run the daily analyst pipeline."""
-    from perpetual_analyst.analyst.agent import make_client, run_topic
-    from perpetual_analyst.analyst.triage import triage_items
-    from perpetual_analyst.config import load_settings
-    from perpetual_analyst.ingestion.inbox import scan_inbox
-    from perpetual_analyst.ingestion.rss import fetch_rss
-    from perpetual_analyst.store.models import Source
+    """Run the daily analyst pipeline (ingest -> triage -> narrative update -> report)."""
+    from perpetual_analyst.daily_run import main as daily_main
 
-    conn = _db()
-    settings = load_settings()
+    daily_main(dry_run=dry_run, topic_slug=topic)
 
-    if topic:
-        row = conn.execute("SELECT * FROM topics WHERE slug = ?", (topic,)).fetchone()
-        if not row:
-            typer.echo(f"Topic '{topic}' not found.", err=True)
-            raise typer.Exit(1)
-        topics = [Topic.from_row(row)]
-    else:
-        rows = conn.execute("SELECT * FROM topics WHERE active = 1").fetchall()
-        topics = [Topic.from_row(r) for r in rows]
 
-    if not topics:
-        typer.echo("No active topics.")
-        return
+@app.command()
+def ask(
+    question: str = typer.Argument(..., help="Question to ask over the topic corpus"),
+    topic: str = typer.Option(..., help="Topic slug"),
+) -> None:
+    """Ask a grounded question over a topic's ingested corpus."""
+    import asyncio
 
-    if dry_run and hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    from perpetual_analyst import substrate
 
-    client = None if dry_run else make_client()
+    res = asyncio.run(substrate.answer(topic, question))
+    typer.echo(res["answer"])
+    citations = res.get("citations") or res.get("citation_labels")
+    if citations:
+        typer.echo("\nSources:")
+        for cite in citations:
+            if isinstance(cite, dict):
+                label = cite.get("label") or cite.get("title") or str(cite)
+            else:
+                label = str(cite)
+            typer.echo(f"  - {label}")
 
-    for t in topics:
-        typer.echo(f"[run] topic={t.slug}")
-        source_id = get_or_create_inbox_source(conn, t.id, t.slug)
-        items = scan_inbox(t.slug, t.id, source_id, conn)
-        typer.echo(f"[run] {len(items)} item(s) from inbox")
 
-        rss_rows = conn.execute(
-            """SELECT s.* FROM sources s
-               JOIN topic_sources ts ON ts.source_id = s.id
-               WHERE ts.topic_id = ? AND s.type = 'rss' AND s.active = 1""",
-            (t.id,),
-        ).fetchall()
-        for rss_row in rss_rows:
-            rss_items = fetch_rss(Source.from_row(rss_row), conn)
-            items += rss_items
-            typer.echo(f"[run] {len(rss_items)} item(s) from rss source {rss_row['id']}")
+@app.command()
+def score(
+    topic: str = typer.Option(None, help="Topic slug (default: all)"),
+    stale_after: int = typer.Option(45, help="Days before an active claim goes stale"),
+) -> None:
+    """Expire overdue predictions and mark aged claims as stale."""
+    import asyncio
 
-        if client is not None and items:
-            items = triage_items(items, t.brief or "", client, settings, conn)
-            typer.echo(f"[run] {len(items)} item(s) after triage")
+    from perpetual_analyst import substrate
 
-        result = run_topic(t, items, conn, client, settings, dry_run=dry_run)
-        if result is not None:
-            typer.echo(f"[run] done — nothing_significant={result.nothing_significant}")
+    res = asyncio.run(substrate.resolve_lifecycle(stale_after, topic))
+    typer.echo(f"expired predictions: {res['expired']} · staled claims: {res['staled']}")
 
 
 @report_app.command("show")

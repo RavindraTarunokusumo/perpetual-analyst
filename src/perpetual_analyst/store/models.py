@@ -165,6 +165,8 @@ class SourceCandidate:
     rationale: str | None
     status: str
     created_at: str
+    reviewed_at: str | None = None
+    review_note: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> SourceCandidate:

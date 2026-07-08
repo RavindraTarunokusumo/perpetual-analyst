@@ -191,6 +191,12 @@ def test_web_search_extra_contains_plugins():
     assert extra["plugins"][0]["id"] == "web"
 
 
+def test_web_search_extra_perplexity_has_no_openrouter_plugins():
+    from perpetual_analyst.analyst.discovery import web_search_extra
+
+    assert web_search_extra("perplexity") == {}
+
+
 # ---------------------------------------------------------------------------
 # discover_sources — dry_run
 # ---------------------------------------------------------------------------
@@ -302,6 +308,22 @@ def test_discover_sources_thinking_flag_adds_thinking_key(db, sample_topic):
     extra_body = kwargs["extra_body"]
     assert "thinking" in extra_body
     assert extra_body["thinking"] == {"type": "adaptive"}
+
+
+def test_discover_sources_perplexity_uses_discovery_model_without_plugins(db, sample_topic):
+    from perpetual_analyst.analyst.discovery import discover_sources
+    from perpetual_analyst.config import DiscoveryConfig
+
+    canned = DiscoveryOutput()
+    client = _make_discovery_client(canned)
+    settings = _make_settings()
+    settings.discovery = DiscoveryConfig(provider="perplexity", model="sonar")
+
+    discover_sources(sample_topic, db, client, settings)
+
+    kwargs = client.chat.completions.create.call_args.kwargs
+    assert kwargs["model"] == "sonar"
+    assert kwargs["extra_body"] == {}
 
 
 def test_discover_sources_derives_domain_when_empty(db, sample_topic):

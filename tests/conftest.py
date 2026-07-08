@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
-from unittest.mock import MagicMock
 
 import pytest
 
-from perpetual_analyst.analyst.schemas import NewObservation, TopicAnalysis
 from perpetual_analyst.store.db import init_db
 from perpetual_analyst.store.models import Item, Topic
 
@@ -54,38 +52,3 @@ def sample_items(db: sqlite3.Connection, sample_topic: Topic, sample_source: int
         row = db.execute("SELECT * FROM items WHERE id = ?", (cur.lastrowid,)).fetchone()
         result.append(Item.from_row(row))
     return result
-
-
-@pytest.fixture
-def mock_openrouter() -> MagicMock:
-    canned_result = TopicAnalysis(
-        report_section_markdown="## Test Topic\n\nNothing significant today.",
-        new_observations=[
-            NewObservation(
-                kind="signal", content="Test signal observed.", importance=2, source_item_ids=[1]
-            )
-        ],
-        thesis_updates=[],
-        dossier_edits=None,
-        open_questions=["What happens next?"],
-        watch_next=["Watch source X"],
-        nothing_significant=False,
-    )
-
-    usage_mock = MagicMock()
-    usage_mock.total_tokens = 1234
-
-    message_mock = MagicMock()
-    message_mock.content = canned_result.model_dump_json()
-
-    choice_mock = MagicMock()
-    choice_mock.message = message_mock
-
-    response_mock = MagicMock()
-    response_mock.choices = [choice_mock]
-    response_mock.usage = usage_mock
-
-    client_mock = MagicMock()
-    client_mock.chat.completions.create.return_value = response_mock
-
-    return client_mock

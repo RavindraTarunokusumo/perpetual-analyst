@@ -16,6 +16,8 @@ class SourceQuality:
     total_items: int
     hit_rate: float
     citation_rate: float
+    uniqueness_rate: float
+    freshness_lead_rate: float
     score: float
     status: str
 
@@ -26,12 +28,52 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
     For each source:
       hit_rate      = items with triage_score >= TRIAGE_HIT_THRESHOLD / total_items
       citation_rate = COUNT(DISTINCT cited item_id) / total_items  (capped at 1.0)
-      score         = round(0.5 * hit_rate + 0.5 * citation_rate, 4)
+      uniqueness_rate     = share of cited reports where this is the only cited source
+      freshness_lead_rate = share of cited reports where this source has the earliest item
+      score = hit_rate
 
     Writes quality_score back to sources in a single transaction.
 
     Returns a list of SourceQuality ordered by score descending.
     """
+    cited_report_counts: dict[int, int] = {}
+    unique_report_counts: dict[int, int] = {}
+    freshness_lead_counts: dict[int, int] = {}
+
+    citation_groups = conn.execute(
+        """
+        SELECT c.report_id, c.report_date, c.source_id, i.published_at
+        FROM citations c
+        JOIN items i ON i.id = c.item_id
+        WHERE c.source_id IS NOT NULL
+          AND (c.report_id IS NOT NULL OR c.report_date IS NOT NULL)
+        """
+    ).fetchall()
+    by_report: dict[tuple[int | None, str | None], list[sqlite3.Row]] = {}
+    for row in citation_groups:
+        by_report.setdefault((row["report_id"], row["report_date"]), []).append(row)
+
+    for rows_for_report in by_report.values():
+        source_ids = {int(row["source_id"]) for row in rows_for_report if row["source_id"]}
+        for source_id in source_ids:
+            cited_report_counts[source_id] = cited_report_counts.get(source_id, 0) + 1
+        if len(source_ids) == 1:
+            source_id = next(iter(source_ids))
+            unique_report_counts[source_id] = unique_report_counts.get(source_id, 0) + 1
+
+        published_values = [
+            row["published_at"] for row in rows_for_report if row["published_at"]
+        ]
+        if published_values:
+            earliest = min(published_values)
+            lead_sources = {
+                int(row["source_id"])
+                for row in rows_for_report
+                if row["source_id"] and row["published_at"] == earliest
+            }
+            for source_id in lead_sources:
+                freshness_lead_counts[source_id] = freshness_lead_counts.get(source_id, 0) + 1
+
     rows = conn.execute(
         """
         SELECT
@@ -59,7 +101,19 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
 
         hit_rate = row["hits"] / total
         citation_rate = min(row["cited"] / total, 1.0)
-        score = round(0.5 * hit_rate + 0.5 * citation_rate, 4)
+        cited_reports = cited_report_counts.get(row["source_id"], 0)
+        uniqueness_rate = (
+            unique_report_counts.get(row["source_id"], 0) / cited_reports
+            if cited_reports
+            else 0.0
+        )
+        freshness_lead_rate = (
+            freshness_lead_counts.get(row["source_id"], 0) / cited_reports
+            if cited_reports
+            else 0.0
+        )
+        # citation/uniqueness/freshness weights retired (citations table unpopulated post-Nexus); reserved for a third-party source-rating API — see TODO backlog  # noqa: E501
+        score = round(hit_rate, 4)
 
         results.append(
             SourceQuality(
@@ -68,6 +122,8 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
                 total_items=total,
                 hit_rate=hit_rate,
                 citation_rate=citation_rate,
+                uniqueness_rate=uniqueness_rate,
+                freshness_lead_rate=freshness_lead_rate,
                 score=score,
                 status=row["status"] or "active",
             )

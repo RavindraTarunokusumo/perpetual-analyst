@@ -45,6 +45,13 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
 
     # Build the client only once there is work to do (avoids requiring the API key for a no-op run).
     client = None if dry_run else make_client()
+    discovery_client = None
+    if not dry_run:
+        discovery_client = (
+            client
+            if settings.discovery.provider == "openrouter_web"
+            else make_client(provider=settings.discovery.provider)
+        )
 
     successes = 0
     failures = 0
@@ -66,7 +73,7 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
             if output is not None:
                 apply_weekly_review(topic.id, output, conn)
 
-            discover_sources(topic, conn, client, settings, dry_run=dry_run)
+            discover_sources(topic, conn, discovery_client, settings, dry_run=dry_run)
 
             successes += 1
         except Exception:

@@ -75,16 +75,20 @@ def mine_outbound_domains(
     return Counter(domains).most_common(limit)
 
 
-def web_search_extra() -> dict:
-    """OpenRouter web-search plugin config (the provider SEAM).
+DEFAULT_PERPLEXITY_MODEL = "sonar-pro"
 
-    Swapping to a different web-search provider (e.g. Perplexity) later means changing
-    this function. NOTE: a full provider swap also requires changing the client's base_url
-    and auth in `analyst.agent.make_client` — that is the co-change site, since the client
-    here is assumed to be pointed at OpenRouter. Promote to a config field when a second
-    provider actually lands.
+
+def web_search_extra(provider: str = "openrouter_web") -> dict:
+    """Discovery provider extra_body config (the provider seam).
+
+    OpenRouter web search uses the plugin extra body. Perplexity is already a
+    search-grounded provider and must not receive the OpenRouter plugin payload.
     """
-    return {"plugins": [{"id": "web", "max_results": 5}]}
+    if provider == "openrouter_web":
+        return {"plugins": [{"id": "web", "max_results": 5}]}
+    if provider == "perplexity":
+        return {}
+    raise RuntimeError(f"Unsupported discovery provider: {provider}")
 
 
 def discover_sources(
@@ -134,12 +138,16 @@ def discover_sources(
             print(f"[{msg['role'].upper()}]\n{msg['content']}\n{'=' * 60}")
         return None
 
-    extra = web_search_extra()
-    if settings.analyst.thinking:
+    provider = settings.discovery.provider
+    extra = web_search_extra(provider)
+    if provider == "openrouter_web" and settings.analyst.thinking:
         extra["thinking"] = {"type": "adaptive"}
+    model = settings.discovery.model
+    if model is None:
+        model = DEFAULT_PERPLEXITY_MODEL if provider == "perplexity" else settings.analyst.id
 
     response = client.chat.completions.create(
-        model=settings.analyst.id,
+        model=model,
         messages=messages,
         response_format={"type": "json_object"},
         extra_body=extra,

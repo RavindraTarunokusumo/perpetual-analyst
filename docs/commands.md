@@ -8,17 +8,26 @@ source .venv/bin/activate          # Linux/macOS
 .venv\Scripts\activate             # Windows PowerShell
 
 pip install -e ".[dev]"
+pip install -e ./Nexus             # Nexus submodule (Postgres memory substrate)
 ```
 
 Or with `uv`:
 ```bash
-uv venv && uv pip install -e ".[dev]"
+uv venv && uv pip install -e ".[dev]" && uv pip install -e ./Nexus
 ```
 
-Copy `.env.example` to `.env` and fill in keys:
+Copy env files and fill in keys:
 ```bash
 cp .env.example .env
+cp Nexus/.env.example Nexus/.env
 ```
+
+**Postgres** is required for the daily run. Set `DATABASE_URL` in `Nexus/.env`, then apply migrations:
+```bash
+cd Nexus && alembic upgrade head
+```
+
+`daily_run.py` loads `Nexus/.env` at startup so `QWEN_CLOUD_API_KEY`, `LLM_BASE_URL`, and `DATABASE_URL` are available to `substrate.py` and the Qwen client.
 
 ## CLI — `analyst` Commands
 
@@ -39,14 +48,26 @@ analyst source list --topic ai-frontier-labs
 analyst source candidates
 analyst source candidates --topic ai-frontier-labs
 
-# Run analyst for all active topics (full pipeline)
+# Serve local source approval + quality dashboard
+analyst web
+analyst web --host 127.0.0.1 --port 8765
+
+# Run analyst for all active topics (full pipeline — delegates to daily_run)
 analyst run
 
 # Run for a specific topic only
 analyst run --topic ai-frontier-labs
 
-# Dry-run: print assembled prompt, skip API call
+# Dry-run: skip API calls and corpus ingest
 analyst run --topic ai-frontier-labs --dry-run
+
+# Grounded cross-session Q&A over a topic's corpus + analytical memory
+analyst ask "What is the current view on open-weight models?" --topic ai-frontier-labs
+
+# Expire overdue predictions and mark aged claims stale (no analyst call)
+analyst score
+analyst score --topic ai-frontier-labs
+analyst score --stale-after 45
 
 # Show today's report
 analyst report show
@@ -71,6 +92,36 @@ python -m perpetual_analyst.daily_run
 python -m perpetual_analyst.daily_run --dry-run
 python -m perpetual_analyst.daily_run --topic ai-frontier-labs
 ```
+
+`analyst run` is a thin wrapper that calls `daily_run.main()`.
+
+## Inspection Harness (`./try.sh`)
+
+Hands-on way to feed the analyst an article you know and read the claims /
+hypotheses / predictions / narrative it produces, so you can judge accuracy
+yourself. Talks to the Nexus substrate directly (Postgres), keyed by a topic
+slug — no SQLite topic/inbox setup needed. `try.sh` loads `Nexus/.env` + the
+unified venv for you.
+
+```bash
+# Ingest an article + synthesize + print the full analysis
+./try.sh run --topic demo --url https://example.com/article
+./try.sh run --topic demo --file article.txt
+./try.sh run --topic demo            # then paste text, end with Ctrl-D
+#   optional: --name "Display Name"  --brief "what you care about"  -k 15
+
+# Print the topic's current narrative / active claims / hypotheses / predictions
+./try.sh show --topic demo
+
+# Grounded Q&A over the topic's corpus
+./try.sh ask --topic demo "What is the biggest risk?"
+
+# Wipe this topic's corpus + analysis to start clean
+./try.sh reset --topic demo
+```
+
+Run the same topic on successive articles to watch the narrative version and
+claims evolve (v1 → v2, claims superseded, hypotheses retired).
 
 ## Weekly Compaction (Direct)
 
@@ -108,17 +159,18 @@ The next `analyst run` will pick them up.
 
 ## Database
 
-Initialize (also called automatically by `daily_run.py`):
+**SQLite** (operational — initialized automatically by `daily_run.py`):
 ```bash
 python -c "from perpetual_analyst.store.db import init_db; init_db('data/analyst.db')"
-```
-
-Inspect the DB:
-```bash
 sqlite3 data/analyst.db
 .tables
 SELECT * FROM topics;
-SELECT count(*) FROM observations;
+```
+
+**Postgres** (memory — managed by Nexus Alembic):
+```bash
+cd Nexus && alembic upgrade head
+# inspect with psql using DATABASE_URL from Nexus/.env
 ```
 
 ## Scheduler
@@ -127,6 +179,11 @@ SELECT count(*) FROM observations;
 ```
 0 7 * * * cd /path/to/perpetual-analyst && .venv/bin/python -m perpetual_analyst.daily_run >> logs/daily.log 2>&1
 0 8 * * 0 cd /path/to/perpetual-analyst && .venv/bin/python -m perpetual_analyst.weekly_run >> logs/weekly.log 2>&1
+```
+
+Optional nightly lifecycle pass:
+```
+30 6 * * * cd /path/to/perpetual-analyst && .venv/bin/analyst score >> logs/score.log 2>&1
 ```
 
 **Windows Task Scheduler** (basic via PowerShell):
@@ -144,9 +201,10 @@ Register-ScheduledTask -TaskName "PerpetualAnalystWeekly" -Action $wAction -Trig
 
 ## Environment Variables
 
+**PA `.env`:**
+
 Required:
 ```
-OPENROUTER_API_KEY=sk-or-...
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
 ```
@@ -155,6 +213,24 @@ Optional:
 ```
 ANALYST_DB_PATH=data/analyst.db      # default
 ANALYST_REPORTS_DIR=data/reports     # default
+OPENROUTER_API_KEY=sk-or-...         # only when discovery.provider=openrouter_web
+PERPLEXITY_API_KEY=pplx-...          # only when discovery.provider=perplexity
+```
+
+**`Nexus/.env`** (loaded by `substrate.py` and `daily_run.py`):
+
+Required for daily run:
+```
+DATABASE_URL=postgresql+asyncpg://nexus:nexus@localhost:5434/nexus
+QWEN_CLOUD_API_KEY=...
+```
+
+Optional:
+```
+LLM_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+T1_MODEL=BAAI/bge-small-en-v1.5
+T2_MODEL=qwen3.6-flash
+T3_MODEL=qwen3.7-max
 ```
 
 ## Git Notes

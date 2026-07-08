@@ -6,10 +6,11 @@ import argparse
 import logging
 import os
 from datetime import date
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-from perpetual_analyst.analyst.agent import make_client, run_topic
+from perpetual_analyst.analyst.agent import make_client
 from perpetual_analyst.analyst.triage import triage_items
 from perpetual_analyst.config import load_settings
 from perpetual_analyst.delivery.telegram import retry_undelivered, send_report
@@ -20,6 +21,9 @@ from perpetual_analyst.store.db import init_db
 from perpetual_analyst.store.models import Source, Topic
 
 load_dotenv()
+# The substrate + Qwen client read secrets (QWEN_CLOUD_API_KEY, DATABASE_URL) from
+# Nexus/.env; load it here so make_client("qwen") works before substrate imports.
+load_dotenv(Path(__file__).resolve().parents[2] / "Nexus" / ".env")
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +41,7 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
         logger.exception("retry_undelivered failed; continuing")
 
     # Build client (skip for dry_run)
-    client = None if dry_run else make_client()
+    client = None if dry_run else make_client("qwen")
 
     # Resolve topics
     if topic_slug:
@@ -74,10 +78,25 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
 
             print(f"[daily_run] topic={topic.slug} items={len(items)}")
 
-            result = run_topic(topic, items, conn, client, settings, dry_run=dry_run)
+            if dry_run:
+                bundle = None
+            else:
+                from perpetual_analyst.analyst import synthesis
 
-            if result is not None:
-                topic_analyses[topic.slug] = result
+                bundle, write_result, _tokens = synthesis.run_daily_for_topic(
+                    topic.slug,
+                    topic.name,
+                    topic.brief,
+                    items,
+                )
+                print(
+                    f"[daily_run] topic={topic.slug} "
+                    f"corpus_ingested={write_result.get('corpus_ingested', 0)}"
+                )
+                print(f"[daily_run] topic={topic.slug} narrative={write_result}")
+
+            if bundle is not None:
+                topic_analyses[topic.slug] = bundle
             successes += 1
         except Exception:
             logger.exception("[daily_run] topic=%s failed", topic.slug)

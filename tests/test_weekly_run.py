@@ -6,8 +6,8 @@ import sqlite3
 from unittest.mock import MagicMock
 
 from perpetual_analyst.analyst.memory import insert_observation
-from perpetual_analyst.analyst.schemas import NewObservation, WeeklyReviewOutput
-from perpetual_analyst.config import ModelConfig, Settings
+from perpetual_analyst.analyst.schemas import WeeklyReviewOutput
+from perpetual_analyst.config import DiscoveryConfig, ModelConfig, Settings
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -38,8 +38,7 @@ def _make_weekly_client(output: WeeklyReviewOutput) -> MagicMock:
 
 
 def _insert_obs(topic_id: int, conn: sqlite3.Connection, content: str, importance: int = 2) -> int:
-    obs = NewObservation(kind="signal", content=content, importance=importance, source_item_ids=[])
-    return insert_observation(topic_id, obs, conn)
+    return insert_observation(topic_id, "signal", content, importance, conn)
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +150,30 @@ def test_discover_sources_called_per_topic(db, sample_topic, monkeypatch):
     discover_mock.assert_called_once()
     call_kwargs = discover_mock.call_args
     assert call_kwargs[0][0].id == sample_topic.id
+
+
+def test_weekly_run_uses_separate_perplexity_client_for_discovery(
+    db, sample_topic, monkeypatch
+):
+    mock_client = _make_weekly_client(WeeklyReviewOutput())
+    discovery_client = MagicMock()
+    discover_mock = MagicMock(return_value=None)
+    settings = _make_settings()
+    settings.discovery = DiscoveryConfig(provider="perplexity", model="sonar")
+
+    def make_client(provider: str = "openrouter"):
+        return discovery_client if provider == "perplexity" else mock_client
+
+    monkeypatch.setattr("perpetual_analyst.weekly_run.init_db", lambda *_a, **_k: db)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.make_client", make_client)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.load_settings", lambda: settings)
+    monkeypatch.setattr("perpetual_analyst.weekly_run.discover_sources", discover_mock)
+
+    from perpetual_analyst.weekly_run import main
+
+    main(dry_run=False)
+
+    assert discover_mock.call_args.args[2] is discovery_client
 
 
 def test_quality_pass_scores_sources_after_loop(db, sample_topic, monkeypatch, capsys):
