@@ -1,0 +1,4 @@
+Task: D2b persist_bundle (transactional)
+Summary: Grok junior xhigh (session 019f419b-31a2-75f1-8100-400765483d58) + senior independent 2-day live verification
+Validation: ruff clean; independent 2-day run PASS: narrative versions [1,2], v2->v1 linked, superseded=1, claim_evidence=6, retired_hyps=2
+TODO: D2b
