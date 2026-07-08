@@ -1,0 +1,5 @@
+Task: A2 substrate.py boundary
+Summary: Grok junior (session 019f417d) + senior live re-verification
+Validation: ruff+format clean; independent live smoke (ingest/retrieve/scope-isolation/dedupe/cleanup) PASS on nexus DB
+TODO: A2
+Spec: docs/specs/2026-07-08-pa-nexus-integration.md
