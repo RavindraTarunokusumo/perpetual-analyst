@@ -1,0 +1,4 @@
+Task: [review] substrate correctness fixes (schema-retry, hypotheses, ingest, claim-index)
+Summary: no 2nd analyst call on schema error; retire all non-retired hypotheses + fixed status='active'; compensating-delete on span-ingest failure; [P#] prior-claim disambiguation.
+Validation: ruff clean; full pytest 138 passed; live 2-day e2e (v1->v2, superseded=1, hyp active:2/retired:2).
+Spec: docs/specs/2026-07-08-pa-nexus-integration.md
