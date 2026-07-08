@@ -120,8 +120,9 @@ python -m perpetual_analyst.daily_run --topic ai-frontier-labs
 Hands-on way to feed the analyst an article you know and read the claims /
 hypotheses / predictions / narrative it produces, so you can judge accuracy
 yourself. Talks to the Nexus substrate directly (Postgres), keyed by a topic
-slug — no SQLite topic/inbox setup needed. `try.sh` loads `Nexus/.env` + the
-unified venv for you.
+slug — no SQLite topic/inbox setup needed. `try.sh` loads repo `.env`
+(`FIRECRAWL_API_KEY`, etc.) and `Nexus/.env` (Postgres + Qwen), then uses
+`Nexus/.venv` (auto-installs `perpetual-analyst` deps if `firecrawl-py` is missing).
 
 ```bash
 # Ingest an article + synthesize + print the full analysis
