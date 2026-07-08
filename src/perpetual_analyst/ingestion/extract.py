@@ -90,16 +90,18 @@ def _scrape_with_firecrawl(url: str, *, timeout: float) -> FetchedArticle:
             only_main_content=True,
             timeout=int(timeout * 1000),
         )
+        markdown = (doc.markdown or "").strip()
+        if len(markdown) < _MIN_ARTICLE_CHARS:
+            raise ArticleFetchError(
+                f"Could not extract article text from {url} "
+                f"(Firecrawl returned {len(markdown)} chars)."
+            )
+        title = doc.metadata.title if doc.metadata and doc.metadata.title else None
+    except ArticleFetchError:
+        raise
     except Exception as exc:
-        raise ArticleFetchError(f"Firecrawl scrape failed for {url}: {exc}") from exc
+        raise ArticleFetchError(f"Firecrawl scrape failed for {url}") from exc
 
-    markdown = (doc.markdown or "").strip()
-    if len(markdown) < _MIN_ARTICLE_CHARS:
-        raise ArticleFetchError(
-            f"Could not extract article text from {url} (Firecrawl returned {len(markdown)} chars)."
-        )
-
-    title = doc.metadata.title if doc.metadata and doc.metadata.title else None
     return FetchedArticle(title=title, text=markdown)
 
 
@@ -115,9 +117,13 @@ def extract_url(url: str, *, timeout: float = 30.0) -> FetchedArticle:
     except httpx.HTTPError as exc:
         raise ArticleFetchError(f"Failed to fetch {url}: {exc}") from exc
 
-    html = response.text
-    article = _extract_with_trafilatura(html, response.status_code)
-    if article is not None:
-        return article
-
-    return _scrape_with_firecrawl(url, timeout=timeout)
+    try:
+        html = response.text
+        article = _extract_with_trafilatura(html, response.status_code)
+        if article is not None:
+            return article
+        return _scrape_with_firecrawl(url, timeout=timeout)
+    except ArticleFetchError:
+        raise
+    except Exception as exc:
+        raise ArticleFetchError(f"Could not extract article text from {url}") from exc

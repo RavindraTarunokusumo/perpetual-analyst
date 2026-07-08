@@ -65,6 +65,11 @@ def test_fetch_rss_returns_new_items(db: sqlite3.Connection) -> None:
     titles = {i.title for i in items}
     assert "Article One" in titles
     assert "Article Two" in titles
+    row = db.execute(
+        "SELECT fetch_error_count, active FROM sources WHERE id = ?", (source.id,)
+    ).fetchone()
+    assert row["fetch_error_count"] == 0
+    assert row["active"] == 1
 
 
 def test_fetch_rss_deduplicates(db: sqlite3.Connection) -> None:
@@ -124,6 +129,40 @@ def test_extract_text_falls_back_to_summary_on_failure():
         assert _extract_text("https://example.com/article", "Feed summary text.") == (
             "Feed summary text."
         )
+
+
+def test_extract_text_falls_back_on_unexpected_errors():
+    with patch(
+        "perpetual_analyst.ingestion.rss.extract_url",
+        side_effect=AttributeError("missing markdown"),
+    ):
+        assert _extract_text("https://example.com/article", "Feed summary text.") == (
+            "Feed summary text."
+        )
+
+
+def test_fetch_rss_unexpected_extraction_errors_do_not_increment_fetch_error_count(
+    db: sqlite3.Connection,
+) -> None:
+    import feedparser as _fp
+
+    parsed = _fp.parse(_FEED_XML)
+    source = _make_source(db)
+    with (
+        patch("perpetual_analyst.ingestion.rss.feedparser.parse", return_value=parsed),
+        patch(
+            "perpetual_analyst.ingestion.rss.extract_url",
+            side_effect=AttributeError("missing markdown"),
+        ),
+    ):
+        items = fetch_rss(source, db)
+
+    assert len(items) == 2
+    row = db.execute(
+        "SELECT fetch_error_count, active FROM sources WHERE id = ?", (source.id,)
+    ).fetchone()
+    assert row["fetch_error_count"] == 0
+    assert row["active"] == 1
 
 
 def test_extract_text_uses_extract_url_on_success():

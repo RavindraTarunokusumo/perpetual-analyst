@@ -5,6 +5,7 @@ import pytest
 from perpetual_analyst.ingestion.extract import (
     ArticleFetchError,
     FetchedArticle,
+    _scrape_with_firecrawl,
     extract_url,
 )
 
@@ -27,12 +28,16 @@ def _mock_response(*, status_code: int, text: str) -> MagicMock:
 
 
 def test_extract_url_success():
-    with patch(
-        "perpetual_analyst.ingestion.extract.httpx.get",
-        return_value=_mock_response(status_code=200, text=_ARTICLE_HTML),
+    with (
+        patch(
+            "perpetual_analyst.ingestion.extract.httpx.get",
+            return_value=_mock_response(status_code=200, text=_ARTICLE_HTML),
+        ),
+        patch("perpetual_analyst.ingestion.extract._scrape_with_firecrawl") as scrape,
     ):
         fetched = extract_url("https://example.com/article")
 
+    scrape.assert_not_called()
     assert len(fetched.text) >= 200
     assert fetched.title == "Sample Headline"
 
@@ -92,3 +97,43 @@ def test_extract_url_firecrawl_short_content_raises(monkeypatch):
     ):
         with pytest.raises(ArticleFetchError, match="Firecrawl returned"):
             extract_url("https://www.reuters.com/world/example")
+
+
+def test_scrape_with_firecrawl_uses_markdown_contract(monkeypatch):
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-test-key")
+    doc = MagicMock()
+    doc.markdown = "C" * 250
+    doc.metadata = MagicMock(title="Firecrawl Title")
+    client = MagicMock()
+    client.scrape.return_value = doc
+    with patch("firecrawl.Firecrawl", return_value=client):
+        fetched = _scrape_with_firecrawl("https://example.com/article", timeout=30.0)
+
+    client.scrape.assert_called_once_with(
+        "https://example.com/article",
+        formats=["markdown"],
+        only_main_content=True,
+        timeout=30000,
+    )
+    assert fetched.title == "Firecrawl Title"
+    assert len(fetched.text) >= 200
+
+
+def test_scrape_with_firecrawl_malformed_response_raises(monkeypatch):
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-test-key")
+    client = MagicMock()
+    client.scrape.return_value = None
+    with patch("firecrawl.Firecrawl", return_value=client):
+        with pytest.raises(ArticleFetchError, match="Firecrawl scrape failed"):
+            _scrape_with_firecrawl("https://example.com/article", timeout=30.0)
+
+
+def test_scrape_with_firecrawl_api_error_message_is_sanitized(monkeypatch):
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-secret-key")
+    client = MagicMock()
+    client.scrape.side_effect = RuntimeError("Bearer fc-secret-key invalid")
+    with patch("firecrawl.Firecrawl", return_value=client):
+        with pytest.raises(ArticleFetchError, match="Firecrawl scrape failed") as exc_info:
+            _scrape_with_firecrawl("https://example.com/article", timeout=30.0)
+
+    assert "fc-secret-key" not in str(exc_info.value)

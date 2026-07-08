@@ -11,7 +11,7 @@ from email.utils import parsedate_to_datetime
 
 import feedparser
 
-from perpetual_analyst.ingestion.extract import ArticleFetchError, extract_url
+from perpetual_analyst.ingestion.extract import extract_url
 from perpetual_analyst.store.db import insert_item
 from perpetual_analyst.store.models import Item, Source
 
@@ -46,7 +46,7 @@ def _extract_text(url: str | None, summary: str | None) -> str | None:
     if url:
         try:
             return extract_url(url).text
-        except ArticleFetchError:
+        except Exception:
             pass
     return summary or None
 
