@@ -5,31 +5,6 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Active Session — Firecrawl source extraction pipeline
-
-**Spec:** `docs/specs/2026-07-08-firecrawl-source-extraction.md` (accepted)
-**Plan:** `docs/specs/2026-07-08-firecrawl-source-extraction-plan.md`
-**Branch:** `firecrawl-source-extraction`
-**Worktree:** `.worktree/firecrawl-source-extraction`
-**Base:** `main` @ `ba94e0e`
-
-### Implementation tasks (from plan)
-
-- [x] T0 — Commit carried WIP — `fcae3f1`, `8578eb5`
-- [x] T1 — `firecrawl-py` dep + `.env.example` + never-log invariant — `9849fae`
-- [x] T2 — Firecrawl fallback in `extract_url` — `faa9cb7`
-- [x] T3 — Wire `rss.py` to `extract_url` — `cfb35f3`
-- [x] T4 — Live smoke test (`pytest -m smoke`) — `da2fa18`
-- [x] T5 — Final validation — `da2fa18`+ (21 ingestion tests green; full suite has pre-existing collection errors on main)
-
-### Blockers / notes
-
-- GitNexus: repo not indexed (`gitnexus analyze` needed on clean tree)
-- Full `pytest` has pre-existing collection errors (cli.py syntax, missing modules) — not introduced by this branch
-- Live smoke requires `FIRECRAWL_API_KEY`: `pytest -m smoke tests/test_extract_smoke.py`
-
----
-
 ## Future Backlog
 
 ### From the PA ↔ Nexus integration (2026-07-08)
@@ -53,3 +28,4 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - Phase 4 (memory & thesis maturity) — `docs/iterations/archive/2026-06-11-phase-4-compaction.md`
 - Phase 5 (source discovery & quality) — `docs/iterations/archive/2026-06-11-phase-5-discovery.md`
 - PA ↔ Nexus integration — `docs/iterations/archive/2026-07-08-pa-nexus-integration.md` (PA #9 / Nexus #33)
+- Firecrawl source extraction — `docs/iterations/archive/2026-07-08-firecrawl-source-extraction.md` (PR #10 / `b982ab9`)

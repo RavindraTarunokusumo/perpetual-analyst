@@ -2,6 +2,20 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-07-08 — Firecrawl source extraction (worktree session)
+
+### Workflow / harness lessons
+
+**Pre-PR `/review` is not optional even when the diff looks clean.** The first attempt used a non-existent `code-reviewer` subagent and fell through to a quick self-read before opening the PR. Running `/review` post-open caught two real RSS-semantics bugs (narrow `ArticleFetchError` catch + unguarded Firecrawl response parsing). Treat review failure or skip as a blocker before merge, not a nice-to-have.
+
+**GitHub PENDING reviews via `gh api`.** `gh pr view --json baseRefOid` is not available on this `gh` version; use `headRefOid` plus merge-base diff collection. Build the review payload with `json.dumps` (never hand-concatenate JSON). Post with `gh api repos/{owner}/{repo}/pulls/{n}/reviews` omitting `event` for PENDING state; user submits from the PR Files tab.
+
+**Carry WIP into the worktree via stash, not parallel edits on `main`.** Stashing uncommitted extraction work, creating `.worktree/firecrawl-source-extraction`, and `stash pop` left `main` clean while preserving in-flight commits — the right preamble when a feature starts mid-session on dirty `main`.
+
+**Live provider smoke after unit tests.** Mocked tests passed bot-wall detection, but only `pytest -m smoke` with real `FIRECRAWL_API_KEY` confirmed Reuters extraction (~10k chars, ~1.7s). Load `.env` with `set -a && source .env && set +a` because smoke tests read `os.environ` directly (no `load_dotenv` in the test module).
+
+**Defense in depth for item-level RSS semantics.** Spec promises summary fallback without `fetch_error_count` bumps. Fixing both `rss._extract_text` (broad `except Exception`) and `extract_url` (wrap unexpected failures in `ArticleFetchError`) plus regression tests on `fetch_error_count` is safer than relying on a single catch type.
+
 ## 2026-07-08 — PA ↔ Nexus integration (multi-repo, Grok-delegated)
 
 ### Workflow / harness lessons
