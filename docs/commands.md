@@ -95,6 +95,34 @@ python -m perpetual_analyst.daily_run --topic ai-frontier-labs
 
 `analyst run` is a thin wrapper that calls `daily_run.main()`.
 
+## Inspection Harness (`./try.sh`)
+
+Hands-on way to feed the analyst an article you know and read the claims /
+hypotheses / predictions / narrative it produces, so you can judge accuracy
+yourself. Talks to the Nexus substrate directly (Postgres), keyed by a topic
+slug — no SQLite topic/inbox setup needed. `try.sh` loads `Nexus/.env` + the
+unified venv for you.
+
+```bash
+# Ingest an article + synthesize + print the full analysis
+./try.sh run --topic demo --url https://example.com/article
+./try.sh run --topic demo --file article.txt
+./try.sh run --topic demo            # then paste text, end with Ctrl-D
+#   optional: --name "Display Name"  --brief "what you care about"  -k 15
+
+# Print the topic's current narrative / active claims / hypotheses / predictions
+./try.sh show --topic demo
+
+# Grounded Q&A over the topic's corpus
+./try.sh ask --topic demo "What is the biggest risk?"
+
+# Wipe this topic's corpus + analysis to start clean
+./try.sh reset --topic demo
+```
+
+Run the same topic on successive articles to watch the narrative version and
+claims evolve (v1 → v2, claims superseded, hypotheses retired).
+
 ## Weekly Compaction (Direct)
 
 ```bash
