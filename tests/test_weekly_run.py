@@ -6,7 +6,7 @@ import sqlite3
 from unittest.mock import MagicMock
 
 from perpetual_analyst.analyst.memory import insert_observation
-from perpetual_analyst.analyst.schemas import NewObservation, WeeklyReviewOutput
+from perpetual_analyst.analyst.schemas import WeeklyReviewOutput
 from perpetual_analyst.config import DiscoveryConfig, ModelConfig, Settings
 
 # ---------------------------------------------------------------------------
@@ -38,8 +38,7 @@ def _make_weekly_client(output: WeeklyReviewOutput) -> MagicMock:
 
 
 def _insert_obs(topic_id: int, conn: sqlite3.Connection, content: str, importance: int = 2) -> int:
-    obs = NewObservation(kind="signal", content=content, importance=importance, source_item_ids=[])
-    return insert_observation(topic_id, obs, conn)
+    return insert_observation(topic_id, "signal", content, importance, conn)
 
 
 # ---------------------------------------------------------------------------

@@ -21,13 +21,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.2.0",
+    "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
-    "ruff>=0.5.0",
-]
-embeddings = [
-    "sqlite-vec>=0.1.6",
-    "voyageai>=0.3.0",
+    "anyio>=4.0.0",
+    "ruff>=0.6.0",
+    "pre-commit>=3.5.0",
+    "mypy>=1.11.0",
 ]
 
 [project.scripts]

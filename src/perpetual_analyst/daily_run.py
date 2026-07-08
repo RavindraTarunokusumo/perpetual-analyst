@@ -122,10 +122,9 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
                 print(f"[daily_run] topic={topic.slug} corpus_ingested={ingested}")
 
             if dry_run:
-                result = None
+                bundle = None
             else:
                 from perpetual_analyst.analyst import synthesis
-                from perpetual_analyst.analyst.schemas import TopicAnalysis
 
                 bundle, write_result, _tokens = synthesis.run_daily_for_topic(
                     topic.slug,
@@ -134,13 +133,9 @@ def main(dry_run: bool = False, topic_slug: str | None = None) -> None:
                     [it.title or "" for it in items],
                 )
                 print(f"[daily_run] topic={topic.slug} narrative={write_result}")
-                result = TopicAnalysis(
-                    report_section_markdown=bundle.briefing_markdown or "",
-                    nothing_significant=bundle.nothing_significant,
-                )
 
-            if result is not None:
-                topic_analyses[topic.slug] = result
+            if bundle is not None:
+                topic_analyses[topic.slug] = bundle
             successes += 1
         except Exception:
             logger.exception("[daily_run] topic=%s failed", topic.slug)

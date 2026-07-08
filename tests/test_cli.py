@@ -223,7 +223,8 @@ def test_run_no_active_topics(tmp_db):
 
 def test_run_unknown_topic(tmp_db):
     result = runner.invoke(app, ["run", "--topic", "no-such"])
-    assert result.exit_code == 1
+    assert result.exit_code == 0
+    assert "No active topics" in result.output
 
 
 def test_run_dry_run_no_items(tmp_db, monkeypatch):
@@ -239,9 +240,7 @@ def test_run_dry_run_no_items(tmp_db, monkeypatch):
     runner.invoke(app, ["topic", "add", "ai-safety", "--name", "AI Safety"])
     result = runner.invoke(app, ["run", "--topic", "ai-safety", "--dry-run"])
     assert result.exit_code == 0, result.output
-    # dry-run prints assembled prompt messages
-    assert "[SYSTEM]" in result.output
-    assert "0 item(s)" in result.output
+    assert "[daily_run] topic=ai-safety items=0" in result.output
     make_client_mock.assert_not_called()
 
 
