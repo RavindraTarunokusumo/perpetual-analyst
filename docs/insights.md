@@ -2,98 +2,92 @@
 
 Record reusable lessons from completed sessions.
 
-## 2026-06-26 — Workflow docs session
+## 2026-07-08 — PA ↔ Nexus integration (multi-repo, Grok-delegated)
+
+### Workflow / harness lessons
+
+**`cd` persists across Bash tool calls — it pollutes later commands.** A `cd Nexus` in one call silently changed the repo for subsequent calls, producing wrong-repo results. Prefix every command with `cd /abs/repo/path || exit 1`, or use absolute paths throughout. Never rely on inherited cwd.
+
+**The auto-mode classifier blocks destructive DB operations — scope them.** `TRUNCATE … CASCADE` and an unfiltered `DELETE FROM <table>` (even off an unfiltered `SELECT … FROM watch_topics`) were denied because they could wipe real data. Scope cleanup to session-created rows by a known slug prefix (`WHERE slug LIKE 'scratch-%'`); expect broad destructive DB cleanup to need explicit filters or to run outside auto-mode.
+
+**Standalone scripts must not use stdlib module names.** A helper at `scripts/inspect.py` shadowed the stdlib `inspect` module (its dir lands on `sys.path[0]` when run directly), breaking `typing_extensions` deep inside SQLAlchemy import. Name scripts distinctively (`pa_inspect.py`).
+
+**`gh` gotchas.** `gh pr create` has no `--json`; capture the URL from stdout. Pushing over an HTTPS remote with no credential helper fails ("could not read Username"); run `gh auth setup-git` first (SSH remotes push directly).
+
+**Multi-repo submodule finalization order.** Merge the upstream repo's PR first, bump the submodule to the *merge commit* (not the branch tip — a squash could orphan the pinned SHA), then merge the dependent PR. Use a merge commit (not squash) so per-commit SHAs survive for archive tracing.
+
+**Grok delegation.** Grok sometimes runs a task "inline" and reports `sessionId: N/A` in prose — still parse the JSON `sessionId` and clean up the CLI session dir. It correctly *declined* to edit a test outside its stated file scope and flagged it instead (good boundary discipline; the senior applies the out-of-scope test fix during review). It also strips trailing newlines and can quietly change unrelated `pyproject` pins — normalize newlines and diff `pyproject` for scope creep before committing.
+
+**Live e2e with the real provider beats unit tests for behavior/estimates.** A degenerate test doc (one sentence repeated) produced 1 claim and a misleading cost estimate; realistic input produced 7 claims. Always validate model-facing behavior and cost/latency numbers with realistic inputs, not synthetic filler.
+
+## 2026-07-08 — Harness workflow blocker session
 
 ### What worked well
 
-**Checking open PR state before acting avoided merging a nonexistent branch.** `gh pr list --state open` returned no open PRs, so the requested workflow update could proceed directly on `main` without trying to combine it with another branch.
+**Recording environment blockers in `session_ledger.json` kept the workflow auditable even when the normal git path was unavailable.** Capturing the exact commands and failures made it clear which workflow steps were completed, which were best-effort, and which were blocked by filesystem or dependency constraints.
+
+**A dependency-free syntax and smoke-test fallback provided useful validation when pytest/ruff/pre-commit could not be installed.** `compileall`, `git diff --check`, line-length scans, and small `PYTHONPATH=src` smoke scripts are not substitutes for the full suite, but they are worth running when package installation is blocked.
 
 ### What to improve
 
-**The implementation handoff needed an explicit boundary.** The workflow already used Grok for PR review, but implementation still pointed to native subagents. A dedicated Grok Build handoff makes the planner/reviewer vs implementer split explicit for future sessions.
+**The sandbox exposed `.git` as read-only, which blocks worktree setup, staging, commits, git notes, and PR submission.** A session that requires the full workflow needs writable git metadata; otherwise the implementation can be prepared but cannot satisfy the commit/PR/archive portions of the harness.
 
-**Keep Grok CLI mechanics in one place.** Review delegation and implementation handoff both rely on the same `grok -p ... --output-format json` pattern. Centralizing the command arguments, `sessionId` capture, and session cleanup rules avoids drift between workflow sections.
+**GitNexus MCP did not expose `perpetual-analyst` even though the repo contract says it should.** Impact and detect-changes calls failed with only `Indonesia-Monitor` and `Nexus` available. Future sessions should check `mcp__gitnexus.list_repos` early and record a fallback when the expected repo is missing.
 
-## 2026-06-14 — Web UI dashboard session
-
-### What worked well
-
-**The `pip install -e .` Preamble step (added this session) removed real friction.** Every implementer and the live-validation step imported the package and ran `pytest`/`analyst web` with no `PYTHONPATH` dance. The console script (`analyst.exe`) re-pointed at the worktree's `src/` after the editable install, so live-validating the *worktree* code Just Worked. Worth keeping as a hard Preamble step.
-
-**Cost-tuned the subagent-driven loop without losing rigor.** Instead of the skill's 2 review subagents per task (≈20 dispatches), I verified spec-compliance *inline* by reading each committed diff (cheap; I authored the plan) and ran **consolidated Sonnet code-quality reviews at group boundaries** (read-pages, then actions) plus **one final whole-branch review** — far fewer dispatches, and it still caught real bugs at every stage (thesis slug/topic 404, run-lock deadlock window, CSRF, a test that passed via the wrong code path). When the plan is fully prescribed and you authored it, inline spec-checking + grouped quality reviews is a good cost/quality trade.
-
-**The final whole-branch review earns its place even after per-group reviews.** Group reviews see code in isolation; the whole-branch pass caught *cross-cutting* defects the group passes structurally couldn't — most valuably a test that returned 302 via the unconfigured fast-path and never exercised the function it monkeypatched (a false-green). Always run the final pass; treat "a test that would pass even if the code were broken" as a first-class finding.
-
-### What to improve
-
-**A review subagent silently hit a stream-idle-timeout (~31 min, zero output).** The actions-group reviewer never returned. Inline fallback worked (I did the review myself and found the lock-release deadlock). Lesson: the inline-fallback rule isn't only for session-limit errors — a long review/analysis subagent can time out with nothing; when it does, review inline rather than re-dispatching and waiting again.
-
-**The visual-companion server idle-timed-out (30 min) during a long stretch of terminal Q&A.** I started it at the top of brainstorming, then spent many turns on *conceptual* (terminal) questions, so no screen was pushed and it self-exited; I had to restart it right before the first mockup. Lesson: start the companion **immediately before pushing the first visual**, not when the user first accepts it — and push a screen promptly to reset the idle timer.
-
-**`doc-updater` invented a version label.** It titled the changelog entry "Phase 4: …" although Phase 4 is reserved (weekly compaction); the feature was out-of-SPEC. Caught and fixed. Lesson: review doc-updater output for invented phase/version naming, not just content accuracy.
-
-**`ruff-format` reformats multi-line SQL strings on every commit.** Each implementer wrote `conn.execute("..." "...")` split strings and ruff collapsed/implicit-joined them on the pre-commit hook, forcing a re-stage + re-commit. Minor but recurring across all ~13 task commits. Pre-empt by writing SQL in ruff's preferred single-line/implicit-concat form, or run `ruff format` before staging so the first commit is clean.
-
-**Workflow Rule 11 (file-based bodies) held up.** PR body written with the Write tool → `gh pr create --body-file` as its own command → no silent failure (the Phase-3 chained-heredoc breakage did not recur). The `git commit -F - <<'MSGEOF'` heredoc form also worked reliably for multi-line commit messages in the Bash tool.
-
-## 2026-06-13 — Phase 3 implementation session
-
-### What worked well
-
-**Two-stage substitute review when Copilot is down (whole-branch, then fix-commit).** The pre-PR whole-branch Opus review found the empty-items double-call bug; after fixing it, a SECOND focused Opus review of only the fix commits caught that one of those fixes (`_balance_html`) had introduced a silent-data-loss regression. Lesson: fixes made in response to a review are themselves unreviewed code — run a focused pass over the fix delta, not just the original branch. The implementer's self-review is not a substitute.
-
-**Live `--dry-run` as a plan task caught a class of bug mocks never will.** The dry-run (real feed fetch, zero API calls) surfaced a Windows cp1252 `UnicodeEncodeError` on piped stdout — invisible to the test suite (pytest captures differently) and to interactive runs (console is UTF-8). Any CLI that prints unicode needs `sys.stdout.reconfigure(encoding="utf-8")` at the entry point for scheduled/piped execution.
-
-**Bounded the slow live validation instead of skipping it.** The first dry-run subagent timed out at 14 min on arXiv's full first-fetch and reported DONE_WITH_CONCERNS without completing the validation. The fix was a 6-line prep script marking the heavy feeds `last_fetched_at = now` so the dry-run exercised the full pipeline on a small feed in seconds. When a validation is too slow, shrink its input rather than declaring it unverifiable.
-
-### What to improve
-
-**PowerShell here-string piped to `gh ... --body-file` then `Remove-Item` failed as one compound command.** The `@'...'@ | Out-File ...; gh pr create ...; Remove-Item ...` chain errored (Remove-Item resolved oddly) and the PR was NOT created. Write PR/comment bodies with the Write tool to a file, then run `gh` as its own command, then clean up separately — don't chain heredoc + gh + delete.
-
-**`git checkout main` fails from inside a worktree** (main is checked out in the primary dir). For post-PR work on main, operate in the primary working directory with `git -C <main-path> ...` rather than trying to switch the worktree to main. Pull main with `git -C <main> pull --ff-only origin main`.
-
-**Subagents repeatedly hit the GitNexus stale-index warning** but correctly did not run `npx gitnexus analyze` (the worktree-rewrites-AGENTS/CLAUDE.md hazard from Phase 2). Keep telling subagents NOT to reindex in a worktree; the stale warning is harmless when impact analysis is run from the primary dir or skipped for LOW-risk leaf additions.
+**Grok CLI availability is not enough; it also needs a writable session store.** The CLI was installed, but non-interactive JSON handoff failed because session creation hit a read-only filesystem. The harness should treat "Grok installed but cannot create a session" as a first-class fallback condition.
 
 ### Patterns established this session
 
-- A review that produces fixes must be followed by a review OF those fixes (fix-delta review)
-- CLI entry points that print unicode must force UTF-8 stdout for piped/scheduled use
-- Telegram (and any `parse_mode=HTML` sink) requires escaping stray `<`/`>`/`&` while preserving the allowlisted tags — never a regex strip that can eat literal `<`
-- Slow live validations get a bounded-input harness, not a skip
+- If `.venv` is absent, create it, but record dependency installation failures explicitly when network access blocks `pip install -e ".[dev]"`.
+- When pytest is unavailable, still run `compileall`, `git diff --check`, and targeted `PYTHONPATH=src` smoke checks.
+- If `.codex/` is read-only, update writable docs and record the remaining harness-prompt drift rather than silently skipping it.
 
-## 2026-06-12 — Phase 2 implementation session
+## 2026-06-11 — Phase 5 discovery session (workflow/harness)
 
 ### What worked well
 
-**Live smoke testing as a first-class plan task.** Two latent Phase 1 bugs (provider rejecting `minimum`/`maximum` in structured-output schemas; `response.parsed` not existing on the real SDK object) were invisible to a 100-test mocked suite and surfaced only on a real API call. Mocks that fabricate the response shape validate the mock, not the contract — when correcting such a bug, fix the conftest mock in the same commit so the suite pins the real shape.
+**The live smoke test (Rule 11) caught a provider-layer bug for the second consecutive feature that touched OpenRouter structured output.** Phase 4 it was nothing; Phase 5 it was the OpenRouter web plugin silently ignoring `response_format=json_object` and prepending prose before the JSON — `model_validate_json(raw)` blew up on the first real call, while all 175 mocked tests passed. Standing rule now: any NEW OpenRouter call shape (a new plugin, web search, a new param) must get a live smoke test before PR, and structured-output parsing should be tolerant (extract the JSON object substring) rather than assuming `json_object` is honored. Mocks validate wiring; only a live call validates the provider contract.
 
-**Empirical verification before applying review findings.** Three reviewer claims were rejected with reproductions (a `time.strftime` timezone claim disproven with a 5-line script; a "double period" formatting claim disproven by an exact-line assertion; a ×0.5-vs-×1.5 boost direction confirmed against bm25 sign semantics). Each rejection was cheaper than the wrong "fix."
+**Recovering a subagent interrupted mid-task without losing or duplicating work.** The Task D implementer hit the session limit after 17 tool uses and returned an empty result — its four files were written but uncommitted. The right move was NOT to re-dispatch (which would redo/duplicate): per Workflow Rule 8, run `git status` first, read the uncommitted files, run the suite + pre-commit, verify the work against the task spec, then commit it myself on the agent's behalf. Re-dispatching a "finished but uncommitted" task is the trap to avoid.
 
-**Plan-with-complete-code + Sonnet implementers.** Prescribing full test/implementation code in the plan made per-task subagents fast and reviewable. Implementers caught two genuine plan bugs by running the tests (`NOT IN (NULL)` three-valued-logic row-drop; a test fixture producing identical content hashes that dedupe collapsed) — evidence the TDD steps protect against the planner too.
-
-**Substitute Opus PR review when Copilot is down.** The Opus reviewer reproduced (not speculated) two real bugs the suite couldn't see: a hallucinated `thesis_id` FK-aborting the whole memory transaction, and triage demoting `analyzed` items. Reproduce-before-report should be the bar for all review subagents.
+**Reinstalling the editable package at session start (Phase 4 insight) paid off.** Starting Phase 5 from a fresh worktree, `pip install -e .` re-pointed the shared `.venv` immediately; the baseline suite ran green on the first try. The habit works.
 
 ### What to improve
 
-**Long-running commands die with the dispatching subagent.** A 40-minute live pytest launched in a subagent's foreground shell was killed when the subagent's turn ended (the run survived to feed-fetch only). Long-running verification must be launched by the orchestrator with `run_in_background` (log to a file with an appended `EXIT: $LASTEXITCODE` marker), never inside a subagent.
+**The GitNexus stale-index hook fired on every single Bash command for two full sessions and never self-resolved.** It is pure noise once acknowledged, and the index (pinned at the Phase 1 commit) is useless for impact analysis on a branch that is now four phases ahead — so the CLAUDE.md "MUST run gitnexus_impact before editing" step is unfollowable as written. Either re-run `npx gitnexus analyze` once at the start of a multi-phase effort, or relax the hook/rule when the index predates the working branch's base. Acting on a four-phases-stale graph would be worse than reading callers directly.
 
-**Subagents hit the Claude session limit mid-workflow.** Four parallel /simplify reviewers all died instantly on a session limit; the inline fallback (doing the 4-angle review in the main context) worked fine. When dispatches start failing with limit errors, switch to inline rather than retrying.
-
-**`npx gitnexus analyze` inside a worktree rewrites AGENTS.md/CLAUDE.md.** A subagent's reindex registered the worktree as a separate repo ("phase-2") and rewrote the GitNexus block in both files. Tell subagents not to run gitnexus analyze in worktrees; keep the dirtied files unstaged (specific staging protected every commit).
-
-**OpenRouter 402 on max_tokens reservation.** The analyst call reserves ~65K output tokens; a smoke run fails with 402 if the account balance can't cover the reservation even when actual usage would be far less. Check credit headroom before scheduling live runs.
-
-**Serial trafilatura extraction dominates smoke wall time.** ~40 minutes for 363 arXiv entries (per-article page fetches). For Phase 3+: consider a first-fetch entry cap or concurrent extraction before scaling topics.
-
-**`gh pr merge` + local unpushed state.** Local main carried an unpushed commit that reached origin only via the PR branch; the post-merge `git pull` then collided with pre-existing dirty test files (stash, pull, proceed). Check `git status` in the MAIN working dir before merging, not just the worktree.
+**`/simplify` keeps surfacing out-of-scope or behavior-changing suggestions that must be filtered, not applied.** This phase: a `thinking_extra` helper that would edit Phase 1–4 call sites (out of scope), module relocations (larger restructure), and the "two sources of truth" framing of an additive migration (which is actually the correct pattern). The discipline: apply only behavior-preserving, in-scope cleanups; note the rest with a one-line reason rather than letting the cleanup pass balloon the diff right before PR.
 
 ### Patterns established this session
 
-- Provider-bound Pydantic models must not carry `ge`/`le` (serialize to rejected `minimum`/`maximum`) — use clamping `field_validator`s
-- bm25 scores are negative: recency boosts multiply by >1, never <1
-- `sync_config` owns topic/source definitions (YAML → DB); runtime columns are DB-only; inbox sources exempt from deactivation
-- Item status transitions are guarded: triage writes only `status='new'` rows; analyzed-marking lives inside `apply_all_memory_writes`
-- LLM-provided IDs (item_id, thesis_id) are validated against known sets before any DB write
+- New OpenRouter call shapes get a live smoke test before PR; parse structured output tolerantly (don't trust `response_format=json_object` across plugins/providers).
+- Subagent interrupted mid-task → verify the working tree and commit its work yourself; don't re-dispatch.
+- When GitNexus is indexed older than the working branch's base, skip the impact step and read callers directly — say so explicitly.
+
+## 2026-06-11 — Phase 4 compaction session (workflow/harness)
+
+### What worked well
+
+**Front-loading project gotchas into each subagent prompt eliminated rework.** Five implementer subagents (Sonnet) shipped clean, green commits with zero correction loops because each prompt embedded the project-specific traps verbatim: the portable `create()` + `model_validate_json()` pattern (not `.beta.parse()`), "no `ge`/`le` on numeric Pydantic fields," the PowerShell single-quoted here-string rule for commit messages, and "run pre-commit only on your touched files." When the controller curates these upfront, the implementer doesn't rediscover them.
+
+**A whole-branch final review caught a cross-task gap the per-task reviews could not.** Each task passed its own review, but only the final reviewer over the full diff spotted that the weekly path rebuilt the daily message shape without the cache breakpoint — an inconsistency that's invisible when reviewing tasks in isolation. The final-review step in subagent-driven-development earns its keep specifically for cross-cutting consistency.
+
+**Gating outward-facing spend with a single question fit auto mode.** The live API smoke test and the PR merge were both real, hard-to-reverse actions; one `AskUserQuestion` each kept momentum while leaving the cost/irreversibility decisions with the user.
+
+### What to improve
+
+**After deleting a worktree, the shared `.venv` editable install is left dangling.** The root `.venv` had `pip install -e .` pointed at the *previous* (now-deleted) worktree, so pytest failed with `ModuleNotFoundError: perpetual_analyst` until I re-ran `pip install -e .` from the new worktree. Rule: the Preamble (Step 1) for any session that uses a fresh worktree should reinstall the editable package from that worktree before running tests.
+
+**`/simplify` can propose behavior-changing "simplifications" — verify before applying.** One cleanup agent suggested collapsing the `render_thesis_trail` start/end search into a single pass, but the proposed form changed the semantics (per-row `confidence_before`/`after` mixing instead of "earliest non-null before across all rows"). Treat `/simplify` findings as candidates: confirm behavior-preservation against the original logic before editing, and skip the ones that don't hold.
+
+**GitNexus was indexed against `main` (Phase 1) the entire session, making impact analysis useless on the feature branch.** The index predated Phase 2/3/4 symbols, so `gitnexus_impact` on `assemble_context`/`run_topic` would have returned a stale, misleading blast radius. I verified callers by reading files directly and noted the staleness instead. Also, the `PostToolUse` hook reprinted "GitNexus index is stale" on *every* Bash call — pure noise once acknowledged. When the index is older than the working branch's base, skip the GitNexus MUST-DO impact step and say so; don't act on a stale graph.
+
+### Patterns established this session
+
+- Reinstall the editable package (`pip install -e .`) from the new worktree at session start — the shared `.venv` may point at a deleted one.
+- Curate project-specific gotchas into subagent prompts; don't rely on the implementer to rediscover them.
+- Keep a final whole-branch review even when every task was individually reviewed — it catches cross-task drift.
+- Validate `/simplify` suggestions for behavior-preservation before applying.
 
 ## 2026-06-10 — Phase 1 implementation session
 

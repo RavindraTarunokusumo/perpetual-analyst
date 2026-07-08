@@ -8,9 +8,8 @@ Testing includes both execution and planning. Run automated tests and use the `t
 
 - Activate the project environment: `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate`
 - Run commands from repo root
-- The package is not pip-installed in dev; set `PYTHONPATH=src` (or `$env:PYTHONPATH="src"` on PowerShell) before running pytest
-- Mock OpenRouter/analyst API calls — never make real API calls in unit tests
-- Mock Telegram sends
+- Mock OpenRouter/openai API calls — never make real API calls in tests
+- Mock `telegram.Bot` — never make real Telegram calls in tests
 - Use in-memory SQLite (`analyst.db` = `:memory:`) for all DB tests
 
 ## Test Layout
@@ -27,12 +26,11 @@ tests/
   test_retrieval.py    # FTS search helpers, recency weighting, exclude_ids
   test_report.py       # citation rendering, report assembly
   test_delivery.py     # Telegram send + retry logic (mocked)
-  test_smoke.py        # live end-to-end test (marked `smoke`; excluded from default run)
-```
-
-The `smoke` marker requires a real `OPENROUTER_API_KEY` and live network access. It uses a dedicated `data/smoke-phase2.db` to avoid polluting the development database. Run explicitly with:
-```bash
-PYTHONPATH=src pytest -m smoke
+  test_discovery.py    # source discovery and provider seam
+  test_quality.py      # source quality scoring
+  test_source_candidates.py # approval/dismissal and SSRF-safe URL validation
+  test_web_ui.py       # local dashboard rendering and POST actions
+  test_embeddings.py   # optional embeddings gate
 ```
 
 ## Core Fixtures (`conftest.py`)
@@ -46,10 +44,8 @@ def db():
     conn.close()
 
 @pytest.fixture
-def mock_openrouter(monkeypatch):
-    """Stub client.beta.chat.completions.parse() to return a canned TopicAnalysis.
-    The result must be accessible via response.choices[0].message.parsed (real SDK shape).
-    """
+def mock_openai(monkeypatch):
+    """Stub openai.OpenAI client to return a canned TopicAnalysis (openai SDK via OpenRouter)."""
     ...
 ```
 
@@ -100,6 +96,9 @@ Invoke after implementation and before PR when:
 - ingestion or triage logic changed
 - report rendering or citation logic changed
 - Telegram delivery logic changed
+- source approval URL validation or Web UI routes changed
+- discovery provider configuration changed
+- optional embeddings gate changed
 
 Do not invoke for docs-only or tiny localized edits.
 
@@ -120,7 +119,7 @@ For meaningful changes, cover:
 
 - Keep tests deterministic — no random data, no real API calls, no network I/O
 - Use in-memory SQLite; never touch `data/analyst.db` in tests
-- Mock the Anthropic client at the boundary — test context assembly and result handling separately from the API call
+- Mock the OpenAI client (OpenRouter) at the boundary — test context assembly and result handling separately from the API call
 - Name tests by behavior: `test_memory_budget_truncates_importance_1_first`
 - Assert durable outcomes: DB row counts, field values, file existence
 - Never test implementation trivia (private method return values, internal variable names)

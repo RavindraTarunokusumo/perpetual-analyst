@@ -3,94 +3,124 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import sqlite3
 import time
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 
 import feedparser
-import httpx
 import trafilatura
 
 from perpetual_analyst.store.db import insert_item
-from perpetual_analyst.store.models import Source
+from perpetual_analyst.store.models import Item, Source
 
-MAX_FETCH_ERRORS = 5
-_TIMEOUT_SECONDS = 30.0
-
-
-def _entry_timestamp(entry: feedparser.FeedParserDict) -> str | None:
-    for attr in ("published_parsed", "updated_parsed"):
-        parsed = getattr(entry, attr, None)
-        if parsed:
-            return time.strftime("%Y-%m-%d %H:%M:%S", parsed)
-    return None
+logger = logging.getLogger(__name__)
 
 
-def _extract_full_text(url: str | None) -> str | None:
-    if not url:
-        return None
+def _parse_as_utc_naive(s: str) -> datetime | None:
+    """Parse ISO 8601 or SQLite datetime string to a UTC-naive datetime for comparison."""
     try:
-        downloaded = trafilatura.fetch_url(url)
-        if downloaded:
-            return trafilatura.extract(downloaded)
-    except Exception:
-        pass
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is not None:
+            return dt.astimezone(UTC).replace(tzinfo=None)
+        return dt
+    except ValueError:
+        return None
+
+
+def _entry_published_iso(entry: feedparser.FeedParserDict) -> str | None:
+    """Return ISO 8601 string from a feedparser entry, or None."""
+    if hasattr(entry, "published_parsed") and entry.published_parsed:
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", entry.published_parsed)
+    if hasattr(entry, "published") and entry.published:
+        try:
+            return parsedate_to_datetime(entry.published).isoformat()
+        except Exception:
+            return entry.published
     return None
 
 
-def _record_fetch_error(source_id: int, conn: sqlite3.Connection) -> None:
-    conn.execute(
-        "UPDATE sources SET fetch_error_count = fetch_error_count + 1 WHERE id = ?",
-        (source_id,),
-    )
-    conn.execute(
-        "UPDATE sources SET active = 0 WHERE id = ? AND fetch_error_count >= ?",
-        (source_id, MAX_FETCH_ERRORS),
-    )
+def _extract_text(url: str | None, summary: str | None) -> str | None:
+    """Try trafilatura for full text; fall back to feed summary."""
+    if url:
+        try:
+            downloaded = trafilatura.fetch_url(url)
+            if downloaded:
+                extracted = trafilatura.extract(downloaded)
+                if extracted:
+                    return extracted
+        except Exception:
+            pass
+    return summary or None
 
 
-def fetch_rss(source: Source, conn: sqlite3.Connection) -> int:
-    """Fetch new entries for one RSS source. Returns the count of newly inserted items.
+def fetch_rss(source: Source, conn: sqlite3.Connection) -> list[Item]:
+    """Fetch and ingest items from an RSS/Atom source.
 
-    Feed-level failures increment fetch_error_count (source deactivated at
-    MAX_FETCH_ERRORS); item-level extraction failures fall back to the feed summary.
+    Returns the list[Item] of newly inserted items only.
+    On exception: increments fetch_error_count; deactivates source if count >= 5.
     """
     try:
-        response = httpx.get(source.url, timeout=_TIMEOUT_SECONDS, follow_redirects=True)
-        response.raise_for_status()
-        feed = feedparser.parse(response.content)
-        if feed.bozo and not feed.entries:
-            raise ValueError(f"unparseable feed: {source.url}")
-    except Exception:
-        _record_fetch_error(source.id, conn)
-        conn.commit()
-        return 0
+        feed = feedparser.parse(source.url)
+        new_items: list[Item] = []
 
-    inserted = 0
-    for entry in feed.entries:
-        published = _entry_timestamp(entry)
-        if source.last_fetched_at and published and published <= source.last_fetched_at:
-            continue
-        link = getattr(entry, "link", None)
-        text = _extract_full_text(link) or getattr(entry, "summary", None)
-        if not text or not text.strip():
-            continue
-        is_new = insert_item(
-            conn,
-            source_id=source.id,
-            content_hash=hashlib.sha256(text.strip().encode()).hexdigest(),
-            title=getattr(entry, "title", None),
-            url=link,
-            author=getattr(entry, "author", None),
-            published_at=published,
-            raw_text=text,
+        for entry in feed.entries:
+            published_iso = _entry_published_iso(entry)
+
+            # Filter entries older than last_fetched_at when set (compare as datetimes)
+            if source.last_fetched_at and published_iso:
+                pub_dt = _parse_as_utc_naive(published_iso)
+                last_dt = _parse_as_utc_naive(source.last_fetched_at)
+                if pub_dt is not None and last_dt is not None and pub_dt <= last_dt:
+                    continue
+
+            url = entry.get("link") or None
+            title = entry.get("title") or None
+            summary = entry.get("summary") or entry.get("description") or None
+            author = entry.get("author") or None
+
+            raw_text = _extract_text(url, summary)
+
+            # Hash on url+title+summary to deduplicate reliably
+            hash_input = (url or "") + (title or "") + (summary or "")
+            content_hash = hashlib.sha256(hash_input.encode()).hexdigest()
+
+            inserted = insert_item(
+                conn,
+                source.id,
+                content_hash,
+                title=title,
+                url=url,
+                author=author,
+                published_at=published_iso,
+                raw_text=raw_text,
+            )
+            if inserted:
+                row = conn.execute(
+                    "SELECT * FROM items WHERE content_hash = ?", (content_hash,)
+                ).fetchone()
+                new_items.append(Item.from_row(row))
+
+        conn.execute(
+            "UPDATE sources SET last_fetched_at = datetime('now') WHERE id = ?",
+            (source.id,),
         )
-        if is_new:
-            inserted += 1
+        conn.commit()
+        return new_items
 
-    conn.execute(
-        "UPDATE sources SET last_fetched_at = datetime('now'), fetch_error_count = 0"
-        " WHERE id = ?",
-        (source.id,),
-    )
-    conn.commit()
-    return inserted
+    except Exception:
+        logger.warning("fetch_rss failed for source %d", source.id, exc_info=True)
+        new_count = source.fetch_error_count + 1
+        if new_count >= 5:
+            conn.execute(
+                "UPDATE sources SET fetch_error_count = ?, active = 0 WHERE id = ?",
+                (new_count, source.id),
+            )
+        else:
+            conn.execute(
+                "UPDATE sources SET fetch_error_count = ? WHERE id = ?",
+                (new_count, source.id),
+            )
+        conn.commit()
+        return []

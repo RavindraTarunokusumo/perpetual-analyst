@@ -8,17 +8,26 @@ source .venv/bin/activate          # Linux/macOS
 .venv\Scripts\activate             # Windows PowerShell
 
 pip install -e ".[dev]"
+pip install -e ./Nexus             # Nexus submodule (Postgres memory substrate)
 ```
 
 Or with `uv`:
 ```bash
-uv venv && uv pip install -e ".[dev]"
+uv venv && uv pip install -e ".[dev]" && uv pip install -e ./Nexus
 ```
 
-Copy `.env.example` to `.env` and fill in keys:
+Copy env files and fill in keys:
 ```bash
 cp .env.example .env
+cp Nexus/.env.example Nexus/.env
 ```
+
+**Postgres** is required for the daily run. Set `DATABASE_URL` in `Nexus/.env`, then apply migrations:
+```bash
+cd Nexus && alembic upgrade head
+```
+
+`daily_run.py` loads `Nexus/.env` at startup so `QWEN_CLOUD_API_KEY`, `LLM_BASE_URL`, and `DATABASE_URL` are available to `substrate.py` and the Qwen client.
 
 ## CLI — `analyst` Commands
 
@@ -29,30 +38,51 @@ analyst topic add ai-frontier-labs --name "AI Frontier Labs" --brief "Track mode
 # List topics
 analyst topic list
 
-# Add a source to a topic (appends to config/sources.yaml, then syncs to DB)
-analyst source add --topic ai-frontier-labs --type rss --url https://example.com/feed.xml --name "Example Feed"
-
-# Optional: non-default DB path
-analyst topic add my-topic --name "My Topic" --db-path data/alt.db
-analyst source add --topic my-topic --type rss --url https://example.com/feed.xml --name "Feed" --db-path data/alt.db
+# Add a source to a topic (starts in 'probation' status for 21 days)
+analyst source add --topic ai-frontier-labs --type rss --url https://example.com/feed.xml
 
 # List sources for a topic
 analyst source list --topic ai-frontier-labs
 
-# Run analyst for all active topics (full pipeline)
+# List pending source discovery candidates (read-only)
+analyst source candidates
+analyst source candidates --topic ai-frontier-labs
+
+# Serve local source approval + quality dashboard
+analyst web
+analyst web --host 127.0.0.1 --port 8765
+
+# Run analyst for all active topics (full pipeline — delegates to daily_run)
 analyst run
 
 # Run for a specific topic only
 analyst run --topic ai-frontier-labs
 
-# Dry-run: print assembled prompt, skip API call
+# Dry-run: skip API calls and corpus ingest
 analyst run --topic ai-frontier-labs --dry-run
+
+# Grounded cross-session Q&A over a topic's corpus + analytical memory
+analyst ask "What is the current view on open-weight models?" --topic ai-frontier-labs
+
+# Expire overdue predictions and mark aged claims stale (no analyst call)
+analyst score
+analyst score --topic ai-frontier-labs
+analyst score --stale-after 45
 
 # Show today's report
 analyst report show
 
 # Show report for a specific date
 analyst report show --date 2026-06-10
+
+# Run weekly memory compaction + source discovery + quality scoring for all active topics
+analyst weekly
+
+# Run weekly for a specific topic only
+analyst weekly --topic ai-frontier-labs
+
+# Dry-run: skip model calls (compaction review + discovery); pure-SQL steps still run
+analyst weekly --topic ai-frontier-labs --dry-run
 ```
 
 ## Web Dashboard
@@ -81,6 +111,44 @@ Security: binds loopback only; cross-origin POSTs are rejected by a `before_requ
 python -m perpetual_analyst.daily_run
 python -m perpetual_analyst.daily_run --dry-run
 python -m perpetual_analyst.daily_run --topic ai-frontier-labs
+```
+
+`analyst run` is a thin wrapper that calls `daily_run.main()`.
+
+## Inspection Harness (`./try.sh`)
+
+Hands-on way to feed the analyst an article you know and read the claims /
+hypotheses / predictions / narrative it produces, so you can judge accuracy
+yourself. Talks to the Nexus substrate directly (Postgres), keyed by a topic
+slug — no SQLite topic/inbox setup needed. `try.sh` loads `Nexus/.env` + the
+unified venv for you.
+
+```bash
+# Ingest an article + synthesize + print the full analysis
+./try.sh run --topic demo --url https://example.com/article
+./try.sh run --topic demo --file article.txt
+./try.sh run --topic demo            # then paste text, end with Ctrl-D
+#   optional: --name "Display Name"  --brief "what you care about"  -k 15
+
+# Print the topic's current narrative / active claims / hypotheses / predictions
+./try.sh show --topic demo
+
+# Grounded Q&A over the topic's corpus
+./try.sh ask --topic demo "What is the biggest risk?"
+
+# Wipe this topic's corpus + analysis to start clean
+./try.sh reset --topic demo
+```
+
+Run the same topic on successive articles to watch the narrative version and
+claims evolve (v1 → v2, claims superseded, hypotheses retired).
+
+## Weekly Compaction (Direct)
+
+```bash
+python -m perpetual_analyst.weekly_run
+python -m perpetual_analyst.weekly_run --dry-run
+python -m perpetual_analyst.weekly_run --topic ai-frontier-labs
 ```
 
 ## Testing
@@ -119,30 +187,43 @@ The next `analyst run` will pick them up.
 
 ## Database
 
-Initialize (also called automatically by `daily_run.py`):
+**SQLite** (operational — initialized automatically by `daily_run.py`):
 ```bash
 python -c "from perpetual_analyst.store.db import init_db; init_db('data/analyst.db')"
-```
-
-Inspect the DB:
-```bash
 sqlite3 data/analyst.db
 .tables
 SELECT * FROM topics;
-SELECT count(*) FROM observations;
+```
+
+**Postgres** (memory — managed by Nexus Alembic):
+```bash
+cd Nexus && alembic upgrade head
+# inspect with psql using DATABASE_URL from Nexus/.env
 ```
 
 ## Scheduling the daily run
 
-The pipeline is `python -m perpetual_analyst.daily_run` executed from the repo root
-(it reads `config/*.yaml`, `.env`, and `data/analyst.db` relative to the working
-directory).
+**Linux/macOS cron** (daily at 7am + weekly compaction on Sundays at 8am):
+```
+0 7 * * * cd /path/to/perpetual-analyst && .venv/bin/python -m perpetual_analyst.daily_run >> logs/daily.log 2>&1
+0 8 * * 0 cd /path/to/perpetual-analyst && .venv/bin/python -m perpetual_analyst.weekly_run >> logs/weekly.log 2>&1
+```
 
-**Windows (Task Scheduler):**
+Optional nightly lifecycle pass:
+```
+30 6 * * * cd /path/to/perpetual-analyst && .venv/bin/analyst score >> logs/score.log 2>&1
+```
 
 ```powershell
-schtasks /Create /SC DAILY /ST 06:30 /TN "PerpetualAnalyst" `
-  /TR "cmd /c cd /d C:\path\to\perpetual-analyst && .venv\Scripts\python -m perpetual_analyst.daily_run"
+# Daily run
+$action = New-ScheduledTaskAction -Execute "python" -Argument "-m perpetual_analyst.daily_run" -WorkingDirectory "C:\path\to\perpetual-analyst"
+$trigger = New-ScheduledTaskTrigger -Daily -At "07:00"
+Register-ScheduledTask -TaskName "PerpetualAnalyst" -Action $action -Trigger $trigger
+
+# Weekly compaction (Sundays at 8am)
+$wAction = New-ScheduledTaskAction -Execute "python" -Argument "-m perpetual_analyst.weekly_run" -WorkingDirectory "C:\path\to\perpetual-analyst"
+$wTrigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek Sunday -At "08:00"
+Register-ScheduledTask -TaskName "PerpetualAnalystWeekly" -Action $wAction -Trigger $wTrigger
 ```
 
 **Linux (cron):**
@@ -158,9 +239,10 @@ article and can take tens of minutes; subsequent fetches are incremental.
 
 ## Environment Variables
 
+**PA `.env`:**
+
 Required:
 ```
-OPENROUTER_API_KEY=sk-or-...
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
 ```
@@ -169,6 +251,24 @@ Optional:
 ```
 ANALYST_DB_PATH=data/analyst.db      # default
 ANALYST_REPORTS_DIR=data/reports     # default
+OPENROUTER_API_KEY=sk-or-...         # only when discovery.provider=openrouter_web
+PERPLEXITY_API_KEY=pplx-...          # only when discovery.provider=perplexity
+```
+
+**`Nexus/.env`** (loaded by `substrate.py` and `daily_run.py`):
+
+Required for daily run:
+```
+DATABASE_URL=postgresql+asyncpg://nexus:nexus@localhost:5434/nexus
+QWEN_CLOUD_API_KEY=...
+```
+
+Optional:
+```
+LLM_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+T1_MODEL=BAAI/bge-small-en-v1.5
+T2_MODEL=qwen3.6-flash
+T3_MODEL=qwen3.7-max
 ```
 
 ## Git Notes

@@ -2,38 +2,84 @@
 
 Record notable behavior, architecture, API, persistence, or workflow changes.
 
-## 2026-06-14 — Web UI: local dashboard (out of SPEC v1)
+## 2026-07-08 — Harness alignment and backlog
 
 Summary:
 
-- What changed: New package `src/perpetual_analyst/web/` — `app.py` (Flask factory `create_app(db_path)` with all routes and a `before_request` Origin-check CSRF guard), `queries.py` (read-only view-model builders for all dashboard pages), `actions.py` (3 write actions + run lock/thread/status). New `analyst web` CLI command (binds `127.0.0.1:8080` by default; `--host/--port/--db-path` options). New deps: `flask`, `markdown`.
-- Behavior: 8 read pages (Today, Topics, Topic detail, Thesis history, Reports, Report detail, Items, Ops, Reading mode). 3 write actions reuse existing guarded paths: `add_inbox_item` → `store.db.insert_item` (silent content-hash dedupe); `retry_all` → `delivery.telegram.retry_undelivered` (disabled when Telegram env unset); `trigger_run` → `daily_run.run_daily` in a daemon thread guarded by `threading.Lock` (single active run enforced). Reading mode is cookie-backed (`SameSite=Lax, httponly`); `/` redirects to `/reading` when set. Report markdown is rendered with `|safe` (analyst-controlled local source; loopback-only tool). Action errors surface `type(exc).__name__` only (Invariant 7 preserved).
-- User-visible impact: `analyst web` opens a browser-accessible local dashboard at `http://127.0.0.1:8080`. No new CLI commands beyond `analyst web`.
-- Architecture note: No schema changes — the web layer reads existing tables. `queries.py` contains all dashboard SELECTs; no bare SQL in routes. The Origin check is the CSRF guard for the no-auth loopback tool.
-- Migration notes: `pip install -e .` (or `uv pip install -e .`) to pull in `flask` and `markdown`.
-- Related PR/commit: web-ui-dashboard branch
+- What changed: Added accepted specs under `docs/specs/`; aligned `AGENTS.md`,
+  `CLAUDE.md`, and `docs/agent-harness.md` to the canonical 7-step Grok-junior
+  workflow; added `session_ledger.json` for session status and blockers.
+- Source approval: Added `analyst/candidates.py` and `web.py` for local
+  source-candidate approval/dismissal, SSRF-safe URL validation before fetch,
+  probation source creation, and dashboard rendering through `analyst web`.
+- Quality: Extended `compute_source_quality` from hit/citation scoring to
+  hit/citation/uniqueness/freshness-lead scoring.
+- Discovery: Added settings-driven provider seam for OpenRouter web search or
+  Perplexity discovery without changing daily analyst client defaults.
+- Retrieval: Added optional sqlite-vec + Voyage dependency metadata and a gated
+  embeddings path that remains disabled unless FTS insufficiency is recorded.
+- Validation notes: Syntax compilation passed for changed runtime modules in the
+  current sandbox. Pytest, ruff, pre-commit, commits, git notes, GitNexus
+  detect-changes, and PR submission were blocked by missing dependencies,
+  read-only `.git`, or unavailable GitNexus repo registration.
 
-## 2026-06-13 — Phase 3: automated delivery
+## 2026-06-11 — Phase 5: source discovery & quality scoring
 
 Summary:
 
-- What changed: `report/render.py` (`render_citations` — `[item:N]` → `[^k]` numbered footnotes, stable first-appearance order, `## Sources reviewed` list; unknown IDs pass through as plain text), `report/assemble.py` (`assemble_report` + `persist_report` — SPEC §9 daily template, one daily `DigestOutput` call with mechanical fallback, `nothing_significant` one-liner, `reports` row UNIQUE on `report_date`), `analyst/schemas.py` (`DigestOutput {executive_summary, digest_text}` — no `ge`/`le` bounds), `analyst/prompts/digest.md` (finalized digest voice rules), `delivery/telegram.py` (`send_report` env-gated, HTML truncated at paragraph boundary with `_balance_html`, secret hygiene; `retry_undelivered` sweeps `delivered_at IS NULL`), `daily_run.py` (full orchestrator: sync → ingest → triage → analyze → assemble → deliver, per-topic and per-stage isolation, `dry_run` skips all API/delivery, `force_utf8_stdout` for Windows cp1252), `cli.py` (`analyst run` wired to `run_daily`), `analyst/triage.py` (`select_analyst_items` — topic-scoped, `status='new' AND triage_score >= SKIP_THRESHOLD`, best-first), `config.py` (`sync_config` resets `fetch_error_count = 0` on source reactivation), `analyst/agent.py` (`run_topic` short-circuits empty items — no LLM call when nothing to analyze).
-- Behavior: Complete end-to-end pipeline from cron/Task Scheduler to Telegram delivery. Item status lifecycle (`new` → `skipped` | `analyzed`) is fully exercised. A second run on the same day skips analysis and only retries delivery. Failed Telegram sends are retried on the next run.
-- User-visible impact: `analyst run` (and `python -m perpetual_analyst.daily_run`) now executes the full pipeline. `--dry-run` skips all API calls and delivery. Daily report is stored in `reports` table and written to `data/reports/brief-{date}.md`; HTML digest is sent to Telegram.
-- Architecture note: `assemble_report` makes one additional `DigestOutput` call per day (sanctioned Invariant 1 extension). All other invariants unchanged.
-- Migration notes: N/A — new tables (`reports`) created by `init_db()` via `CREATE TABLE IF NOT EXISTS`.
-- Related PR/commit: phase-3-automated-delivery branch
+- What changed: New `analyst/discovery.py` (`discover_sources`, `mine_outbound_domains`, `web_search_extra` provider seam); new `quality.py` (`compute_source_quality`, `bottom_decile`, `transition_probation`); citation recording (`_record_citations` in `report/assemble.py`, `cited_item_ids` in `report/render.py`); two new tables (`citations`, `source_candidates`); two new columns on `sources` (`status`, `probation_until`); idempotent column migration via `_ensure_columns()`; `DiscoveryOutput`/`DiscoveryCandidate` added to `analyst/schemas.py`; `analyst source candidates` CLI command.
+- Why: Phase 5 — close the feedback loop between what the analyst cites and which sources to grow or prune. Give the operator visibility into source quality without any automated removals.
+- User-visible impact:
+  - `analyst weekly` now also runs per-topic source discovery (model call) and a source-quality pass (pure SQL). `--dry-run` gates only the model calls.
+  - `analyst source add` now starts new sources in `status='probation'` with a 21-day `probation_until`.
+  - `analyst source candidates [--topic <slug>]` lists pending discovery proposals (read-only).
+  - `sources.quality_score` is now populated weekly based on triage hit-rate and citation rate.
+- Architecture notes:
+  - Discovery proposes candidates into `source_candidates` (`status='pending'`) — no source is ever auto-added or auto-removed. Approval UI deferred to a future Web UI session.
+  - No Telegram inbound listener in this phase.
+  - `web_search_extra()` is the provider seam for discovery web search; swapping providers touches only that function and `make_client`.
+  - `_ensure_columns(conn)` adds `sources.status` and `sources.probation_until` to pre-Phase-5 databases idempotently (guarded by `PRAGMA table_info`).
+  - `compute_source_quality`, `bottom_decile`, and `transition_probation` are pure SQL; they run inside `weekly_run.py` unconditionally (not gated by `--dry-run`).
+- Migration notes: `_ensure_columns()` handles existing databases. New tables created via `CREATE TABLE IF NOT EXISTS` in `init_db()`.
+- Related PR/commit: phase-5-discovery branch
 
-## 2026-06-12 — Phase 2: source ingestion + retrieval
+## 2026-06-11 — Phase 4: memory & thesis maturity (compaction, thesis history, prompt caching)
 
 Summary:
 
-- What changed: `ingestion/rss.py` (httpx + feedparser + trafilatura fetcher with error-count deactivation at 5), `analyst/triage.py` (batched triage via `settings.triage.id`, 20 items/chunk, one retry, score < 0.2 → `skipped`), `retrieval/search.py` (FTS5 `related_observations`/`related_items` with ×1.5 recency boost), `analyst/theses.py` (`get_stale_theses` + `render_thesis_fragment`), `config.py` (`sync_config` — YAML is source of truth for topic/source definitions), `cli.py` (`analyst topic add`, `analyst source add`).
-- Behavior: analyst prompt gains an always-present "Stale theses — revisit or retire" section and per-item "Related prior context" blocks. Item lifecycle: `new` → `skipped` (triage) | `analyzed` (marked inside the memory-write transaction).
-- Fixes found by live smoke testing: Pydantic `ge`/`le` bounds removed from analyst output schemas (providers reject `minimum`/`maximum` in structured-output JSON schemas; clamping validators enforce ranges client-side), and parsed output is read from `response.choices[0].message.parsed` (the real SDK shape; the old `response.parsed` never existed).
-- Testing: `pytest` runs the unit suite (smoke excluded by default); `pytest -m smoke` runs a live end-to-end pipeline against real feeds (needs `OPENROUTER_API_KEY`).
-- Migration notes: replace placeholder `config/*.yaml` entries — `sync_config` deactivates DB rows absent from YAML (inbox-type sources exempt).
-- Related PR/commit: phase-2-ingestion-retrieval branch
+- What changed: New weekly compaction pipeline (`analyst/compaction.py`, `weekly_run.py`); thesis audit trail injected into daily prompt; prompt-caching stable-prefix ordering enforced on both daily and weekly model calls.
+- Why: Phase 4 — close the observation lifecycle (expiry + promotion into dossier), surface thesis confidence history to the analyst, and reduce per-call token costs via prompt caching.
+- User-visible impact:
+  - `analyst weekly` / `python -m perpetual_analyst.weekly_run` now runs observation expiry + weekly review per active topic. Supports `--dry-run` and `--topic <slug>`.
+  - Daily analyst prompt now includes a `## Thesis history` section showing confidence trajectory per active thesis.
+  - Active theses untouched for >30 days are marked `(stale)` in the daily prompt.
+- Architecture notes:
+  - Two separate background cadences: daily (`daily_run.py`) and weekly (`weekly_run.py`). Weekly is one additional model call per topic per week — not per day.
+  - `expire_observations` is pure SQL, no model call; commits separately; idempotent.
+  - `apply_weekly_review` writes dossier rewrite + promoted observation IDs in one `with conn:` transaction. Weekly run never edits/retires theses.
+  - `WeeklyReviewOutput` schema: `dossier_rewrite`, `promoted_observation_ids`, `notes` (<200-word self-review appended to dossier).
+  - `agent.with_cache_control` helper attaches ephemeral `cache_control` breakpoint to the stable system prompt; applied on both `run_topic` and `run_weekly_review`.
+  - `render_thesis_trail` (in `theses.py`) builds per-thesis confidence history from `thesis_updates` rows.
+- Migration notes: No new tables. `observations.status` column already supported `promoted`/`expired` values from Phase 1 DDL.
+- Related PR/commit: phase-4-compaction branch
+
+## 2026-06-10 — Phase 2+3: CLI, ingestion, retrieval, report, delivery
+
+Summary:
+
+- What changed: Full pipeline implemented end-to-end. New modules: `cli.py` (typer CLI with `topic add/list`, `source add/list`, `run`, `report show`), `analyst/theses.py` (`get_stale_theses`, `render_thesis_fragment` with `is_stale` computed in DB), `analyst/triage.py` (`triage_items` — Haiku batch pass, no `conn.commit()`, caller owns transaction), `ingestion/rss.py` (`fetch_rss` — feedparser+trafilatura, UTC-naive datetime filter, error-count deactivation), `retrieval/search.py` (`related_observations` and `related_items` via FTS5, recency-boosted), `report/render.py` (`render_citations` — batch IN query, `[item:N]` → `[^N]` footnotes), `report/assemble.py` (`assemble_report` — digest via OpenRouter, upsert with `user_id=1`, writes `data/reports/brief-{date}.md`), `delivery/telegram.py` (`send_report` + `retry_undelivered` async via `asyncio.run`), `daily_run.py` (full orchestrator with per-topic try/except and isolated assemble+deliver block).
+- Why: Phase 2 and Phase 3 — complete the pipeline from ingestion through delivery.
+- User-visible impact: `analyst run` now ingests RSS feeds, triages items, runs analysis, assembles and delivers the daily report to Telegram. `analyst report show` reads stored reports from DB.
+- Architecture notes:
+  - `triage_items` does NOT call `conn.commit()` — caller owns the transaction.
+  - `get_or_create_inbox_source` is the canonical shared helper in `ingestion/inbox.py`; not duplicated in CLI or `daily_run`.
+  - `fetch_rss` datetime filter parses both sides as UTC-naive datetimes (not string compare).
+  - `assemble_report` writes `user_id=1` — single-user MVP, not multi-user.
+  - `digest_text` HTML is safely truncated to ≤3,000 chars with trailing unclosed tag stripped.
+  - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` come from env vars and are never logged.
+  - `assemble_report` + `send_report` are wrapped in a single try/except in `daily_run` so Telegram failure leaves the report persisted for `retry_undelivered` on the next run.
+- Migration notes: No schema changes from Phase 1. `reports` table was already defined; `user_id=1` is now consistently populated.
+- Related PR/commit: phase-2-cli-and-ingestion branch
 
 ## 2026-06-10 — Phase 1: analyst prototype implementation
 

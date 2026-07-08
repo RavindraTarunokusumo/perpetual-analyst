@@ -1,8 +1,21 @@
 # Perpetual Analyst — Architecture & Implementation Specification
 
-Status: v0.1 design (2026-06-10)
+Status: v0.2 implementation-aligned design (updated 2026-07-08)
 Owner: solo developer
 Guiding rule: **the Analyst Agent is the product; everything else is plumbing.**
+
+## 0. Current implementation authority
+
+Feature implementation is driven by accepted specs under `docs/specs/` and the
+7-step Grok-junior workflow in `AGENTS.md`/`CLAUDE.md`. Chat prompts are not
+implementation authority by themselves unless they supply an accepted spec or
+explicitly authorize spec creation/refinement. The active session ledger lives
+at `session_ledger.json`.
+
+The eight Core Invariants in `AGENTS.md` remain authoritative. In particular,
+source approval, dashboarding, provider switching, quality metrics, and the
+optional embeddings path must not add extra daily analyst model calls or any
+runtime multi-agent orchestration.
 
 ---
 
@@ -29,16 +42,25 @@ Perpetual Analyst is a personal AI analyst that follows the topics you care abou
 | Simple retrieval: SQLite FTS5 keyword search over past items/observations, upgraded to embeddings only if needed | Supports "connect new to old" cheaply |
 | Scheduler: one cron/Task Scheduler entry that runs the daily pipeline | Automation |
 
-### Deliberately out of version 1
+### Deliberately out of version 1 baseline
 
-- Web UI / dashboard (CLI + Telegram only)
 - Multi-user support (schema has a `users` table for future-proofing; code assumes one user)
-- Source discovery / recommendation (Phase 5)
 - YouTube transcripts, Twitter/X, paywalled scraping, email-newsletter parsing (add fetchers later behind the same interface)
 - Vector database, rerankers, GraphRAG, knowledge graphs
 - Multi-agent orchestration of any kind — one analyst, one loop
 - Real-time/intraday alerts (daily cadence only)
 - Chat-with-your-analyst interactivity over Telegram (nice Phase 4+ add-on, not MVP)
+
+### Implemented after the baseline
+
+- Weekly source discovery and source-candidate storage.
+- Per-source quality scoring and probation lifecycle.
+- Local operator Web UI for source-candidate approval/dismissal and source
+  quality dashboard.
+- Configurable source-discovery provider seam for OpenRouter web search or
+  Perplexity.
+- Optional embeddings upgrade gate, disabled unless FTS insufficiency is
+  recorded and operator settings enable embeddings.
 
 The test for V1 done: *after two weeks of daily runs, the reports visibly reference earlier developments and revised theses — i.e., the analyst demonstrably remembers.*
 
@@ -343,12 +365,13 @@ Sections with nothing to say are omitted, not filled. The report is stored verba
 
 ---
 
-## 11. Source discovery (deferred feature — Phase 5)
+## 11. Source discovery, approval, and quality
 
-- **Finding candidates:** a weekly job gives the analyst a `web_search` tool (Anthropic server-side tool) with the topic brief + dossier and asks for 3–5 candidate sources (feeds/sites) it believes would have improved this week's analysis, citing the gap each fills. Additionally, mine outbound links: domains repeatedly cited *by* existing high-quality items are natural candidates.
-- **Ranking signal quality:** per source, track (a) triage hit-rate (share of fetched items scoring ≥0.4), (b) citation rate (share of items actually cited in reports), (c) uniqueness (how often it was the *only* source for a cited development), (d) freshness lead (did it carry developments before other sources). Combine into `sources.quality_score`.
+- **Finding candidates:** a weekly job uses the configured discovery provider with the topic brief + dossier and asks for 3–5 candidate sources (feeds/sites) it believes would have improved this week's analysis, citing the gap each fills. Additionally, mine outbound links: domains repeatedly cited *by* existing high-quality items are natural candidates.
+- **Approval:** candidates are reviewed in the local Web UI. Approval validates and fetches only public HTTP(S) URLs, blocks SSRF-sensitive targets, creates a probation source, links it to the candidate topic, and marks the candidate approved. Dismissal marks the candidate rejected. Sources are never auto-added or auto-removed.
+- **Ranking signal quality:** per source, track (a) triage hit-rate (share of fetched items scoring >=0.4), (b) citation rate (share of items actually cited in reports), (c) uniqueness (currently: source is the only cited source in a report group), and (d) freshness lead (currently: source has the earliest published cited item in a report group). Combine into `sources.quality_score`.
 - **Ongoing evaluation:** the weekly self-review surfaces the bottom decile ("Source X produced 40 items, 0 cited in 6 weeks — recommend dropping") and the discovery candidates.
-- **User approval:** recommendations land in the weekly report and as Telegram inline buttons (✅ add / ❌ dismiss) — sources are never auto-added or auto-removed. Trial mode: new sources start `probation` for 3 weeks before counting toward topic noise.
+- **User approval:** recommendations land in `source_candidates` and the local Web UI. The deferred Telegram inline-button path is superseded by this local approval flow. Trial mode: new sources start `probation` for 3 weeks before counting toward topic noise.
 
 ---
 

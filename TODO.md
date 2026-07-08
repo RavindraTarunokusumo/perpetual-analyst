@@ -7,10 +7,24 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ## Future Backlog
 
-- [ ] Phase 4: Weekly compaction run (promotion/expiry), stale-thesis flagging, prompt-caching pass
-- [ ] Phase 5: Per-source quality metrics, weekly discovery run, Telegram approval buttons
-- [ ] Embeddings upgrade: sqlite-vec + Voyage (only when FTS proves insufficient)
-- [ ] (Phase 3 follow-up) Cap retry_undelivered per-run delivery count — first run after credentials appear delivers the entire backlog at once (Telegram rate-limit risk). Deferred operability, not correctness.
-- [ ] (Web UI follow-up) Thesis retire/flag action from the dashboard — deferred from V1; must write a `thesis_updates` audit row (Invariant 3).
-- [ ] (Web UI follow-up) Add-inbox URL fetching — V1 is text-only; fetch + extract a pasted URL (reuse `ingestion/extract.py`) in the background rather than in-request.
-- [ ] (Web UI follow-up) Sanitize report markdown (`bleach`/safe-mode) if reports ever incorporate untrusted HTML — currently rendered with `|safe` (analyst-controlled, loopback-only).
+### From the PA ↔ Nexus integration (2026-07-08)
+
+- [ ] **Cross-topic dedupe hides shared corpus** (documented spec §10). Global `content_hash` dedupe gives a document one `scope`; a source item shared across topics is invisible to later topics. Needs a schema change — per-topic document rows or a `scope` join-table — so defer until multi-topic shared sources become common.
+- [ ] **Third-party source-rating API.** Replace the retired citation/uniqueness/freshness quality signals (dead since the FTS citation path was removed). Seam: `quality.compute_source_quality` (currently scores on `hit_rate` only).
+- [ ] **`substrate.ingest` true atomicity.** Currently compensating-delete on span-ingest failure; a hard crash between the document commit and span ingest can still orphan a document. True atomicity needs a session-based `ingest_sentence_spans` upstream in Nexus.
+
+### Pre-existing
+
+- [ ] Web UI: source-candidate approval flow (approve/dismiss discovered candidates; SSRF/validation on approved-URL fetch), source/quality dashboard. Supersedes the deferred Telegram approval buttons.
+- [ ] Discovery metrics: add uniqueness (sole-source-for-a-cited-development) + freshness-lead to `quality_score` (deferred from Phase 5; note these also depend on the citation/provenance signal being restored).
+- [ ] Discovery provider: optionally swap OpenRouter web search → Perplexity (seam = `analyst.discovery.web_search_extra` + `analyst.agent.make_client`).
+
+---
+
+## Archived sessions
+
+- Phase 1 — `docs/iterations/archive/2026-06-10-phase-1-analyst-prototype.md`
+- Phase 2 + 3 + CLI — `docs/iterations/archive/2026-06-10-phase-2-3-cli.md`
+- Phase 4 (memory & thesis maturity) — `docs/iterations/archive/2026-06-11-phase-4-compaction.md`
+- Phase 5 (source discovery & quality) — `docs/iterations/archive/2026-06-11-phase-5-discovery.md`
+- PA ↔ Nexus integration — `docs/iterations/archive/2026-07-08-pa-nexus-integration.md` (PA #9 / Nexus #33)

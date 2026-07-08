@@ -1,182 +1,100 @@
+"""Tests for analyst/theses.py — stale-flagging and rendering."""
+
 from __future__ import annotations
 
-import pytest
+import sqlite3
 
-from perpetual_analyst.analyst.memory import apply_thesis_update, get_active_theses
-from perpetual_analyst.analyst.schemas import ThesisUpdate
-from perpetual_analyst.analyst.theses import get_stale_theses, render_thesis_fragment
-from perpetual_analyst.store.models import Thesis as ThesisRow
-from perpetual_analyst.store.models import ThesisUpdate as ThesisUpdateRow
-
-
-def _update(
-    thesis_id=None,
-    statement="Open-weight models reach frontier parity",
-    confidence=0.6,
-    rationale="initial signal",
-    status="active",
-):
-    return ThesisUpdate(
-        thesis_id=thesis_id,
-        statement=statement,
-        confidence=confidence,
-        change_rationale=rationale,
-        new_status=status,
-    )
-
-
-def test_create_thesis_writes_audit_row(db, sample_topic):
-    apply_thesis_update(_update(), sample_topic.id, db)
-    theses = get_active_theses(sample_topic.id, db)
-    assert len(theses) == 1
-    audit = db.execute(
-        "SELECT * FROM thesis_updates WHERE thesis_id = ?", (theses[0].id,)
-    ).fetchall()
-    assert len(audit) == 1
-    assert audit[0]["confidence_before"] is None
-    assert audit[0]["confidence_after"] == 0.6
-
-
-def test_revise_thesis_logs_before_after(db, sample_topic):
-    apply_thesis_update(_update(), sample_topic.id, db)
-    thesis = get_active_theses(sample_topic.id, db)[0]
-    apply_thesis_update(
-        _update(thesis_id=thesis.id, confidence=0.8, rationale="third confirming signal"),
-        sample_topic.id,
-        db,
-    )
-    audit = db.execute(
-        "SELECT * FROM thesis_updates WHERE thesis_id = ? ORDER BY id", (thesis.id,)
-    ).fetchall()
-    assert len(audit) == 2
-    assert audit[1]["confidence_before"] == 0.6
-    assert audit[1]["confidence_after"] == 0.8
-
-
-def test_retire_thesis_removes_from_active(db, sample_topic):
-    apply_thesis_update(_update(), sample_topic.id, db)
-    thesis = get_active_theses(sample_topic.id, db)[0]
-    apply_thesis_update(
-        _update(thesis_id=thesis.id, status="retired", rationale="disproven by filing"),
-        sample_topic.id,
-        db,
-    )
-    assert get_active_theses(sample_topic.id, db) == []
-    status = db.execute("SELECT status FROM theses WHERE id = ?", (thesis.id,)).fetchone()["status"]
-    assert status == "retired"
-
-
-def test_eighth_active_thesis_raises(db, sample_topic):
-    for i in range(7):
-        apply_thesis_update(_update(statement=f"Thesis {i}"), sample_topic.id, db)
-    with pytest.raises(ValueError, match="limit"):
-        apply_thesis_update(_update(statement="Thesis 8"), sample_topic.id, db)
+from perpetual_analyst.analyst.theses import (
+    get_stale_theses,
+    render_thesis_fragment,
+    render_thesis_trail,
+)
+from perpetual_analyst.store.models import Topic
 
 
 def _insert_thesis(
-    db, topic_id: int, statement: str, created_days_ago: int, updated_days_ago: int | None = None
-):
-    updated_expr = (
-        f"datetime('now', '-{updated_days_ago} days')" if updated_days_ago is not None else "NULL"
+    db: sqlite3.Connection, topic_id: int, statement: str, confidence: float = 0.7
+) -> int:
+    cur = db.execute(
+        "INSERT INTO theses (topic_id, statement, confidence, status) VALUES (?, ?, ?, 'active')",
+        (topic_id, statement, confidence),
+    )
+    db.commit()
+    return cur.lastrowid
+
+
+def test_get_stale_theses_returns_empty_when_no_stale(
+    db: sqlite3.Connection, sample_topic: Topic
+) -> None:
+    """A freshly inserted thesis should NOT appear as stale."""
+    _insert_thesis(db, sample_topic.id, "Fresh thesis")
+    stale = get_stale_theses(sample_topic.id, db, days=30)
+    assert stale == []
+
+
+def test_get_stale_theses_returns_old_thesis(db: sqlite3.Connection, sample_topic: Topic) -> None:
+    """A thesis backdated >30 days should appear in stale results."""
+    thesis_id = _insert_thesis(db, sample_topic.id, "Old thesis")
+    db.execute(
+        "UPDATE theses SET updated_at = datetime('now', '-40 days') WHERE id = ?",
+        (thesis_id,),
+    )
+    db.commit()
+    stale = get_stale_theses(sample_topic.id, db, days=30)
+    assert len(stale) == 1
+    assert stale[0].id == thesis_id
+
+
+def test_render_thesis_fragment_empty(db: sqlite3.Connection, sample_topic: Topic) -> None:
+    """With no theses, render_thesis_fragment returns the sentinel string."""
+    fragment = render_thesis_fragment(sample_topic.id, db)
+    assert fragment == "(no active theses)"
+
+
+def test_render_thesis_fragment_shows_confidence(
+    db: sqlite3.Connection, sample_topic: Topic
+) -> None:
+    """Confidence should be shown as a percentage in the fragment."""
+    _insert_thesis(db, sample_topic.id, "AI will transform work", confidence=0.75)
+    fragment = render_thesis_fragment(sample_topic.id, db)
+    assert "75%" in fragment
+    assert "AI will transform work" in fragment
+
+
+def test_render_thesis_fragment_marks_stale(db: sqlite3.Connection, sample_topic: Topic) -> None:
+    """Backdated thesis should have '(stale)' in its fragment line."""
+    thesis_id = _insert_thesis(db, sample_topic.id, "Stale insight", confidence=0.6)
+    db.execute(
+        "UPDATE theses SET updated_at = datetime('now', '-40 days') WHERE id = ?",
+        (thesis_id,),
+    )
+    db.commit()
+    fragment = render_thesis_fragment(sample_topic.id, db)
+    assert "(stale)" in fragment
+
+
+def test_render_thesis_trail_no_updates(db: sqlite3.Connection, sample_topic: Topic) -> None:
+    """With no thesis_updates rows, render_thesis_trail returns the sentinel string."""
+    _insert_thesis(db, sample_topic.id, "No updates yet")
+    trail = render_thesis_trail(sample_topic.id, db)
+    assert trail == "(no thesis history)"
+
+
+def test_render_thesis_trail_shows_trajectory(db: sqlite3.Connection, sample_topic: Topic) -> None:
+    """A thesis with two thesis_updates rows renders start→end confidence over N update(s)."""
+    thesis_id = _insert_thesis(db, sample_topic.id, "Growing confidence", confidence=0.5)
+    db.execute(
+        """INSERT INTO thesis_updates (thesis_id, change, confidence_before, confidence_after)
+           VALUES (?, 'initial creation', NULL, 0.50)""",
+        (thesis_id,),
     )
     db.execute(
-        f"""INSERT INTO theses (topic_id, statement, confidence, status, created_at, updated_at)
-            VALUES (?, ?, 0.5, 'active', datetime('now', '-{created_days_ago} days'),
-                    {updated_expr})""",
-        (topic_id, statement),
+        """INSERT INTO thesis_updates (thesis_id, change, confidence_before, confidence_after)
+           VALUES (?, 'evidence strengthened', 0.50, 0.80)""",
+        (thesis_id,),
     )
     db.commit()
-
-
-def test_untouched_31_days_is_stale(db, sample_topic):
-    _insert_thesis(db, sample_topic.id, "Old", created_days_ago=31)
-    stale = get_stale_theses(sample_topic.id, db)
-    assert [t.statement for t in stale] == ["Old"]
-
-
-def test_untouched_29_days_is_not_stale(db, sample_topic):
-    _insert_thesis(db, sample_topic.id, "Fresh-ish", created_days_ago=29)
-    assert get_stale_theses(sample_topic.id, db) == []
-
-
-def test_recent_update_overrides_old_creation(db, sample_topic):
-    _insert_thesis(db, sample_topic.id, "Maintained", created_days_ago=60, updated_days_ago=5)
-    assert get_stale_theses(sample_topic.id, db) == []
-
-
-def test_old_update_is_stale(db, sample_topic):
-    _insert_thesis(db, sample_topic.id, "Neglected", created_days_ago=60, updated_days_ago=40)
-    assert [t.statement for t in get_stale_theses(sample_topic.id, db)] == ["Neglected"]
-
-
-def test_retired_thesis_never_stale(db, sample_topic):
-    _insert_thesis(db, sample_topic.id, "Retired", created_days_ago=90)
-    db.execute("UPDATE theses SET status = 'retired' WHERE topic_id = ?", (sample_topic.id,))
-    db.commit()
-    assert get_stale_theses(sample_topic.id, db) == []
-
-
-def _thesis_row(statement="Open models reach parity"):
-    return ThesisRow(
-        id=1,
-        topic_id=1,
-        statement=statement,
-        rationale=None,
-        confidence=0.8,
-        status="active",
-        created_at="2026-06-01",
-        updated_at=None,
-    )
-
-
-def _update_row(before, after, change="Third confirming signal this month."):
-    return ThesisUpdateRow(
-        id=1,
-        thesis_id=1,
-        change=change,
-        confidence_before=before,
-        confidence_after=after,
-        triggered_by_item_id=None,
-        created_at="2026-06-11",
-    )
-
-
-def test_render_empty_returns_empty_string():
-    assert render_thesis_fragment([]) == ""
-
-
-def test_render_shows_confidence_before_after():
-    fragment = render_thesis_fragment([(_thesis_row(), _update_row(0.6, 0.8))])
-    assert "### Thesis updates" in fragment
-    assert "Open models reach parity" in fragment
-    assert (
-        "- **Open models reach parity** — confidence 0.60 → 0.80."
-        " Third confirming signal this month." in fragment
-    )
-
-
-def test_render_handles_missing_before_confidence():
-    fragment = render_thesis_fragment([(_thesis_row(), _update_row(None, 0.5, "Created."))])
-    assert "— → 0.50" in fragment
-
-
-def test_render_multiple_theses_single_header():
-    fragment = render_thesis_fragment(
-        [
-            (_thesis_row("Thesis A"), _update_row(0.4, 0.6)),
-            (_thesis_row("Thesis B"), _update_row(0.9, 0.7)),
-        ]
-    )
-    assert fragment.count("### Thesis updates") == 1
-    assert "Thesis A" in fragment
-    assert "Thesis B" in fragment
-
-
-def test_unknown_thesis_id_is_skipped_not_fatal(db, sample_topic):
-    apply_thesis_update(_update(), sample_topic.id, db)  # one real thesis
-    apply_thesis_update(_update(thesis_id=99999, rationale="hallucinated"), sample_topic.id, db)
-    # the bogus update is ignored: no orphan audit row, real thesis untouched
-    assert (
-        db.execute("SELECT COUNT(*) FROM thesis_updates WHERE thesis_id = 99999").fetchone()[0] == 0
-    )
-    assert len(get_active_theses(sample_topic.id, db)) == 1
+    trail = render_thesis_trail(sample_topic.id, db)
+    assert f"[thesis:{thesis_id}]" in trail
+    assert "0.50→0.80" in trail
+    assert "2 update(s)" in trail

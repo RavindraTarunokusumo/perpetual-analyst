@@ -27,6 +27,29 @@ def _extract_text(path: Path) -> str | None:
         return None
 
 
+def get_or_create_inbox_source(conn: sqlite3.Connection, topic_id: int, topic_slug: str) -> int:
+    """Return existing inbox source_id for topic, creating one if absent."""
+    row = conn.execute(
+        """SELECT s.id FROM sources s
+           JOIN topic_sources ts ON ts.source_id = s.id
+           WHERE ts.topic_id = ? AND s.type = 'inbox'""",
+        (topic_id,),
+    ).fetchone()
+    if row:
+        return row["id"]
+    cur = conn.execute(
+        "INSERT INTO sources (type, name, active) VALUES ('inbox', ?, 1)",
+        (f"inbox:{topic_slug}",),
+    )
+    source_id = cur.lastrowid
+    conn.execute(
+        "INSERT INTO topic_sources (topic_id, source_id) VALUES (?, ?)",
+        (topic_id, source_id),
+    )
+    conn.commit()
+    return source_id
+
+
 def scan_inbox(
     topic_slug: str,
     topic_id: int,
