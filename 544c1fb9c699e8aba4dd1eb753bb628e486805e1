@@ -1,0 +1,6 @@
+Task: [F] retire FTS5/Voyage retrieval + old TopicAnalysis daily path
+Summary: daily pipeline runs solely via narrative-update loop; removed run_topic/assemble_context, apply_all_memory_writes/build_memory_context, schemas TopicAnalysis/NewObservation/ThesisUpdate, retrieval package, render.py citation path; rewired assemble_report to consume NarrativeUpdate; dropped sqlite-vec/voyageai deps.
+Docs: N/A (TODO.md updated)
+TODO: PA<->Nexus integration F1/F2
+Validation: ruff check (only pre-existing UP017/format on untouched files), pytest 138 passed / 2 pre-existing source_candidates failures, real daily_run e2e (ingest->narrative v1 5 claims/2 hyp/2 pred/1 event->report from briefing_markdown), Postgres scratch rows purged.
+Spec: docs/specs/2026-07-08-pa-nexus-integration.md
