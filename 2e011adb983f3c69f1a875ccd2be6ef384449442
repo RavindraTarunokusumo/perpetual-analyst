@@ -1,0 +1,6 @@
+Task: [Pre-PR] doc reconciliation for PA<->Nexus integration
+Summary: updated docs/{architecture,database,index,commands,patterns}.md to the two-DB Nexus-substrate model; narrative loop replaces FTS5/TopicAnalysis daily path; verified Postgres table names against Nexus/app/db/models.py.
+Docs: docs/architecture.md, docs/database.md, docs/index.md, docs/commands.md, docs/patterns.md
+TODO: Pre-PR (Step 6) doc-updater
+Validation: docs-only (no code); grep-checked residual FTS5/sqlite-vec hits are intentional negations; table names/columns verified against models.py.
+Spec: docs/specs/2026-07-08-pa-nexus-integration.md
