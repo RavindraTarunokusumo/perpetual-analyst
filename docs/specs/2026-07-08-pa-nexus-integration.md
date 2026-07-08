@@ -172,6 +172,12 @@ Nexus-repo change are committed to their respective repos (PA vs Nexus submodule
   narrative version flips (tune on the demo corpus).
 - **Prediction without ground truth** → `expired`, never fabricated.
 - **Postgres now required to run PA** — the zero-ops SQLite-only story ends; documented in ops.
+- **Global `content_hash` dedupe is cross-topic** (invariant #8): a document has one `scope`, so
+  the same article ingested under two topics is stored once under whichever ingested first; the
+  second topic's scoped retrieval won't see it. Acceptable for the single-domain MVP; if
+  multi-topic source overlap matters later, move dedupe to per-(scope,content_hash).
+- **Substrate engine is event-loop-bound** (asyncpg): `daily_run` calls `asyncio.run()` per topic,
+  so `substrate._session_factory()` caches the engine per running loop and rebuilds on loop change.
 
 ## 11. Open decisions (defer to plan)
 
