@@ -1,0 +1,4 @@
+Task: B2 topic mapping
+Summary: Grok junior (session 019f4186-4d9e-7732-9219-6f4e04d254bd) + senior live re-check
+Validation: ruff clean; idempotent-by-slug verified live; cleanup ok
+TODO: B2
