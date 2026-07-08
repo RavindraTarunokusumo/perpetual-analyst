@@ -13,35 +13,20 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 **Worktree:** `.worktree/firecrawl-source-extraction`
 **Base:** `main` @ `ba94e0e`
 
-### Carried WIP (uncommitted)
-
-- [ ] `extract.py` — httpx + trafilatura `extract_url()` with bot-wall detection
-- [ ] `pa_inspect.py` — wired to shared `extract_url`
-- [ ] `tests/test_extract.py` — 3 unit tests (mocked httpx)
-- [ ] `substrate.py` — `get_or_create_watch_topic(name: str | None)` fix
-
-### Planned scope (pending spec acceptance)
-
-- [ ] Firecrawl `/scrape` integration for article text extraction
-- [ ] Fallback strategy: trafilatura first vs Firecrawl-first vs Firecrawl-on-failure
-- [ ] Wire into `rss.py` `_extract_text` and any other extraction call sites
-- [ ] `FIRECRAWL_API_KEY` in `.env.example`; secret logging invariant
-- [ ] Live smoke test for a bot-protected URL (e.g. Reuters)
-- [ ] Unit tests with mocked Firecrawl client
-
 ### Implementation tasks (from plan)
 
-- [ ] T0 — Commit carried WIP (extract base + pa_inspect + tests; substrate fix separate)
-- [ ] T1 — `firecrawl-py` dep + `.env.example` + never-log invariant
-- [ ] T2 — Firecrawl fallback in `extract_url`
-- [ ] T3 — Wire `rss.py` to `extract_url`
-- [ ] T4 — Live smoke test (`pytest -m smoke`)
-- [ ] T5 — Final validation + PR
+- [x] T0 — Commit carried WIP — `fcae3f1`, `8578eb5`
+- [x] T1 — `firecrawl-py` dep + `.env.example` + never-log invariant — `9849fae`
+- [x] T2 — Firecrawl fallback in `extract_url` — `faa9cb7`
+- [x] T3 — Wire `rss.py` to `extract_url` — `cfb35f3`
+- [x] T4 — Live smoke test (`pytest -m smoke`) — `da2fa18`
+- [x] T5 — Final validation — `da2fa18`+ (21 ingestion tests green; full suite has pre-existing collection errors on main)
 
 ### Blockers / notes
 
 - GitNexus: repo not indexed (`gitnexus analyze` needed on clean tree)
-- Step 3 planning complete — awaiting implementation go-ahead or Autopilot Mode
+- Full `pytest` has pre-existing collection errors (cli.py syntax, missing modules) — not introduced by this branch
+- Live smoke requires `FIRECRAWL_API_KEY`: `pytest -m smoke tests/test_extract_smoke.py`
 
 ---
 
