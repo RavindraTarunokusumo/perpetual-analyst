@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -47,6 +48,9 @@ _engine: AsyncEngine | None = None
 _sf: async_sessionmaker[AsyncSession] | None = None
 _loop_id: int | None = None
 _emb: Embedder | None = None
+# PA pins spec-required Qwen embedder; bge is Nexus's benchmark default.
+_EMBED_MODEL = os.environ.get("PA_EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B")
+_EMBED_TRUNCATE_DIM = int(os.environ.get("PA_EMBED_TRUNCATE_DIM", "384"))
 _source_id: uuid.UUID | None = None
 
 # ruff: noqa: E501
@@ -92,10 +96,7 @@ def _session_factory() -> async_sessionmaker[AsyncSession]:
 def _embedder() -> Embedder:
     global _emb
     if _emb is None:
-        _emb = Embedder(
-            settings.t1_model,
-            truncate_dim=settings.t1_truncate_dim or None,
-        )
+        _emb = Embedder(_EMBED_MODEL, truncate_dim=_EMBED_TRUNCATE_DIM)
     return _emb
 
 
