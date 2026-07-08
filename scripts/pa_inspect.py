@@ -28,13 +28,14 @@ BAR = "─" * 72
 def _read_text(args) -> tuple[str, str, str]:
     """Return (title, url, text) from --url / --file / stdin."""
     if args.url:
-        import trafilatura
+        from perpetual_analyst.ingestion.extract import ArticleFetchError, extract_url
 
-        downloaded = trafilatura.fetch_url(args.url)
-        text = trafilatura.extract(downloaded) if downloaded else None
-        if not text:
-            sys.exit(f"Could not extract article text from {args.url}")
-        return (args.title or args.url, args.url, text)
+        try:
+            fetched = extract_url(args.url)
+        except ArticleFetchError as exc:
+            sys.exit(str(exc))
+        title = args.title or fetched.title or args.url
+        return (title, args.url, fetched.text)
     if args.file:
         with open(args.file, encoding="utf-8") as fh:
             return (args.title or args.file, args.url or "", fh.read())
@@ -134,9 +135,7 @@ async def _cmd_show(args) -> None:
             .limit(1)
         )
         claims = (
-            await s.scalars(
-                select(Claim).where(Claim.topic_id == tid, Claim.status == "active")
-            )
+            await s.scalars(select(Claim).where(Claim.topic_id == tid, Claim.status == "active"))
         ).all()
         hyps = (
             await s.scalars(
