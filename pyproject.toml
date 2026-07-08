@@ -25,6 +25,10 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "ruff>=0.5.0",
 ]
+embeddings = [
+    "sqlite-vec>=0.1.6",
+    "voyageai>=0.3.0",
+]
 
 [project.scripts]
 analyst = "perpetual_analyst.cli:app"

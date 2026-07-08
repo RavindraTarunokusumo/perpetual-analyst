@@ -26,6 +26,11 @@ tests/
   test_retrieval.py    # FTS search helpers, recency weighting
   test_report.py       # citation rendering, report assembly
   test_delivery.py     # Telegram send + retry logic (mocked)
+  test_discovery.py    # source discovery and provider seam
+  test_quality.py      # source quality scoring
+  test_source_candidates.py # approval/dismissal and SSRF-safe URL validation
+  test_web_ui.py       # local dashboard rendering and POST actions
+  test_embeddings.py   # optional embeddings gate
 ```
 
 ## Core Fixtures (`conftest.py`)
@@ -91,6 +96,9 @@ Invoke after implementation and before PR when:
 - ingestion or triage logic changed
 - report rendering or citation logic changed
 - Telegram delivery logic changed
+- source approval URL validation or Web UI routes changed
+- discovery provider configuration changed
+- optional embeddings gate changed
 
 Do not invoke for docs-only or tiny localized edits.
 

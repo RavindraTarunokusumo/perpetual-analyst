@@ -2,6 +2,27 @@
 
 Record notable behavior, architecture, API, persistence, or workflow changes.
 
+## 2026-07-08 — Harness alignment and backlog
+
+Summary:
+
+- What changed: Added accepted specs under `docs/specs/`; aligned `AGENTS.md`,
+  `CLAUDE.md`, and `docs/agent-harness.md` to the canonical 7-step Grok-junior
+  workflow; added `session_ledger.json` for session status and blockers.
+- Source approval: Added `analyst/candidates.py` and `web.py` for local
+  source-candidate approval/dismissal, SSRF-safe URL validation before fetch,
+  probation source creation, and dashboard rendering through `analyst web`.
+- Quality: Extended `compute_source_quality` from hit/citation scoring to
+  hit/citation/uniqueness/freshness-lead scoring.
+- Discovery: Added settings-driven provider seam for OpenRouter web search or
+  Perplexity discovery without changing daily analyst client defaults.
+- Retrieval: Added optional sqlite-vec + Voyage dependency metadata and a gated
+  embeddings path that remains disabled unless FTS insufficiency is recorded.
+- Validation notes: Syntax compilation passed for changed runtime modules in the
+  current sandbox. Pytest, ruff, pre-commit, commits, git notes, GitNexus
+  detect-changes, and PR submission were blocked by missing dependencies,
+  read-only `.git`, or unavailable GitNexus repo registration.
+
 ## 2026-06-11 — Phase 5: source discovery & quality scoring
 
 Summary:

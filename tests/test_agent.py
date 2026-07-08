@@ -8,6 +8,7 @@ import pytest
 from perpetual_analyst.analyst.agent import (
     assemble_context,
     load_system_prompt,
+    make_client,
     run_topic,
     with_cache_control,
 )
@@ -29,6 +30,23 @@ def test_load_system_prompt_returns_string() -> None:
     assert isinstance(prompt, str)
     assert len(prompt) > 100
     assert "nothing_significant" in prompt
+
+
+def test_make_client_uses_perplexity_provider(monkeypatch) -> None:
+    captured = {}
+
+    class FakeOpenAI:
+        def __init__(self, *, base_url: str, api_key: str) -> None:
+            captured["base_url"] = base_url
+            captured["api_key"] = api_key
+
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "pplx-test")
+    monkeypatch.setattr("perpetual_analyst.analyst.agent.openai.OpenAI", FakeOpenAI)
+
+    make_client(provider="perplexity")
+
+    assert captured["base_url"] == "https://api.perplexity.ai"
+    assert captured["api_key"] == "pplx-test"
 
 
 def test_assemble_context_returns_two_messages(

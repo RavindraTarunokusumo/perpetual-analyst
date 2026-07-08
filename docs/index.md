@@ -12,6 +12,7 @@ Use this file as the second layer after `AGENTS.md`. It points to deeper docs wi
 - [commands.md](commands.md): common local commands, CLI reference
 - [changelog.md](changelog.md): notable behavior and architecture changes
 - [insights.md](insights.md): session lessons and reusable workflow observations
+- [specs/README.md](specs/README.md): active accepted spec workflow
 
 ## Module Docs
 
@@ -38,7 +39,9 @@ Add module-specific docs here as the codebase grows:
 - `data/`: `analyst.db`, `reports/`
 - `tests/`: test suite
 - `TODO.md`: active work only
+- `session_ledger.json`: active session status, blockers, handoffs, validation, reviews
 - `docs/iterations/archive/`: completed TODO archive
+- `docs/specs/`: accepted specs and plans for active/future implementation
 - `SPEC.md`: authoritative architecture specification
 
 ## Fast Path By Task
@@ -47,12 +50,13 @@ Add module-specific docs here as the codebase grows:
 - Changing memory logic: read `database.md` → `analyst/memory.py` → `analyst/theses.py`
 - Changing compaction / observation lifecycle: read `database.md` → `analyst/compaction.py` → `weekly_run.py`
 - Changing source discovery or quality scoring: read `architecture.md` → `analyst/discovery.py` → `quality.py` → `weekly_run.py`
-- Changing source candidate approval: deferred — no approval flow exists yet; see `source_candidates` table in `database.md`
+- Changing source candidate approval: read `architecture.md` → `analyst/candidates.py` → `web.py` → `database.md`
 - Changing DB schema: read `database.md` → `store/db.py` (full DDL in `init_db()`)
 - Changing ingestion: read `architecture.md` → `ingestion/` module
 - Changing delivery: read `architecture.md` → `delivery/telegram.py`
 - Running the system: read `commands.md`
 - Preparing for review: read `AGENTS.md`, `testing.md`, and PR template
+- Starting implementation: read `docs/specs/README.md` and the active accepted spec under `docs/specs/`
 
 ## Core Invariants
 

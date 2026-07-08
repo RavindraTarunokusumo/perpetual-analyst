@@ -172,6 +172,17 @@ def source_candidates(
 
 
 @app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", help="Host interface for the local operator UI"),
+    port: int = typer.Option(8765, help="Port for the local operator UI"),
+) -> None:
+    """Serve the local source approval and quality dashboard."""
+    from perpetual_analyst.web import serve_dashboard
+
+    serve_dashboard(host=host, port=port)
+
+
+@app.command()
 def weekly(
     topic: str = typer.Option(None, help="Topic slug to compact (default: all active)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print prompt, skip API calls"),

@@ -1,0 +1,140 @@
+{
+  "session": {
+    "date": "2026-07-08",
+    "branch": "codex-align-harness-and-backlog",
+    "spec": "docs/specs/2026-07-08-harness-alignment-and-backlog.md",
+    "plan": "docs/specs/2026-07-08-harness-alignment-and-backlog-plan.md",
+    "workflow_step": "6-pre-pr-best-effort",
+    "autopilot": "after harness alignment",
+    "status": "blocked_on_git_commit_pr_archive"
+  },
+  "blockers": [
+    {
+      "kind": "git",
+      "detail": ".git metadata is read-only; git switch/worktree/commit/note/PR steps are blocked in this environment."
+    },
+    {
+      "kind": "gitnexus",
+      "detail": "GitNexus MCP lists Indonesia-Monitor and Nexus, but not perpetual-analyst; impact and detect_changes cannot target this repo."
+    },
+    {
+      "kind": "dependencies",
+      "detail": ".venv was absent. It was created, but pip install -e '.[dev]' failed because network access to PyPI is blocked."
+    },
+    {
+      "kind": "harness",
+      "detail": ".codex agent/CI prompt files are read-only in this sandbox; attempted alignment patch was rejected."
+    }
+  ],
+  "handoffs": [],
+  "grok_fallback": {
+    "attempted_at": "2026-07-08T02:40:09Z",
+    "task": "Web UI source-candidate approval flow and dashboard",
+    "command": "HOME=/root grok -p <prompt> -m grok-composer-2.5-fast --effort high --yolo --output-format json",
+    "result": "blocked",
+    "detail": "Settings fetch failed after retries; session creation failed with FS_OTHER read-only file system."
+  },
+  "validation": [
+    {
+      "command": ".venv/bin/python -m pytest tests/test_source_candidates.py tests/test_web_ui.py -q",
+      "result": "blocked",
+      "detail": "No module named pytest"
+    },
+    {
+      "command": ".venv/bin/python -m compileall src/perpetual_analyst/analyst/candidates.py src/perpetual_analyst/web.py",
+      "result": "passed"
+    },
+    {
+      "command": ".venv/bin/python -m compileall src/perpetual_analyst/quality.py",
+      "result": "passed"
+    },
+    {
+      "command": ".venv/bin/python -m pytest tests/test_quality.py -q",
+      "result": "blocked",
+      "detail": "No module named pytest"
+    },
+    {
+      "command": ".venv/bin/python -m compileall src/perpetual_analyst/config.py src/perpetual_analyst/analyst/agent.py src/perpetual_analyst/analyst/discovery.py src/perpetual_analyst/weekly_run.py",
+      "result": "passed"
+    },
+    {
+      "command": ".venv/bin/python -m pytest tests/test_config.py tests/test_discovery.py tests/test_agent.py tests/test_weekly_run.py -q",
+      "result": "blocked",
+      "detail": "No module named pytest"
+    },
+    {
+      "command": ".venv/bin/python -m compileall src/perpetual_analyst/retrieval/embeddings.py src/perpetual_analyst/store/db.py",
+      "result": "passed"
+    },
+    {
+      "command": ".venv/bin/python -m pytest tests/test_embeddings.py -q",
+      "result": "blocked",
+      "detail": "No module named pytest"
+    },
+    {
+      "command": ".venv/bin/python -m compileall src tests",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": ".venv/bin/python -m ruff check .",
+      "result": "blocked",
+      "detail": "No module named ruff"
+    },
+    {
+      "command": ".venv/bin/python -m ruff format --check .",
+      "result": "blocked",
+      "detail": "No module named ruff"
+    },
+    {
+      "command": "pre-commit run --all-files",
+      "result": "blocked",
+      "detail": "pre-commit command not found"
+    },
+    {
+      "command": "mcp__gitnexus.detect_changes(repo='perpetual-analyst', scope='all')",
+      "result": "blocked",
+      "detail": "Repository not found; available repos are Indonesia-Monitor and Nexus."
+    },
+    {
+      "command": "mcp__gitnexus.detect_changes(repo='/root/perpetual-analyst', scope='all')",
+      "result": "blocked",
+      "detail": "Repository not found; available repos are Indonesia-Monitor and Nexus."
+    },
+    {
+      "command": "PYTHONPATH=src .venv/bin/python <candidate/dashboard smoke>",
+      "result": "passed"
+    }
+  ],
+  "commits": [],
+  "commit_blocker": {
+    "command": "git add AGENTS.md",
+    "result": "blocked",
+    "detail": "Unable to create .git/index.lock: Read-only file system."
+  },
+  "reviews": [
+    {
+      "name": "simplify",
+      "result": "applied",
+      "detail": "Reviewed recent diff for reuse/quality/efficiency; hardened approved-URL fetch to use httpx.Client(trust_env=False) and explicit close."
+    },
+    {
+      "name": "doc-updater",
+      "result": "manual",
+      "detail": "Updated writable docs for workflow, architecture, database, patterns, testing, commands, changelog, and specs. .codex harness prompt files are read-only."
+    },
+    {
+      "name": "test-plan-writer",
+      "result": "manual",
+      "detail": "Coverage is mapped in tests for candidate approval, dashboard routes, quality metrics, provider seam, and embeddings gate. Full pytest is blocked by missing dependencies."
+    },
+    {
+      "name": "security-review",
+      "result": "no_high_confidence_findings_after_fix",
+      "detail": "Reviewed diff for newly introduced SSRF and secret-handling risks. Concrete proxy-env fetch risk was fixed; no remaining high-confidence finding reported in the current diff."
+    }
+  ]
+}

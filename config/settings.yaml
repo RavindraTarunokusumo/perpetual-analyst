@@ -5,3 +5,11 @@ models:
   triage:
     id: "deepseek/deepseek-v4-flash"
     thinking: false
+discovery:
+  provider: "openrouter_web"
+  model:
+retrieval:
+  embeddings_enabled: false
+  embeddings_provider: "voyage"
+  embedding_model: "voyage-3.5"
+  require_fts_failure: true

@@ -33,14 +33,23 @@ def load_system_prompt() -> str:
     return _system_prompt
 
 
-def make_client() -> openai.OpenAI:
-    api_key = os.environ.get("OPENROUTER_API_KEY")
+def make_client(provider: str = "openrouter") -> openai.OpenAI:
+    if provider in {"openrouter", "openrouter_web"}:
+        api_key_env = "OPENROUTER_API_KEY"
+        base_url = "https://openrouter.ai/api/v1"
+    elif provider == "perplexity":
+        api_key_env = "PERPLEXITY_API_KEY"
+        base_url = "https://api.perplexity.ai"
+    else:
+        raise RuntimeError(f"Unsupported client provider: {provider}")
+
+    api_key = os.environ.get(api_key_env)
     if not api_key:
         raise RuntimeError(
-            "OPENROUTER_API_KEY is not set — add it to .env or set it in the environment"
+            f"{api_key_env} is not set — add it to .env or set it in the environment"
         )
     return openai.OpenAI(
-        base_url="https://openrouter.ai/api/v1",
+        base_url=base_url,
         api_key=api_key,
     )
 

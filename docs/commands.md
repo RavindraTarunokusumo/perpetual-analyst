@@ -39,6 +39,10 @@ analyst source list --topic ai-frontier-labs
 analyst source candidates
 analyst source candidates --topic ai-frontier-labs
 
+# Serve local source approval + quality dashboard
+analyst web
+analyst web --host 127.0.0.1 --port 8765
+
 # Run analyst for all active topics (full pipeline)
 analyst run
 
@@ -155,6 +159,7 @@ Optional:
 ```
 ANALYST_DB_PATH=data/analyst.db      # default
 ANALYST_REPORTS_DIR=data/reports     # default
+PERPLEXITY_API_KEY=pplx-...          # only when discovery.provider=perplexity
 ```
 
 ## Git Notes

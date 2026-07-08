@@ -107,13 +107,67 @@ def test_citation_rate_counts_distinct_items(db: sqlite3.Connection) -> None:
     assert sq.citation_rate == pytest.approx(0.5)  # 2 distinct / 4 total
 
 
+def test_uniqueness_rate_counts_reports_where_source_is_only_cited_source(
+    db: sqlite3.Connection,
+) -> None:
+    """One of two cited reports contains only source A -> uniqueness_rate 0.5 for A."""
+    source_a = _insert_source(db, "unique-a")
+    source_b = _insert_source(db, "unique-b")
+    a1 = _insert_item(db, source_a, "ua1", 0.5)
+    a2 = _insert_item(db, source_a, "ua2", 0.5)
+    b1 = _insert_item(db, source_b, "ub1", 0.5)
+
+    r1 = _insert_report(db, "2026-04-01")
+    r2 = _insert_report(db, "2026-04-02")
+    _cite(db, r1, "2026-04-01", a1, source_a)
+    _cite(db, r2, "2026-04-02", a2, source_a)
+    _cite(db, r2, "2026-04-02", b1, source_b)
+
+    results = compute_source_quality(db)
+    sq_a = next(r for r in results if r.source_id == source_a)
+    sq_b = next(r for r in results if r.source_id == source_b)
+
+    assert sq_a.uniqueness_rate == pytest.approx(0.5)
+    assert sq_b.uniqueness_rate == pytest.approx(0.0)
+
+
+def test_freshness_lead_rate_counts_earliest_published_cited_item(
+    db: sqlite3.Connection,
+) -> None:
+    """Earliest cited item in a report gives its source freshness-lead credit."""
+    early = _insert_source(db, "fresh-early")
+    late = _insert_source(db, "fresh-late")
+    early_item = db.execute(
+        "INSERT INTO items (source_id, content_hash, triage_score, published_at)"
+        " VALUES (?, 'fresh-1', 0.5, '2026-04-01T00:00:00')",
+        (early,),
+    ).lastrowid
+    late_item = db.execute(
+        "INSERT INTO items (source_id, content_hash, triage_score, published_at)"
+        " VALUES (?, 'fresh-2', 0.5, '2026-04-02T00:00:00')",
+        (late,),
+    ).lastrowid
+    db.commit()
+
+    report = _insert_report(db, "2026-04-03")
+    _cite(db, report, "2026-04-03", early_item, early)
+    _cite(db, report, "2026-04-03", late_item, late)
+
+    results = compute_source_quality(db)
+    early_sq = next(r for r in results if r.source_id == early)
+    late_sq = next(r for r in results if r.source_id == late)
+
+    assert early_sq.freshness_lead_rate == pytest.approx(1.0)
+    assert late_sq.freshness_lead_rate == pytest.approx(0.0)
+
+
 # ---------------------------------------------------------------------------
 # score formula + persistence
 # ---------------------------------------------------------------------------
 
 
 def test_score_formula_and_persistence(db: sqlite3.Connection) -> None:
-    """score = 0.5 * hit_rate + 0.5 * citation_rate; written to sources.quality_score."""
+    """Four-factor quality score is written to sources.quality_score."""
     sid = _insert_source(db, "src-d")
     i1 = _insert_item(db, sid, "d1", 0.8)  # hit
     i2 = _insert_item(db, sid, "d2", 0.8)  # hit

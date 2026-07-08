@@ -2,6 +2,28 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-07-08 — Harness workflow blocker session
+
+### What worked well
+
+**Recording environment blockers in `session_ledger.json` kept the workflow auditable even when the normal git path was unavailable.** Capturing the exact commands and failures made it clear which workflow steps were completed, which were best-effort, and which were blocked by filesystem or dependency constraints.
+
+**A dependency-free syntax and smoke-test fallback provided useful validation when pytest/ruff/pre-commit could not be installed.** `compileall`, `git diff --check`, line-length scans, and small `PYTHONPATH=src` smoke scripts are not substitutes for the full suite, but they are worth running when package installation is blocked.
+
+### What to improve
+
+**The sandbox exposed `.git` as read-only, which blocks worktree setup, staging, commits, git notes, and PR submission.** A session that requires the full workflow needs writable git metadata; otherwise the implementation can be prepared but cannot satisfy the commit/PR/archive portions of the harness.
+
+**GitNexus MCP did not expose `perpetual-analyst` even though the repo contract says it should.** Impact and detect-changes calls failed with only `Indonesia-Monitor` and `Nexus` available. Future sessions should check `mcp__gitnexus.list_repos` early and record a fallback when the expected repo is missing.
+
+**Grok CLI availability is not enough; it also needs a writable session store.** The CLI was installed, but non-interactive JSON handoff failed because session creation hit a read-only filesystem. The harness should treat "Grok installed but cannot create a session" as a first-class fallback condition.
+
+### Patterns established this session
+
+- If `.venv` is absent, create it, but record dependency installation failures explicitly when network access blocks `pip install -e ".[dev]"`.
+- When pytest is unavailable, still run `compileall`, `git diff --check`, and targeted `PYTHONPATH=src` smoke checks.
+- If `.codex/` is read-only, update writable docs and record the remaining harness-prompt drift rather than silently skipping it.
+
 ## 2026-06-11 — Phase 5 discovery session (workflow/harness)
 
 ### What worked well

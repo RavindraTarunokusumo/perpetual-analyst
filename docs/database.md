@@ -45,7 +45,7 @@ RSS feeds, inbox folders, web pages.
 | `active` | INTEGER | |
 | `last_fetched_at` | TEXT | |
 | `fetch_error_count` | INTEGER | |
-| `quality_score` | REAL | Phase 5: computed by `compute_source_quality` — `0.5*hit_rate + 0.5*citation_rate` |
+| `quality_score` | REAL | Computed by `compute_source_quality` — `0.35*hit_rate + 0.35*citation_rate + 0.15*uniqueness_rate + 0.15*freshness_lead_rate` |
 | `status` | TEXT | Phase 5: `'active'` \| `'probation'`; DEFAULT `'active'`. New sources added via `analyst source add` start in `'probation'`. |
 | `probation_until` | TEXT | Phase 5: ISO date; set to `now + 21 days` when a source is added. `transition_probation()` promotes to `'active'` once the date passes. |
 | `created_at` | TEXT | |
@@ -209,9 +209,29 @@ Proposed sources returned by weekly discovery. Humans review and approve; nothin
 | `rationale` | TEXT | model's reason for suggesting this source |
 | `status` | TEXT | `'pending'` \| `'approved'` \| `'rejected'`; DEFAULT `'pending'` |
 | `created_at` | TEXT | |
+| `reviewed_at` | TEXT | set when approved or rejected |
+| `review_note` | TEXT | optional operator note from the Web UI |
 | UNIQUE | `(topic_id, url)` | prevents duplicate proposals across weekly runs |
 
-Approval UI is deferred to a future Web UI session. `analyst source candidates [--topic <slug>]` lists pending rows read-only.
+`analyst source candidates [--topic <slug>]` lists rows read-only. The local
+Web UI (`analyst web`) approves or dismisses candidates. Approval validates and
+fetches only public HTTP(S) URLs before creating a probation source and linking
+it to the candidate topic.
+
+### `fts_insufficiencies`
+
+Operator-recorded evidence that FTS missed a retrieval case. This table gates
+the optional sqlite-vec + Voyage embeddings path; embeddings remain disabled by
+default and inactive until a row exists when `require_fts_failure` is true.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | |
+| `topic_id` | INTEGER FK → topics | |
+| `query` | TEXT | retrieval query that FTS missed |
+| `expected_item_id` | INTEGER FK → items | optional expected item |
+| `reason` | TEXT | why FTS was insufficient |
+| `created_at` | TEXT | |
 
 ## Memory Tier Summary
 
@@ -242,8 +262,9 @@ Approval UI is deferred to a future Web UI session. `analyst source candidates [
 | `reports` | `report/assemble.py` — upserts on `report_date` conflict; `user_id` always 1 |
 | `reports.delivered_at` | `delivery/telegram.py` — set only on confirmed Telegram success |
 | `citations` | `report/assemble.py` via `_record_citations()` — INSERT OR IGNORE after assembly |
-| `source_candidates` | `analyst/discovery.py` via `discover_sources()` — INSERT OR IGNORE; status only changed by future approval UI |
-| `sources.quality_score` | `quality.py` via `compute_source_quality()` — pure SQL UPDATE, run weekly |
+| `source_candidates` | `analyst/discovery.py` inserts pending rows; `analyst/candidates.py` changes status on operator approval/dismissal |
+| `sources.quality_score` | `quality.py` via `compute_source_quality()` — deterministic SQL/Python UPDATE, run weekly and visible in Web UI |
+| `fts_insufficiencies` | `retrieval/embeddings.py` via `record_fts_insufficiency()` — operator evidence for enabling optional embeddings |
 | `sources.status`, `sources.probation_until` | `cli.py` (`analyst source add` writes initial values); `quality.py` (`transition_probation` clears probation) |
 | `sources.last_fetched_at`, `sources.fetch_error_count` | `ingestion/rss.py` |
 | `sources` (inbox) inserts | `ingestion/inbox.py` via `get_or_create_inbox_source()` — canonical helper; never duplicated inline |

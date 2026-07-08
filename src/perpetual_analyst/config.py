@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -13,9 +13,25 @@ class ModelConfig:
 
 
 @dataclass
+class DiscoveryConfig:
+    provider: str = "openrouter_web"
+    model: str | None = None
+
+
+@dataclass
+class RetrievalConfig:
+    embeddings_enabled: bool = False
+    embeddings_provider: str = "voyage"
+    embedding_model: str = "voyage-3.5"
+    require_fts_failure: bool = True
+
+
+@dataclass
 class Settings:
     analyst: ModelConfig
     triage: ModelConfig
+    discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
+    retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
 
 
 def load_settings(path: str = "config/settings.yaml") -> Settings:
@@ -24,4 +40,6 @@ def load_settings(path: str = "config/settings.yaml") -> Settings:
     return Settings(
         analyst=ModelConfig(**models["analyst"]),
         triage=ModelConfig(**models["triage"]),
+        discovery=DiscoveryConfig(**(data.get("discovery") or {})),
+        retrieval=RetrievalConfig(**(data.get("retrieval") or {})),
     )

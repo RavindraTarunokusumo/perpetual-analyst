@@ -137,6 +137,15 @@ CREATE TABLE IF NOT EXISTS source_candidates (
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(topic_id, url)
 );
+
+CREATE TABLE IF NOT EXISTS fts_insufficiencies (
+    id INTEGER PRIMARY KEY,
+    topic_id INTEGER REFERENCES topics(id),
+    query TEXT NOT NULL,
+    expected_item_id INTEGER REFERENCES items(id),
+    reason TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 _FTS_TRIGGERS = """
@@ -183,12 +192,20 @@ CREATE TRIGGER IF NOT EXISTS observations_fts_ad
 
 
 def _ensure_columns(conn: sqlite3.Connection) -> None:
-    """Add Phase 5 columns to an existing sources table if missing (idempotent)."""
-    cols = {row["name"] for row in conn.execute("PRAGMA table_info(sources)")}
-    if "status" not in cols:
+    """Add post-baseline columns if missing (idempotent)."""
+    source_cols = {row["name"] for row in conn.execute("PRAGMA table_info(sources)")}
+    if "status" not in source_cols:
         conn.execute("ALTER TABLE sources ADD COLUMN status TEXT DEFAULT 'active'")
-    if "probation_until" not in cols:
+    if "probation_until" not in source_cols:
         conn.execute("ALTER TABLE sources ADD COLUMN probation_until TEXT")
+
+    candidate_cols = {
+        row["name"] for row in conn.execute("PRAGMA table_info(source_candidates)")
+    }
+    if "reviewed_at" not in candidate_cols:
+        conn.execute("ALTER TABLE source_candidates ADD COLUMN reviewed_at TEXT")
+    if "review_note" not in candidate_cols:
+        conn.execute("ALTER TABLE source_candidates ADD COLUMN review_note TEXT")
 
 
 def init_db(path: str = "data/analyst.db") -> sqlite3.Connection:

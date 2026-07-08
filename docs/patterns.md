@@ -129,13 +129,54 @@ Every item is presented to the analyst with a stable tag `[item:N]` where N is t
 
 After report assembly, `_record_citations(report_id, report_date, markdown, conn)` resolves each `[item:N]` tag (via `cited_item_ids` in `render.py`) to its `source_id` and records a row in `citations` (INSERT OR IGNORE — safe to call on re-runs). This citation history feeds `compute_source_quality`.
 
+## Source Approval Pattern
+
+Discovered sources are never auto-added. `discover_sources()` writes
+`source_candidates` rows with `status='pending'`; operator approval happens in
+`analyst/candidates.py` through the local Web UI.
+
+Approval must validate the candidate URL before any fetch:
+
+- only HTTP(S)
+- hostname required
+- no URL credentials
+- no localhost, private, loopback, link-local, multicast, reserved, or
+  unspecified addresses
+- DNS resolution must not point at private/reserved addresses
+- every redirect target is validated before following
+
+Approved candidates create probation sources and topic links. Rejected
+candidates stay as rejected rows. No source is removed automatically.
+
 ## Provider-Seam Pattern
 
-The web-search client used for source discovery is isolated behind `web_search_extra()` in `analyst/discovery.py`. Swapping to a different provider (e.g. Perplexity) requires changing only that function and the accompanying `make_client` call — nothing else in the discovery pipeline changes. This seam prevents provider lock-in from spreading into the core discovery logic.
+The web-search client used for source discovery is isolated behind
+`web_search_extra(provider)` in `analyst/discovery.py` and
+`make_client(provider=...)` in `analyst/agent.py`. Daily analyst calls use the
+OpenRouter default. Weekly source discovery may use `openrouter_web` or
+`perplexity` from settings without changing the daily analyst client.
 
 ## Source Quality Scoring Pattern
 
-`compute_source_quality(conn)` in `quality.py` runs as a pure-SQL pass after the weekly compaction loop. It computes two sub-scores per source (triage hit-rate and citation rate) and combines them: `quality_score = 0.5*hit_rate + 0.5*citation_rate`. `bottom_decile(conn)` returns the worst-scoring non-probation sources for operator inspection — it does **not** remove them. Sources in probation are excluded from quality ranking until `transition_probation` promotes them. No automated removal ever occurs.
+`compute_source_quality(conn)` in `quality.py` runs as a deterministic pass after
+the weekly compaction loop. It computes four sub-scores per source: triage
+hit-rate, citation rate, uniqueness rate, and freshness-lead rate. The current
+schema has no explicit development IDs, so uniqueness and freshness use report
+citation groups as the measurable proxy. The score is:
+
+`0.35*hit_rate + 0.35*citation_rate + 0.15*uniqueness_rate + 0.15*freshness_lead_rate`.
+
+`bottom_decile(conn)` returns the worst-scoring non-probation sources for
+operator inspection. It does **not** remove anything. Sources in probation are
+excluded from quality ranking until `transition_probation` promotes them. No
+automated removal ever occurs.
+
+## Embeddings Gate Pattern
+
+FTS5 remains the default retrieval path. The optional sqlite-vec + Voyage path
+is inert unless settings enable embeddings and an FTS insufficiency has been
+recorded through `retrieval/embeddings.py`. Missing optional dependencies return
+a closed gate status instead of changing retrieval behavior.
 
 ## Code Style
 
