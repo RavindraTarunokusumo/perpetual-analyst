@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -29,21 +30,21 @@ from app.intelligence.sentence_window import (  # noqa: E402
 
 _engine: AsyncEngine | None = None
 _sf: async_sessionmaker[AsyncSession] | None = None
+_loop_id: int | None = None
 _emb: Embedder | None = None
 _source_id: uuid.UUID | None = None
 
 
-def _get_engine() -> AsyncEngine:
-    global _engine
-    if _engine is None:
-        _engine = make_engine(str(settings.database_url))
-    return _engine
-
-
 def _session_factory() -> async_sessionmaker[AsyncSession]:
-    global _sf
-    if _sf is None:
-        _sf = make_session_factory(_get_engine())
+    # asyncpg engines are bound to the event loop they were created on. daily_run
+    # calls asyncio.run() once per topic (a fresh loop each time), so cache the
+    # engine per running loop and rebuild when the loop changes.
+    global _engine, _sf, _loop_id
+    loop_id = id(asyncio.get_running_loop())
+    if _sf is None or _loop_id != loop_id:
+        _engine = make_engine(str(settings.database_url))
+        _sf = make_session_factory(_engine)
+        _loop_id = loop_id
     return _sf
 
 
