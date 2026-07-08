@@ -1,0 +1,4 @@
+Task: D2a substrate.synthesize
+Summary: Grok junior xhigh (session 019f418e-ec50-7331-81f9-de9ecb256951) + senior independent live re-run
+Validation: ruff clean; 2 independent live qwen3.7-max synth runs PASS (claims/hyps/preds produced; vendor vs independent source_authority differentiated); ~3k tokens/call
+TODO: D2a
