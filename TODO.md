@@ -32,6 +32,7 @@ Tasks (per plan):
 - [x] D4 — daily_run narrative loop + Qwen client + briefing via DTO — end-to-end verified
 - [x] E1/E2 — cross-session `ask` + `score` (expire/decay) — CLI-verified (+ Nexus answer-scope `2ac181b`)
 - [x] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps — `544c1fb` (e2e re-verified: ingest→narrative v1→report from briefing_markdown)
+- [x] G — embedder honors spec §4: pin substrate._embedder to Qwen3-Embedding-0.6B @384 (was silently using Nexus bge default); wipe stale bge-embedded test corpus + re-verify retrieval — `86a11ca`
 
 ---
 
