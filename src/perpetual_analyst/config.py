@@ -1,14 +1,44 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
+# Qwen ids match Nexus's validated stack: T2/fast = qwen3.6-flash (triage),
+# benchmark reader = qwen3.7-plus (Nexus/docs/architecture.md), T3/strong = qwen3.7-max.
+DEFAULT_TRIAGE_MODEL_ID = "qwen3.6-flash"
+DEFAULT_ANALYST_MODEL_ID = "qwen3.7-plus"
+DEFAULT_LLM_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+
+SECRET_ENV_VARS: tuple[str, ...] = (
+    "ANTHROPIC_API_KEY",
+    "DASHSCOPE_API_KEY",
+    "OPENROUTER_API_KEY",
+    "PERPLEXITY_API_KEY",
+    "TELEGRAM_BOT_TOKEN",
+)
+
+
+def mask_env_value(name: str, value: str) -> str:
+    if name in SECRET_ENV_VARS and value:
+        return "***"
+    return value
+
+
+def get_dashscope_api_key() -> str:
+    return os.environ.get("DASHSCOPE_API_KEY", "")
+
+
+def get_llm_base_url() -> str:
+    return os.environ.get("LLM_BASE_URL", DEFAULT_LLM_BASE_URL)
+
 
 @dataclass
 class ModelConfig:
-    id: str
+    id: str = ""
+    provider: str = "qwen"
     thinking: bool = False
 
 
@@ -34,12 +64,20 @@ class Settings:
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
 
 
+def _parse_model_config(raw: dict, *, default_id: str) -> ModelConfig:
+    return ModelConfig(
+        id=raw.get("id", default_id),
+        provider=raw.get("provider", "qwen"),
+        thinking=raw.get("thinking", False),
+    )
+
+
 def load_settings(path: str = "config/settings.yaml") -> Settings:
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     models = data["models"]
     return Settings(
-        analyst=ModelConfig(**models["analyst"]),
-        triage=ModelConfig(**models["triage"]),
+        analyst=_parse_model_config(models["analyst"], default_id=DEFAULT_ANALYST_MODEL_ID),
+        triage=_parse_model_config(models["triage"], default_id=DEFAULT_TRIAGE_MODEL_ID),
         discovery=DiscoveryConfig(**(data.get("discovery") or {})),
         retrieval=RetrievalConfig(**(data.get("retrieval") or {})),
     )

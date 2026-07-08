@@ -39,6 +39,7 @@ packages = ["src/perpetual_analyst"]
 [tool.ruff]
 line-length = 100
 src = ["src"]
+extend-exclude = ["Nexus", ".worktree"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

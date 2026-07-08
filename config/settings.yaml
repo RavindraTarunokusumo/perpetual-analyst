@@ -1,9 +1,11 @@
 models:
   analyst:
-    id: "anthropic/claude-opus-4-8"
+    id: "qwen3.7-plus"
+    provider: "qwen"
     thinking: true
   triage:
-    id: "deepseek/deepseek-v4-flash"
+    id: "qwen3.6-flash"
+    provider: "qwen"
     thinking: false
 discovery:
   provider: "openrouter_web"
