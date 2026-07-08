@@ -23,12 +23,6 @@ SECRET_ENV_VARS: tuple[str, ...] = (
 )
 
 
-def mask_env_value(name: str, value: str) -> str:
-    if name in SECRET_ENV_VARS and value:
-        return "***"
-    return value
-
-
 def get_qwen_api_key() -> str:
     return os.environ.get("QWEN_CLOUD_API_KEY", "")
 
