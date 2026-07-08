@@ -29,8 +29,114 @@ class ThesisUpdate(BaseModel):
     )
 
 
+class SourceProfileOut(BaseModel):
+    source_type: str = Field(description="Source category, e.g. news, blog, research.")
+    incentive_note: str = Field(description="Brief note on the source's incentives or bias.")
+    reliability: float = Field(description="Estimated source reliability, 0–1.")
+
+
+class ClaimOut(BaseModel):
+    claim_text: str = Field(description="Atomic source-backed assertion.")
+    entities: list[str] = Field(
+        default_factory=list,
+        description="Named entities mentioned (orgs, people, models).",
+    )
+    confidence: float = Field(description="Confidence in the claim, 0–1.")
+    source_authority: float = Field(description="Authority weight of the source, 0–1.")
+    evidence_span_indices: list[int] = Field(
+        default_factory=list,
+        description="Indices of sentence spans in the ingested document that support this claim.",
+    )
+
+
+class EventOut(BaseModel):
+    event_time: str = Field(description="ISO date or datetime of the development.")
+    description: str = Field(description="What happened.")
+    entities: list[str] = Field(
+        default_factory=list,
+        description="Named entities involved in the event.",
+    )
+    claim_refs: list[int] = Field(
+        default_factory=list,
+        description="Indices into the claims list of this bundle that back the event.",
+    )
+
+
+class HypothesisOut(BaseModel):
+    statement: str = Field(description="Competing explanation or interpretation.")
+    confidence: float = Field(description="Current confidence, 0–1.")
+    supporting_claim_ids: list[int] = Field(
+        default_factory=list,
+        description="Claim indices or IDs that support this hypothesis.",
+    )
+    contradicting_claim_ids: list[int] = Field(
+        default_factory=list,
+        description="Claim indices or IDs that contradict this hypothesis.",
+    )
+    invalidation_criteria: str = Field(
+        description="What evidence would retire or invalidate this hypothesis."
+    )
+    status: str = Field(
+        default="active",
+        description="One of: active | leading | retired | invalidated.",
+    )
+
+
+class PredictionOut(BaseModel):
+    statement: str = Field(description="Forecast statement.")
+    probability: float = Field(description="Estimated probability, 0–1.")
+    horizon_days: int = Field(description="Days until the prediction should resolve.")
+    resolution_criteria: str = Field(description="Criteria for scoring hit, miss, or expired.")
+
+
+class NarrativeUpdate(BaseModel):
+    """Complete output of one daily synthesis call for one topic. See Nexus/SPEC.md §5.3."""
+
+    source_profiles: list[SourceProfileOut] = Field(
+        default_factory=list,
+        description="Source reliability profiles extracted from today's material.",
+    )
+    claims: list[ClaimOut] = Field(
+        default_factory=list,
+        description="New or updated source-backed claims from today's material.",
+    )
+    events: list[EventOut] = Field(
+        default_factory=list,
+        description="Time-stamped developments backed by claims.",
+    )
+    superseded_claim_ids: list[int] = Field(
+        default_factory=list,
+        description="Indices or IDs of prior claims superseded or contradicted by new evidence.",
+    )
+    narrative_summary: str = Field(description="The new living interpretation of the topic.")
+    change_summary: str = Field(
+        description="What changed vs the previous narrative version and why (cite claims/sources)."
+    )
+    hypotheses: list[HypothesisOut] = Field(
+        default_factory=list,
+        description="Competing hypotheses with updated confidence and claim links.",
+    )
+    predictions: list[PredictionOut] = Field(
+        default_factory=list,
+        description="Scored forecasts tied to the updated understanding.",
+    )
+    briefing_markdown: str = Field(
+        description="User-facing briefing section. Empty when nothing_significant is True."
+    )
+    nothing_significant: bool = Field(
+        default=False,
+        description=(
+            "Set True when today's material contains nothing worth reporting. "
+            "Produces a one-line entry. This is a first-class output — use it when warranted."
+        ),
+    )
+
+
 class TopicAnalysis(BaseModel):
-    """Complete output of one analyst run for one topic."""
+    """DEPRECATED: superseded by NarrativeUpdate; slated for removal in cutover phase (task F).
+
+    Complete output of one analyst run for one topic.
+    """
 
     report_section_markdown: str = Field(
         description=(
@@ -53,7 +159,7 @@ class TopicAnalysis(BaseModel):
     dossier_edits: str | None = Field(
         default=None,
         description=(
-            "Full replacement dossier text if it changed. " "None to leave the dossier unchanged."
+            "Full replacement dossier text if it changed. None to leave the dossier unchanged."
         ),
     )
     open_questions: list[str] = Field(
