@@ -29,6 +29,23 @@ def run_topic_update_sync(
     return asyncio.run(run_topic_update(topic_id, scope, focus, k))
 
 
+def run_daily_for_topic(
+    slug: str,
+    name: str,
+    brief: str | None,
+    item_titles: list[str],
+    k: int | None = None,
+) -> tuple[NarrativeUpdate, dict[str, Any], int]:
+    async def _run():
+        from perpetual_analyst import substrate
+
+        topic_id = await substrate.get_or_create_watch_topic(slug, name, description=brief)
+        focus = build_focus(brief, item_titles)
+        return await run_topic_update(topic_id, slug, focus, k)
+
+    return asyncio.run(_run())
+
+
 def build_focus(brief: str | None, item_titles: list[str], *, max_titles: int = 12) -> str:
     """Build the retrieval focus query for the day: the topic brief plus the day's
     new item titles (bounded)."""

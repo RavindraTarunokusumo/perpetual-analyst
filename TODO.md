@@ -28,8 +28,8 @@ Tasks (per plan):
 - [x] D2a — substrate.synthesize (retrieve + one qwen3.7-max NarrativeUpdate call) — `95cf947`
 - [x] 0010 — claims.document_id nullable (Nexus) — `37e87b2`/`27ab8ff`
 - [x] D2b — substrate.persist_bundle (transactional write) — `6414959` (2-day live: v1→v2, superseded, claim_evidence)
-- [ ] D3 — synthesis orchestration (analyst/synthesis.py run_topic_update)
-- [ ] D4 — daily_run analyst stage + render briefing from narrative version
+- [x] D3 — synthesis orchestration — `a22336c`
+- [x] D4 — daily_run narrative loop + Qwen client + briefing via DTO — end-to-end verified
 - [ ] E1 — cross-session ask; E2 — prediction scoring + claim decay
 - [ ] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps; backfill
 

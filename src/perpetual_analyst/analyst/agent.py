@@ -40,6 +40,11 @@ def make_client(provider: str = "openrouter") -> openai.OpenAI:
     elif provider == "perplexity":
         api_key_env = "PERPLEXITY_API_KEY"
         base_url = "https://api.perplexity.ai"
+    elif provider in {"qwen", "dashscope"}:
+        api_key_env = "QWEN_CLOUD_API_KEY"
+        base_url = os.environ.get("LLM_BASE_URL") or (
+            "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+        )
     else:
         raise RuntimeError(f"Unsupported client provider: {provider}")
 
