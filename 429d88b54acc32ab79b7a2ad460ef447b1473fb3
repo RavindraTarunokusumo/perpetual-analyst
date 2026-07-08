@@ -1,0 +1,4 @@
+Task: D1 NarrativeUpdate schemas
+Summary: Grok junior (session 019f4165) + senior review; pure Pydantic, DB-independent
+TODO: D1
+Validation: ruff+format clean; 2 schema round-trip tests pass; TopicAnalysis importers unaffected
