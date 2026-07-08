@@ -31,7 +31,7 @@ Tasks (per plan):
 - [x] D3 — synthesis orchestration — `a22336c`
 - [x] D4 — daily_run narrative loop + Qwen client + briefing via DTO — end-to-end verified
 - [x] E1/E2 — cross-session `ask` + `score` (expire/decay) — CLI-verified (+ Nexus answer-scope `2ac181b`)
-- [ ] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps; backfill
+- [x] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps — `544c1fb` (e2e re-verified: ingest→narrative v1→report from briefing_markdown)
 
 ---
 
