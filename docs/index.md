@@ -22,19 +22,21 @@ Add module-specific docs here as the codebase grows:
 
 ## Repo Areas
 
-- `src/perpetual_analyst/analyst/`: ★ the product — agent, memory, theses, triage, schemas, prompts, discovery
+- `src/perpetual_analyst/substrate.py`: ★ Nexus boundary — ingest, retrieve, synthesize, persist_bundle, answer, resolve_lifecycle
+- `src/perpetual_analyst/analyst/synthesis.py`: daily narrative-update loop entry point
+- `src/perpetual_analyst/analyst/`: triage, schemas (`NarrativeUpdate`), compaction, discovery, memory (weekly SQLite path)
 - `src/perpetual_analyst/analyst/discovery.py`: weekly source discovery — `discover_sources`, `mine_outbound_domains`, `web_search_extra` provider seam
 - `src/perpetual_analyst/ingestion/`: fetchers (rss, inbox, web)
-- `src/perpetual_analyst/retrieval/`: FTS5 search helpers
-- `src/perpetual_analyst/store/`: SQLite connection, migrations, row models
-- `src/perpetual_analyst/report/`: assembly, rendering, citation conversion; `_record_citations` records cited items post-assembly
+- `src/perpetual_analyst/store/`: SQLite connection, migrations, row models (operational tables)
+- `src/perpetual_analyst/report/`: `assemble.py` — joins `NarrativeUpdate.briefing_markdown` per topic; no citation conversion
 - `src/perpetual_analyst/delivery/`: Telegram send
 - `src/perpetual_analyst/quality.py`: per-source quality scoring — `compute_source_quality`, `bottom_decile`, `transition_probation`
 - `src/perpetual_analyst/daily_run.py`: daily orchestrator entry point
 - `src/perpetual_analyst/weekly_run.py`: weekly compaction + discovery + quality-scoring orchestrator
-- `src/perpetual_analyst/analyst/compaction.py`: observation expiry, weekly review model call, transactional apply
-- `src/perpetual_analyst/cli.py`: typer CLI (`analyst topic add`, `analyst run`, `analyst weekly`, `analyst source candidates`)
-- `config/`: `topics.yaml`, `sources.yaml`
+- `src/perpetual_analyst/analyst/compaction.py`: observation expiry, weekly review model call, transactional apply (SQLite)
+- `src/perpetual_analyst/cli.py`: typer CLI (`analyst topic add`, `analyst run`, `analyst ask`, `analyst score`, `analyst weekly`, `analyst source candidates`)
+- `Nexus/`: git submodule — Postgres schema, sentence-window retrieval, Embedder, LLMClient
+- `config/`: `topics.yaml`, `sources.yaml`, `settings.yaml`
 - `inbox/`: manual document drop, per-topic subfolders
 - `data/`: `analyst.db`, `reports/`
 - `tests/`: test suite
@@ -46,12 +48,14 @@ Add module-specific docs here as the codebase grows:
 
 ## Fast Path By Task
 
-- Changing analyst behavior: read `architecture.md` → `analyst/agent.py` → `analyst/prompts/`
-- Changing memory logic: read `database.md` → `analyst/memory.py` → `analyst/theses.py`
-- Changing compaction / observation lifecycle: read `database.md` → `analyst/compaction.py` → `weekly_run.py`
+- Changing daily analyst behavior: read `architecture.md` → `substrate.py` → `analyst/synthesis.py`
+- Changing memory / analytical objects: read `database.md` → `substrate.py` (`persist_bundle`, `synthesize`)
+- Changing retrieval or corpus ingest: read `architecture.md` → `substrate.py` → `Nexus/app/intelligence/sentence_window.py`
+- Changing compaction / observation lifecycle (weekly SQLite path): read `database.md` → `analyst/compaction.py` → `weekly_run.py`
 - Changing source discovery or quality scoring: read `architecture.md` → `analyst/discovery.py` → `quality.py` → `weekly_run.py`
 - Changing source candidate approval: read `architecture.md` → `analyst/candidates.py` → `web.py` → `database.md`
-- Changing DB schema: read `database.md` → `store/db.py` (full DDL in `init_db()`)
+- Changing SQLite ops schema: read `database.md` → `store/db.py` (full DDL in `init_db()`)
+- Changing Postgres memory schema: read `database.md` → `Nexus/app/db/migrations/`
 - Changing ingestion: read `architecture.md` → `ingestion/` module
 - Changing delivery: read `architecture.md` → `delivery/telegram.py`
 - Running the system: read `commands.md`
@@ -60,12 +64,12 @@ Add module-specific docs here as the codebase grows:
 
 ## Core Invariants
 
-- **One analyst call per topic per day.** No multi-agent patterns.
-- Memory budgets are enforced by the context assembler, not by the model.
-- Theses are never silently edited — every revision logs to `thesis_updates`.
-- `≤7 active theses` per topic is a hard DB-enforced constraint.
+- **One analyst call per topic per day.** The synthesis call (`substrate.synthesize`). Triage is a function, not an agent.
+- Memory budgets are enforced structurally: sentence-window `top_k` caps retrieval; prior claims/hypotheses are recency-bounded in synthesis context.
+- Hypotheses are never silently edited — prior active rows are retired; new snapshot inserted (≤7 active); history preserved as `retired` rows.
+- `narrative_states` is the source of truth; dossier is a rendered projection (weekly SQLite path is legacy).
 - `nothing_significant: bool` is a first-class output field — never suppress it.
-- All analyst memory writes are transactional (observations + thesis updates + dossier edits in one commit).
-- `content_hash` is the dedupe key for items — duplicate inserts silently skip.
-- Runtime secrets (API keys) must never appear in logs or stdout.
-- No vectors, knowledge graphs, or rerankers in V1 — FTS5 only.
+- Daily analytical writes are transactional (`persist_bundle` — all Postgres objects in one commit).
+- `content_hash` is the dedupe key for items/documents — duplicate inserts silently skip.
+- Runtime secrets (`QWEN_CLOUD_API_KEY`, `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, etc.) must never appear in logs or stdout.
+- Retrieval is Nexus sentence-window over pgvector spans, topic-scoped — not FTS5.
