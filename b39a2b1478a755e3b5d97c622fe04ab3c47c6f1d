@@ -1,0 +1,5 @@
+Task: A1 Qwen provider config
+Summary: Grok junior (session 019f3ff4) + senior fixes (correct qwen3.7-plus id, settings.yaml runtime ids, ruff exclude Nexus)
+Docs: N/A
+TODO: A1
+Validation: ruff check (2 pre-existing UP017 in candidates.py), config test 1 passed, settings load verified
