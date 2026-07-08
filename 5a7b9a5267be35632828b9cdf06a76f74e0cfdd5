@@ -1,0 +1,4 @@
+Task: [review] one asyncio.run per topic
+Summary: fold corpus ingest into run_daily_for_topic async body; single event loop per topic; corpus_ingested in result dict.
+Validation: ruff clean; full pytest 138 passed; live e2e corpus_ingested=1 + narrative v1/v2.
+Spec: docs/specs/2026-07-08-pa-nexus-integration.md
