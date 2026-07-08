@@ -25,9 +25,10 @@ Tasks (per plan):
 - [x] B2 — get_or_create_watch_topic (slug→topic_id) in substrate.py — `1aa126f`
 - [x] C — daily ingest → corpus (triage kept) — `b16e209` (+ substrate loop fix `78b7be6`)
 - [x] D1 — NarrativeUpdate schema; deprecate TopicAnalysis — `429d88b`
-- [ ] D2a — substrate.synthesize (retrieve + one qwen3.7-max NarrativeUpdate call)
-- [ ] D2b — substrate.persist_bundle (transactional narrative/claims/hypotheses/predictions write)
-- [ ] D3 — synthesis orchestration
+- [x] D2a — substrate.synthesize (retrieve + one qwen3.7-max NarrativeUpdate call) — `95cf947`
+- [x] 0010 — claims.document_id nullable (Nexus) — `37e87b2`/`27ab8ff`
+- [x] D2b — substrate.persist_bundle (transactional write) — `6414959` (2-day live: v1→v2, superseded, claim_evidence)
+- [ ] D3 — synthesis orchestration (analyst/synthesis.py run_topic_update)
 - [ ] D4 — daily_run analyst stage + render briefing from narrative version
 - [ ] E1 — cross-session ask; E2 — prediction scoring + claim decay
 - [ ] F1/F2 — retire FTS5/Voyage retrieval + old TopicAnalysis; drop dead deps; backfill
