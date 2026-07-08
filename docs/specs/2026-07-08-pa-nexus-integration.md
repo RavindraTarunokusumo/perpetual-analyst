@@ -85,6 +85,20 @@ Analytical tables live in **Postgres**, scoped by `topic_id`, per Nexus/SPEC.md 
 
 `entities_json` holds string lists (no entity resolution in MVP; string-match coref only).
 
+**Reconciliation with Nexus's existing schema (discovered during B1):** Nexus already ships
+`claims` + `claim_evidence` tables (from its 0001 schema, shaped for the now-scrapped capsule
+ontology: `claim_type NOT NULL`, no `topic_id`/`source_authority`, no embedding). PA **reuses**
+these rather than duplicating: B1 extends `claims` with nullable `topic_id` (FK `watch_topics`)
+and `source_authority`, and relaxes `claim_type` to nullable. `claim_evidence(claim_id, span_id,
+evidence_role, quote)` already matches PA's evidence need and is reused as-is. Nexus's scrapped
+`theses`/`decision_artefacts`/`semantic_*` tables are left untouched (empty; ignored by PA).
+
+**Claim/event embeddings are deferred** (MVP deviation from Nexus/SPEC.md §3). A topic's active
+claim/event set is small and is retrieved wholesale by `topic_id` + status/recency for the daily
+call; per-claim ANN (a pgvector column on `claims`/`events`) is added only if that set outgrows
+the retrieved subset. Corpus retrieval (spans) still carries embeddings — only claim/event-level
+ANN is deferred.
+
 ## 6. Workflows
 
 ### 6.1 Daily ingest → corpus (zero LLM except triage)
