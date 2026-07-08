@@ -5,7 +5,8 @@ from __future__ import annotations
 import sqlite3
 from unittest.mock import patch
 
-from perpetual_analyst.ingestion.rss import fetch_rss
+from perpetual_analyst.ingestion.extract import ArticleFetchError, FetchedArticle
+from perpetual_analyst.ingestion.rss import _extract_text, fetch_rss
 from perpetual_analyst.store.models import Source
 
 _FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -54,7 +55,10 @@ def test_fetch_rss_returns_new_items(db: sqlite3.Connection) -> None:
     source = _make_source(db)
     with (
         patch("perpetual_analyst.ingestion.rss.feedparser.parse", return_value=parsed),
-        patch("perpetual_analyst.ingestion.rss.trafilatura.fetch_url", return_value=None),
+        patch(
+            "perpetual_analyst.ingestion.rss.extract_url",
+            side_effect=ArticleFetchError("extraction failed"),
+        ),
     ):
         items = fetch_rss(source, db)
     assert len(items) == 2
@@ -71,7 +75,10 @@ def test_fetch_rss_deduplicates(db: sqlite3.Connection) -> None:
     source = _make_source(db)
     with (
         patch("perpetual_analyst.ingestion.rss.feedparser.parse", return_value=parsed),
-        patch("perpetual_analyst.ingestion.rss.trafilatura.fetch_url", return_value=None),
+        patch(
+            "perpetual_analyst.ingestion.rss.extract_url",
+            side_effect=ArticleFetchError("extraction failed"),
+        ),
     ):
         fetch_rss(source, db)
         # Re-fetch the source with updated last_fetched_at
@@ -90,7 +97,10 @@ def test_fetch_rss_updates_last_fetched_at(db: sqlite3.Connection) -> None:
     assert source.last_fetched_at is None
     with (
         patch("perpetual_analyst.ingestion.rss.feedparser.parse", return_value=parsed),
-        patch("perpetual_analyst.ingestion.rss.trafilatura.fetch_url", return_value=None),
+        patch(
+            "perpetual_analyst.ingestion.rss.extract_url",
+            side_effect=ArticleFetchError("extraction failed"),
+        ),
     ):
         fetch_rss(source, db)
     row = db.execute("SELECT last_fetched_at FROM sources WHERE id = ?", (source.id,)).fetchone()
@@ -104,6 +114,22 @@ def test_fetch_rss_increments_error_count_on_failure(db: sqlite3.Connection) -> 
         fetch_rss(source, db)
     row = db.execute("SELECT fetch_error_count FROM sources WHERE id = ?", (source.id,)).fetchone()
     assert row["fetch_error_count"] == 1
+
+
+def test_extract_text_falls_back_to_summary_on_failure():
+    with patch(
+        "perpetual_analyst.ingestion.rss.extract_url",
+        side_effect=ArticleFetchError("bot wall"),
+    ):
+        assert _extract_text("https://example.com/article", "Feed summary text.") == (
+            "Feed summary text."
+        )
+
+
+def test_extract_text_uses_extract_url_on_success():
+    article = FetchedArticle(title="Title", text="Full article " + "x" * 200)
+    with patch("perpetual_analyst.ingestion.rss.extract_url", return_value=article):
+        assert _extract_text("https://example.com/article", "summary") == article.text
 
 
 def test_fetch_rss_deactivates_source_after_5_errors(db: sqlite3.Connection) -> None:

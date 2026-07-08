@@ -1,4 +1,4 @@
-"""RSS/Atom feed fetcher: httpx + feedparser + trafilatura. See SPEC §12 Phase 2."""
+"""RSS/Atom feed fetcher: feedparser + shared extract_url. See SPEC §12 Phase 2."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
 import feedparser
-import trafilatura
 
+from perpetual_analyst.ingestion.extract import ArticleFetchError, extract_url
 from perpetual_analyst.store.db import insert_item
 from perpetual_analyst.store.models import Item, Source
 
@@ -42,15 +42,11 @@ def _entry_published_iso(entry: feedparser.FeedParserDict) -> str | None:
 
 
 def _extract_text(url: str | None, summary: str | None) -> str | None:
-    """Try trafilatura for full text; fall back to feed summary."""
+    """Try shared article extraction; fall back to feed summary on item-level failure."""
     if url:
         try:
-            downloaded = trafilatura.fetch_url(url)
-            if downloaded:
-                extracted = trafilatura.extract(downloaded)
-                if extracted:
-                    return extracted
-        except Exception:
+            return extract_url(url).text
+        except ArticleFetchError:
             pass
     return summary or None
 
