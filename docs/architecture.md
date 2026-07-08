@@ -134,7 +134,7 @@ still use `compaction.py`, `memory.py`, and `discovery.py` against SQLite.
 | `base.py` | `Fetcher` protocol / abstract base |
 | `rss.py` | `fetch_rss(source, conn)` — feedparser + trafilatura; datetime-correct since-filter (both sides parsed as UTC-naive, not string compare); increments `fetch_error_count` and deactivates source at ≥5 errors |
 | `inbox.py` | `scan_inbox(topic_slug, topic_id, source_id, conn)` — scan `inbox/<topic-slug>/` for .md/.txt/.pdf; pypdf extraction; hash-dedupe; moves processed files to `.processed/`. `get_or_create_inbox_source(conn, topic_id, topic_slug) -> int` — canonical shared helper; used by both CLI and `daily_run` |
-| `extract.py` | trafilatura article text extraction helpers |
+| `extract.py` | Article text extraction: trafilatura first, Firecrawl `/scrape` fallback on bot walls |
 
 ### `store/`
 

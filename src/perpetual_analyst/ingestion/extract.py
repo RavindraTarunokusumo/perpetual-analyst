@@ -96,8 +96,7 @@ def _scrape_with_firecrawl(url: str, *, timeout: float) -> FetchedArticle:
     markdown = (doc.markdown or "").strip()
     if len(markdown) < _MIN_ARTICLE_CHARS:
         raise ArticleFetchError(
-            f"Could not extract article text from {url} "
-            f"(Firecrawl returned {len(markdown)} chars)."
+            f"Could not extract article text from {url} (Firecrawl returned {len(markdown)} chars)."
         )
 
     title = doc.metadata.title if doc.metadata and doc.metadata.title else None
