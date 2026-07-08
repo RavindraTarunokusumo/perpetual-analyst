@@ -70,6 +70,7 @@ _SYNTHESIS_SYSTEM = (
     "briefing_markdown empty. Otherwise write briefing_markdown as the user-facing daily briefing."
 )
 
+
 @dataclass
 class SynthesisContext:
     windows: list[dict]
@@ -230,19 +231,20 @@ async def retrieve(
 
 async def get_or_create_watch_topic(
     slug: str,
-    name: str,
+    name: str | None,
     *,
     description: str | None = None,
     domain: str | None = None,
 ) -> uuid.UUID:
     # ponytail: no concurrency guard; retry on unique-violation only if PA runs topics concurrently
+    display_name = name or slug
     factory = _session_factory()
     async with factory() as session:
         existing = await session.scalar(select(WatchTopic).where(WatchTopic.slug == slug))
         if existing is not None:
             return existing.id
 
-        topic = WatchTopic(slug=slug, name=name, description=description, domain=domain)
+        topic = WatchTopic(slug=slug, name=display_name, description=description, domain=domain)
         session.add(topic)
         await session.commit()
         await session.refresh(topic)
