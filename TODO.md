@@ -22,10 +22,11 @@ Tasks (per plan):
 - [x] D1 — NarrativeUpdate + analytical Pydantic schemas; deprecate TopicAnalysis (PA) — `429d88b`
 - [x] A2 — `substrate.py` ingest+retrieve boundary (PA) — `16b1a06` (live-verified: scope isolation + dedupe)
 - [x] B1 — analytical tables migration 0009 (Nexus repo) — `8a776a4` (round-trip + CASCADE verified; head=0009)
-- [ ] B2 — get_or_create_watch_topic (slug→topic_id) in substrate.py
-- [ ] C1/C2 — daily ingest → corpus (triage kept)
-- [ ] D1 — NarrativeUpdate schema; deprecate TopicAnalysis
-- [ ] D2 — substrate synthesize + transactional persist_bundle
+- [x] B2 — get_or_create_watch_topic (slug→topic_id) in substrate.py — `1aa126f`
+- [x] C — daily ingest → corpus (triage kept) — `b16e209` (+ substrate loop fix `78b7be6`)
+- [x] D1 — NarrativeUpdate schema; deprecate TopicAnalysis — `429d88b`
+- [ ] D2a — substrate.synthesize (retrieve + one qwen3.7-max NarrativeUpdate call)
+- [ ] D2b — substrate.persist_bundle (transactional narrative/claims/hypotheses/predictions write)
 - [ ] D3 — synthesis orchestration
 - [ ] D4 — daily_run analyst stage + render briefing from narrative version
 - [ ] E1 — cross-session ask; E2 — prediction scoring + claim decay
