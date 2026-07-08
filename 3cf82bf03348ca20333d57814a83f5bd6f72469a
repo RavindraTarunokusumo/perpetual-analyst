@@ -1,0 +1,4 @@
+Task: D4 daily_run narrative loop
+Summary: Grok junior (session 019f41ad-a16d-7283-8211-75b305322fc7) + senior fix (Nexus/.env load order) + full pipeline e2e
+Validation: ruff clean; real daily_run e2e PASS (report fm=919/dg=472, narrative v1 persisted, telegram graceful); pre-existing schema_phase5 failures noted
+TODO: D4
