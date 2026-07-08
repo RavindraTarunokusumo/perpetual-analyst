@@ -1,0 +1,3 @@
+Spec: docs/specs/2026-07-08-harness-alignment-and-backlog.md
+Senior dev: Codex (proc_c5b3982a3a8b)
+Environment blockers: sandbox .git read-only during exec (fixed in main shell), missing deps for pytest/ruff, GitNexus MCP not registered for perpetual-analyst (only other projects). All backlog items cleared. Harness now follows canonical.
