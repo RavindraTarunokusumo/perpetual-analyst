@@ -1,0 +1,6 @@
+Task: [G] pin embedder to Qwen3-Embedding-0.6B @384 (spec §4 compliance)
+Summary: substrate._embedder now uses PA-pinned Qwen embedder (env-overridable), not Nexus's bge default. Verified 384-dim spans + consistent scoped retrieval + full synthesis on Qwen embeddings.
+Docs: N/A
+TODO: PA<->Nexus integration G
+Validation: ruff (substrate clean; 2 pre-existing UP017 in candidates.py), pytest 138 passed / 2 pre-existing source_candidates failures, live e2e (ingest cold 27s/warm 0.46s, dim=384, retrieve hit=True, synth 6 claims/4464 tok).
+Spec: docs/specs/2026-07-08-pa-nexus-integration.md
