@@ -13,6 +13,11 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - [ ] **Third-party source-rating API.** Replace the retired citation/uniqueness/freshness quality signals (dead since the FTS citation path was removed). Seam: `quality.compute_source_quality` (currently scores on `hit_rate` only).
 - [ ] **`substrate.ingest` true atomicity.** Currently compensating-delete on span-ingest failure; a hard crash between the document commit and span ingest can still orphan a document. True atomicity needs a session-based `ingest_sentence_spans` upstream in Nexus.
 
+### From the Web UI polish session (2026-07-09)
+
+- [ ] **Test suite does not collect on `main`.** Pre-existing refactor rot, unrelated to the UI work: `test_search` imports the deleted `retrieval` module; `test_smoke` imports missing `agent.run_topic`; `test_web_actions` imports removed `daily_run` symbols (`force_utf8_stdout`/`run_daily`); `test_web_queries`/`test_web_routes` depend on a removed `seeded_conn` fixture. Needs a dedicated cleanup to restore/remove these tests so `pytest` runs green.
+- [ ] **`docs/commands.md` dashboard port is stale.** Line ~91 says default `http://127.0.0.1:8080`; the real default is `8765` (`cli.web` / `serve_dashboard`). One-line doc fix.
+
 ### Pre-existing
 
 - [ ] Web UI: source-candidate approval flow (approve/dismiss discovered candidates; SSRF/validation on approved-URL fetch), source/quality dashboard. Supersedes the deferred Telegram approval buttons.
@@ -29,3 +34,4 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - Phase 5 (source discovery & quality) — `docs/iterations/archive/2026-06-11-phase-5-discovery.md`
 - PA ↔ Nexus integration — `docs/iterations/archive/2026-07-08-pa-nexus-integration.md` (PA #9 / Nexus #33)
 - Firecrawl source extraction — `docs/iterations/archive/2026-07-08-firecrawl-source-extraction.md` (PR #10 / `b982ab9`)
+- Web UI polish + run-blocker fixes — `docs/iterations/archive/2026-07-09-web-ui-polish.md` (PR #11 / `f3eab3b`)

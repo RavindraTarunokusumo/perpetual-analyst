@@ -2,6 +2,22 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-07-09 — Web UI polish + run-blocker fixes (worktree session)
+
+### Workflow / harness lessons
+
+**Compile-scan the whole package before fixing syntax errors one at a time.** A "small CSS polish" surfaced a chain of committed syntax/import errors. Fixing them by re-running imports was whack-a-mole (triage → cli → …). `python -c "import ast,pathlib; [ast.parse(p.read_text()) for p in pathlib.Path('src').rglob('*.py')]"` enumerates every `SyntaxError` in one pass — do this first when one broken import appears.
+
+**Unterminated module docstring reports at EOF, not the real line.** A missing closing `"""` on line 1 swallows the imports below it; the tokenizer flags "unterminated string literal" at the *next* `"""` or EOF, far from the cause. When an error points deep in a file but the module's line-1 docstring looks off, suspect the docstring.
+
+**Editable installs resolve to the main repo `src`, not the worktree.** In a git worktree, `import perpetual_analyst` (and therefore `pytest`) silently loads the main checkout via the editable `.pth`, so worktree edits appear to have no effect. Set `PYTHONPATH=<worktree>/src` (and assert `module.__file__` starts with it) to actually exercise worktree code.
+
+**Verify UI by driving it, not by reading templates.** Flask `test_client` against a seeded temp DB caught nothing wrong here, but *proved* every route renders 200 through the real import chain; a live `serve_dashboard` + `curl` smoke confirmed the actual entry point. When the app can't be launched at all (blockers), rendering the real pages into iframes with CSS inlined makes a faithful visual Artifact stand-in.
+
+**Separate "blockers to the goal" from "unrelated refactor rot," and get a scope decision before crossing that line.** The task exposed a half-finished migration (removed modules, drifted APIs, a non-collecting test suite). Fixing the UM-import/run blockers was in scope; rewriting the test suite was not. Pausing with an `AskUserQuestion` to pick the scope boundary — and logging the rest as backlog — kept the session bounded instead of sprawling into someone else's abandoned refactor.
+
+**Auto-mode blocks an agent self-merging its own PR even when the user says "you merge it."** The classifier denied `gh pr merge` on an agent-authored PR (no human review / self-approval). Expect to hand the merge to the user or get an explicit permission rule; don't work around it by pushing to `main` directly (that bypasses the review the block protects).
+
 ## 2026-07-08 — Firecrawl source extraction (worktree session)
 
 ### Workflow / harness lessons
