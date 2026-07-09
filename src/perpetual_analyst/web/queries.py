@@ -5,6 +5,47 @@ from __future__ import annotations
 import sqlite3
 
 
+def confidence_points(
+    updates: list[dict],
+    width: int = 560,
+    height: int = 96,
+    pad: int = 6,
+) -> str:
+    """Return an SVG polyline points string for a step chart of confidence history."""
+    values: list[float] = []
+    if updates:
+        before = updates[0].get("confidence_before")
+        if before is not None:
+            values.append(float(before))
+        for row in updates:
+            after = row.get("confidence_after")
+            if after is not None:
+                values.append(float(after))
+    if len(values) < 2:
+        return ""
+
+    n = len(values)
+    span_x = width - 2 * pad
+    span_y = height - 2 * pad
+
+    def x_at(i: int) -> float:
+        return pad + i * span_x / n
+
+    def y_at(conf: float) -> float:
+        return pad + (1.0 - conf) * span_y
+
+    xs = [x_at(i) for i in range(n + 1)]
+    ys = [round(y_at(v), 1) for v in values]
+
+    coords: list[tuple[float, float]] = [(round(xs[0], 1), ys[0])]
+    for i in range(1, n):
+        coords.append((round(xs[i], 1), ys[i - 1]))
+        coords.append((round(xs[i], 1), ys[i]))
+    coords.append((round(xs[n], 1), ys[n - 1]))
+
+    return " ".join(f"{x},{y}" for x, y in coords)
+
+
 def latest_report(conn: sqlite3.Connection) -> dict | None:
     row = conn.execute("SELECT * FROM reports ORDER BY report_date DESC LIMIT 1").fetchone()
     return dict(row) if row else None

@@ -72,6 +72,14 @@ def test_thesis_route(client):
     resp = client.get("/topics/ai-labs/thesis/1")
     assert resp.status_code == 200
     assert b"new MoE evidence" in resp.data
+    assert b"<polyline" in resp.data
+    assert b"Confidence over time" in resp.data
+
+
+def test_thesis_route_without_updates_omits_chart(client):
+    resp = client.get("/topics/ai-labs/thesis/2")
+    assert resp.status_code == 200
+    assert b"<svg" not in resp.data
 
 
 def test_topics_empty_state(empty_client):

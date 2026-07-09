@@ -96,3 +96,39 @@ def test_today_changes_quiet_when_no_updates(seeded_conn):
     assert rows[0]["quiet"] is True
     assert rows[0]["deltas"] == []
     assert rows[0]["new_observations"] == 0
+
+
+def test_confidence_points_empty_updates():
+    assert queries.confidence_points([]) == ""
+
+
+def test_confidence_points_single_step():
+    updates = [{"confidence_before": 0.5, "confidence_after": 0.62}]
+    points = queries.confidence_points(updates)
+    pairs = [tuple(map(float, p.split(","))) for p in points.split()]
+    assert len(pairs) == 4
+    assert pairs[0][1] == pairs[1][1]  # horizontal hold before step
+    assert pairs[2][1] == pairs[3][1]  # horizontal hold after step
+    assert pairs[1][0] == pairs[2][0]  # vertical step at same x
+
+
+def test_confidence_points_skips_none_confidences():
+    updates = [
+        {"confidence_before": None, "confidence_after": 0.5},
+        {"confidence_before": 0.5, "confidence_after": 0.62},
+    ]
+    points = queries.confidence_points(updates)
+    assert points != ""
+
+
+def test_confidence_points_all_none_returns_empty():
+    updates = [{"confidence_before": None, "confidence_after": None}]
+    assert queries.confidence_points(updates) == ""
+
+
+def test_confidence_points_y_inverts_confidence():
+    updates = [{"confidence_before": 1.0, "confidence_after": 0.0}]
+    points = queries.confidence_points(updates)
+    pairs = [tuple(map(float, p.split(","))) for p in points.split()]
+    assert pairs[0][1] == 6.0  # confidence 1.0 → top (pad)
+    assert pairs[-1][1] == 90.0  # confidence 0.0 → bottom

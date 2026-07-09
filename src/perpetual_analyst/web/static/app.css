@@ -195,6 +195,8 @@ form.inline { display: inline; }
 .changes-obs { margin: 4px 0 0; font-size: 13px; }
 .changes-quiet { margin: 0 0 6px; font-size: 14px; }
 
+.timeline svg { width: 100%; height: auto; display: block; }
+
 @media (prefers-reduced-motion: no-preference) {
   @keyframes changes-fade-up {
     from { opacity: 0; transform: translateY(6px); }

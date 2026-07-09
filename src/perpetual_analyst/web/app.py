@@ -127,7 +127,25 @@ def create_app(db_path: str) -> Flask:
         topic_id = queries.topic_id_for_slug(conn, slug)
         if detail is None or topic_id is None or detail["thesis"]["topic_id"] != topic_id:
             abort(404)
-        return render_template("thesis.html", slug=slug, **detail)
+        updates = detail["updates"]
+        points = queries.confidence_points(updates)
+        values: list[float] = []
+        if updates:
+            before = updates[0].get("confidence_before")
+            if before is not None:
+                values.append(float(before))
+            for row in updates:
+                after = row.get("confidence_after")
+                if after is not None:
+                    values.append(float(after))
+        rising = len(values) >= 2 and values[-1] >= values[0]
+        return render_template(
+            "thesis.html",
+            slug=slug,
+            points=points,
+            rising=rising,
+            **detail,
+        )
 
     @app.route("/items")
     def items():
