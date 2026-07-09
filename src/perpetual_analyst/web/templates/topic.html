@@ -4,7 +4,7 @@
 {% if dossier %}
 <section class="card">
   <div class="label">Dossier · updated {{ dossier.updated_at or '—' }}</div>
-  <pre class="muted" style="white-space:pre-wrap">{{ dossier.content }}</pre>
+  <div class="prose">{{ dossier.content | markdown | safe }}</div>
 </section>
 {% endif %}
 

@@ -180,3 +180,6 @@ form.inline { display: inline; }
 }
 .report table { display: block; overflow-x: auto; }
 .reading article { margin: 0 auto 24px; }
+.prose { max-width: 720px; }
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child { margin-bottom: 0; }

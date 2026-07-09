@@ -47,6 +47,20 @@ def test_topic_detail_route(client):
     assert b"Open-weight reaches parity" in resp.data
 
 
+def test_topic_detail_renders_dossier_markdown(client, seeded_conn):
+    seeded_conn.execute(
+        "UPDATE dossiers SET content = ? WHERE topic_id = 1",
+        ("## State of play\n\n- First point\n- Second point",),
+    )
+    seeded_conn.commit()
+    resp = client.get("/topics/ai-labs")
+    assert resp.status_code == 200
+    assert b"<h2>State of play</h2>" in resp.data
+    assert b"<li>First point</li>" in resp.data
+    assert b"## State of play" not in resp.data
+    assert b"- First point" not in resp.data
+
+
 def test_topic_detail_404(client):
     assert client.get("/topics/nope").status_code == 404
 
@@ -92,6 +106,20 @@ def test_reading_route_lists_dossiers(client):
     resp = client.get("/reading")
     assert resp.status_code == 200
     assert b"State of play" in resp.data
+
+
+def test_reading_route_renders_dossier_markdown(client, seeded_conn):
+    seeded_conn.execute(
+        "UPDATE dossiers SET content = ? WHERE topic_id = 1",
+        ("## State of play\n\n- First point\n- Second point",),
+    )
+    seeded_conn.commit()
+    resp = client.get("/reading")
+    assert resp.status_code == 200
+    assert b"<h2>State of play</h2>" in resp.data
+    assert b"<li>First point</li>" in resp.data
+    assert b"## State of play" not in resp.data
+    assert b"- First point" not in resp.data
 
 
 def test_reading_toggle_sets_cookie_and_redirects_home(client):
