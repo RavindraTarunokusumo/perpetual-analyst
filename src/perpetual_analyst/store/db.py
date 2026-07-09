@@ -199,9 +199,7 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
     if "probation_until" not in source_cols:
         conn.execute("ALTER TABLE sources ADD COLUMN probation_until TEXT")
 
-    candidate_cols = {
-        row["name"] for row in conn.execute("PRAGMA table_info(source_candidates)")
-    }
+    candidate_cols = {row["name"] for row in conn.execute("PRAGMA table_info(source_candidates)")}
     if "reviewed_at" not in candidate_cols:
         conn.execute("ALTER TABLE source_candidates ADD COLUMN reviewed_at TEXT")
     if "review_note" not in candidate_cols:

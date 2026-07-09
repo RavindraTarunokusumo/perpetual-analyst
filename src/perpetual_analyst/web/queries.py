@@ -12,7 +12,7 @@ def latest_report(conn: sqlite3.Connection) -> dict | None:
 
 def report_list(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
-        "SELECT id, report_date, delivered_at, created_at " "FROM reports ORDER BY report_date DESC"
+        "SELECT id, report_date, delivered_at, created_at FROM reports ORDER BY report_date DESC"
     ).fetchall()
     return [dict(r) for r in rows]
 
@@ -39,7 +39,7 @@ def topic_detail(conn: sqlite3.Connection, slug: str) -> dict | None:
     topic_id = topic["id"]
     dossier = conn.execute("SELECT * FROM dossiers WHERE topic_id = ?", (topic_id,)).fetchone()
     theses = conn.execute(
-        "SELECT * FROM theses WHERE topic_id = ? AND status = 'active' " "ORDER BY confidence DESC",
+        "SELECT * FROM theses WHERE topic_id = ? AND status = 'active' ORDER BY confidence DESC",
         (topic_id,),
     ).fetchall()
     observations = conn.execute(
