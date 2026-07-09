@@ -5,6 +5,18 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
+## Active session — Web UI refresh (2026-07-09)
+
+Spec: `docs/specs/2026-07-09-web-ui-refresh.md` · Plan: `docs/specs/2026-07-09-web-ui-refresh-plan.md`
+Branch: `web-ui-refresh` · Implementer: Grok junior handoff (one ephemeral session per task)
+
+- [ ] T1 — Test enablement: restore `client`/seeded-DB fixtures so `tests/test_web_routes.py` + `tests/test_web_queries.py` collect and pass (no production changes)
+- [ ] T2 — CSS tokens: ink-on-paper palette, semantic rise/fall colors, dark mode, mono tabular numerals, nav overflow, Reading view toggle
+- [ ] T3 — Dossiers render as markdown (shared Jinja filter) on topic + reading pages
+- [ ] T4 — Today "what changed" strip: thesis delta chips, new-observation counts, quiet nothing-significant lines, single load animation
+- [ ] T5 — Thesis page: inline SVG confidence timeline from `thesis_updates`
+- [ ] T6 — Topics index enrichment + Ops status pill + actionable empty states + link hygiene
+
 ## Future Backlog
 
 ### From the PA ↔ Nexus integration (2026-07-08)
