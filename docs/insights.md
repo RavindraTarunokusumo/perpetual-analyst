@@ -2,6 +2,20 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-07-09 — Workflow hardening (CI gate + rule promotion)
+
+### Workflow / harness lessons
+
+**Close the reflection loop: promote a 2nd-occurrence lesson into an enforced mechanism, same session.** This session was that rule applied — three lessons that had recurred 3–4× as advice (editable-install-in-worktree, GitNexus stale index, `/simplify` scope) became a Preamble step, a GitNexus fallback rule, and a Pre-Commit note; plus CI. The reflection step now mandates this (CLAUDE.md), so recurring traps stop being re-learned. Advisory prose in `insights.md` is where lessons go to be forgotten.
+
+**Bootstrap CI on a debt-laden repo by gating only what's green today.** The suite doesn't collect and even `src` wasn't lint-clean, so a full `ruff .`/`pytest` gate would have been born red. Scope the gate to what passes now (`compileall` + `ruff` on `src`) — `compileall` alone catches the actual regression class (the four committed SyntaxErrors) — and document the rest (pytest, `ruff .`) as a tracked follow-up to widen once the debt clears. A narrow green gate beats a broad red one nobody can satisfy.
+
+**Verify CI executes; don't reason about whether it will.** I predicted CI wouldn't run on the PR that introduces the workflow — wrong: for same-repo PRs GitHub runs `ci.yml` from the head branch, so it ran green on the PR *and* on `main` post-merge. `gh run watch --exit-status` confirmed it. Check the run, don't theorize about triggers.
+
+**Pin pre-commit and CI to the same tool version.** Local ruff was `0.15.20`; pre-commit pinned `v0.5.0` — a format-output gap that lets a commit pass the hook and fail CI. Bumped both to `v0.15.20` (verify the `ruff-pre-commit` tag resolves by running the hook once). Any formatter/linter that gates in two places must be one version.
+
+**Adding a `.github/workflows/*` file needs the `gh` `workflow` token scope.** Push is rejected ("refusing to allow an OAuth App to … workflow … without `workflow` scope") until `gh auth refresh -s workflow`; the whole branch is blocked, not just that file. (Now in `docs/environment-gotchas.md`.)
+
 ## 2026-07-09 — Web UI polish + run-blocker fixes (worktree session)
 
 ### Workflow / harness lessons

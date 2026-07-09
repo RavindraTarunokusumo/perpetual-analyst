@@ -35,3 +35,4 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 - PA ↔ Nexus integration — `docs/iterations/archive/2026-07-08-pa-nexus-integration.md` (PA #9 / Nexus #33)
 - Firecrawl source extraction — `docs/iterations/archive/2026-07-08-firecrawl-source-extraction.md` (PR #10 / `b982ab9`)
 - Web UI polish + run-blocker fixes — `docs/iterations/archive/2026-07-09-web-ui-polish.md` (PR #11 / `f3eab3b`)
+- Workflow hardening (CI gate + rules) — `docs/iterations/archive/2026-07-09-workflow-hardening.md` (PR #12 / `79ed66e`)
