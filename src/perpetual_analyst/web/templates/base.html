@@ -17,8 +17,8 @@
     <a href="{{ url_for('ops') }}" class="{{ 'active' if ep == 'ops' }}">Ops</a>
     <span class="spacer"></span>
     <form method="post" action="{{ url_for('reading_toggle') }}" class="inline">
-      <button class="btn" type="submit">
-        {% if request.cookies.get('reading') == '1' %}Exit reading{% else %}Reading mode{% endif %}
+      <button class="btn btn-secondary" type="submit">
+        {% if request.cookies.get('reading') == '1' %}Exit reading view{% else %}Reading view{% endif %}
       </button>
     </form>
     {% block nav_extra %}{% endblock %}
