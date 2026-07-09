@@ -136,6 +136,28 @@ tbody tr:hover { background: var(--bg); }
 .badge-warn { background: var(--fall-soft); border-color: var(--line-strong); color: var(--fall); }
 .badge-ok { background: var(--rise-soft); border-color: var(--line-strong); color: var(--rise); }
 
+/* Run status pill */
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+  background: var(--bg); border: 1px solid var(--line-strong); color: var(--muted);
+}
+.status-pill .dot {
+  width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0;
+}
+.status-pill-running { background: var(--rise-soft); border-color: var(--line-strong); color: var(--rise); }
+.status-pill-done { background: var(--rise-soft); border-color: var(--line-strong); color: var(--rise); }
+.status-pill-error { background: var(--fall-soft); border-color: var(--line-strong); color: var(--fall); }
+.status-pill-error-text { margin-left: 8px; font-size: 13px; color: var(--fall); }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes status-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+  }
+  .status-pill-running .dot { animation: status-pulse 1.5s ease-in-out infinite; }
+}
+
 /* Buttons */
 .btn {
   font: inherit; font-size: 14px; padding: 7px 14px;

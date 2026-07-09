@@ -118,7 +118,18 @@ def topic_list(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
         """SELECT t.id, t.slug, t.name, t.brief,
                   (SELECT COUNT(*) FROM theses
-                   WHERE topic_id = t.id AND status = 'active') AS active_theses
+                   WHERE topic_id = t.id AND status = 'active') AS active_theses,
+                  (SELECT updated_at FROM dossiers WHERE topic_id = t.id) AS dossier_updated_at,
+                  (SELECT statement FROM theses
+                   WHERE topic_id = t.id AND status = 'active'
+                   ORDER BY confidence DESC LIMIT 1) AS top_thesis,
+                  (SELECT confidence FROM theses
+                   WHERE topic_id = t.id AND status = 'active'
+                   ORDER BY confidence DESC LIMIT 1) AS top_confidence,
+                  (SELECT COUNT(*) FROM thesis_updates tu
+                   JOIN theses th ON th.id = tu.thesis_id
+                   WHERE th.topic_id = t.id
+                     AND date(tu.created_at) = date('now')) AS updates_today
            FROM topics t WHERE t.active = 1 ORDER BY t.name"""
     ).fetchall()
     return [dict(r) for r in rows]

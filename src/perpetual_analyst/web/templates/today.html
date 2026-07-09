@@ -32,6 +32,6 @@
   </section>
   <article class="report">{{ report_html|safe }}</article>
 {% else %}
-  <p class="empty">No report yet — run the pipeline from Ops.</p>
+  <p class="empty">No report yet — <a href="{{ url_for('ops') }}">run the pipeline from Ops</a>.</p>
 {% endif %}
 {% endblock %}

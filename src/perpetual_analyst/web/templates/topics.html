@@ -4,16 +4,27 @@
 {% if topics %}
 <div class="table-wrap">
 <table>
-  <tr><th>Topic</th><th>Active theses</th></tr>
+  <tr><th>Topic</th><th>Top thesis</th><th>Active</th><th>Updated</th></tr>
   {% for t in topics %}
   <tr>
-    <td><a href="{{ url_for('topic', slug=t.slug) }}">{{ t.name }}</a></td>
-    <td>{{ t.active_theses }}</td>
+    <td>
+      <a href="{{ url_for('topic', slug=t.slug) }}">{{ t.name }}</a>
+      {% if t.updates_today > 0 %}<span class="delta rise">{{ t.updates_today }} today</span>{% endif %}
+    </td>
+    <td>
+      {% if t.top_thesis %}
+      <span style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">{{ t.top_thesis }}</span>
+      <span class="bar-track"><span class="bar" style="width:{{ ((t.top_confidence or 0) * 100)|int }}%"></span></span>
+      {% else %}—{% endif %}
+    </td>
+    <td class="num">{{ t.active_theses }}</td>
+    <td class="num">{% if t.dossier_updated_at %}{{ t.dossier_updated_at[:10] }}{% else %}—{% endif %}</td>
   </tr>
   {% endfor %}
 </table>
 </div>
 {% else %}
 <p class="empty">No topics configured.</p>
+<p class="muted">Add topics with <code>analyst topic add</code>.</p>
 {% endif %}
 {% endblock %}

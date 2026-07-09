@@ -17,8 +17,22 @@ def test_report_by_date_returns_markdown(seeded_conn):
 def test_topic_list(seeded_conn):
     rows = queries.topic_list(seeded_conn)
     assert len(rows) == 1
-    assert rows[0]["slug"] == "ai-labs"
-    assert rows[0]["active_theses"] == 1  # the retired thesis is excluded
+    row = rows[0]
+    assert row["slug"] == "ai-labs"
+    assert row["active_theses"] == 1  # the retired thesis is excluded
+    assert row["top_thesis"] == "Open-weight reaches parity"
+    assert row["top_confidence"] == 0.62
+    assert row["dossier_updated_at"] == "2026-06-12 09:00:00"
+    assert row["updates_today"] == 0
+
+    seeded_conn.execute(
+        "INSERT INTO thesis_updates (id, thesis_id, change, confidence_before, "
+        "confidence_after, triggered_by_item_id, created_at) "
+        "VALUES (99, 1, 'today bump', 0.68, 0.70, 1, datetime('now'))"
+    )
+    seeded_conn.commit()
+    rows = queries.topic_list(seeded_conn)
+    assert rows[0]["updates_today"] == 1
 
 
 def test_topic_detail_bundles_memory(seeded_conn):

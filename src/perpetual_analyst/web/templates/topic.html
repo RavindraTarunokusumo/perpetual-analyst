@@ -13,7 +13,7 @@
   {% for t in theses %}
   <div class="row">
     <span class="grow"><a href="{{ url_for('thesis', slug=topic.slug, thesis_id=t.id) }}">{{ t.statement }}</a></span>
-    <span class="muted">{{ '%.2f'|format(t.confidence or 0) }}</span>
+    <span class="muted num">{{ '%.2f'|format(t.confidence or 0) }}</span>
     <span class="bar-track"><span class="bar" style="width:{{ ((t.confidence or 0) * 100)|int }}%"></span></span>
   </div>
   {% else %}
@@ -26,7 +26,7 @@
   {% for o in observations %}
   <div class="row">
     <span class="grow">{{ o.content }}</span>
-    <span class="muted">{{ o.kind }} · imp {{ o.importance }}{% if o.source_item_ids %} · {{ o.source_item_ids }}{% endif %}</span>
+    <span class="muted">{{ o.kind }} · imp <span class="num">{{ o.importance }}</span>{% if o.source_item_ids %} · {{ o.source_item_ids }}{% endif %}</span>
   </div>
   {% else %}
   <p class="empty">No observations.</p>
@@ -38,7 +38,7 @@
   {% for i in items %}
   <div class="row">
     <span class="grow">{{ i.title or '(untitled)' }}</span>
-    <span class="muted">{{ '%.2f'|format(i.triage_score or 0) }}</span>
+    <span class="muted num">{{ '%.2f'|format(i.triage_score or 0) }}</span>
     <span class="badge">{{ i.status }}</span>
   </div>
   {% else %}

@@ -12,6 +12,8 @@ def test_today_route_empty_state(empty_client):
     assert resp.status_code == 200
     assert b"No report yet" in resp.data
     assert b"What changed" not in resp.data
+    assert b'href="/ops"' in resp.data
+    assert b"run the pipeline from Ops" in resp.data
 
 
 def test_reports_list_route(client):
@@ -41,6 +43,7 @@ def test_topics_route(client):
     resp = client.get("/topics")
     assert resp.status_code == 200
     assert b"AI Frontier Labs" in resp.data
+    assert b"Open-weight reaches parity" in resp.data
 
 
 def test_topic_detail_route(client):
@@ -92,6 +95,7 @@ def test_items_route(client):
     resp = client.get("/items")
     assert resp.status_code == 200
     assert b"Scaling laws" in resp.data
+    assert b'rel="noopener"' in resp.data
 
 
 def test_items_route_status_filter(client):
@@ -105,6 +109,7 @@ def test_ops_route(client):
     resp = client.get("/ops")
     assert resp.status_code == 200
     assert b"arXiv cs.LG" in resp.data
+    assert b"status-pill" in resp.data
 
 
 def test_items_empty_state(empty_client):
