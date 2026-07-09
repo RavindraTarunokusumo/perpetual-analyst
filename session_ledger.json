@@ -4,9 +4,9 @@
     "branch": "web-ui-refresh",
     "spec": "docs/specs/2026-07-09-web-ui-refresh.md",
     "plan": "docs/specs/2026-07-09-web-ui-refresh-plan.md",
-    "workflow_step": "3-planning",
-    "autopilot": "not granted",
-    "status": "awaiting_spec_and_plan_acceptance"
+    "workflow_step": "5-pre-pr",
+    "autopilot": "granted 2026-07-09 (steps 3-5)",
+    "status": "review_fixes_in_flight"
   },
   "blockers": [
     {
@@ -15,17 +15,44 @@
     },
     {
       "kind": "tests",
-      "detail": "Pre-existing: 4 non-web collection errors in the full suite; tests/test_web_routes.py references a missing 'client' fixture. Fixture restoration is in scope (plan T1); the 4 collection errors are not."
+      "detail": "Pre-existing: 4 non-web collection errors in the full suite (test_search, test_smoke, and friends). Out of scope; tracked in TODO backlog."
     }
   ],
-  "handoffs": [],
+  "handoffs": [
+    {"task": "T1 test fixtures", "sessionId": "019f47f7-ae16-7230-9526-9fb9f87648df", "result": "committed 80a9c3a", "cleanup": "done"},
+    {"task": "T2 design tokens", "sessionId": "019f47f9-b5f2-7361-881f-02354f56dd51", "result": "committed 1ca80bb", "cleanup": "done"},
+    {"task": "T3 markdown dossiers", "sessionId": "019f47fb-5ad4-77a2-9ffb-f12d87c6d1cf", "result": "committed a669f0d", "cleanup": "done"},
+    {"task": "T4 today changes strip", "sessionId": "019f47fc-8ccd-7a00-80fa-f700b6cc9dbe", "result": "committed 441c698 (senior normalized stripped trailing newline)", "cleanup": "done"},
+    {"task": "T5 thesis SVG timeline", "sessionId": "019f47fe-6850-7ae2-9821-d649c6a8ccf0", "result": "committed 12e731f (senior normalized stripped trailing newline)", "cleanup": "done"},
+    {"task": "T6 topics/ops/empty states", "sessionId": "019f4800-8b91-7a42-a0a8-3a365250a368", "result": "committed 82bd836 (senior normalized 2 stripped trailing newlines)", "cleanup": "done"},
+    {"task": "branch code review", "sessionId": "019f4803-7411-7f01-9272-ce7f15d4234b", "result": "8 findings: 5 accepted -> T7, 3 declined with reasons", "cleanup": "pending"},
+    {"task": "T7 review fixes", "sessionId": "pending", "result": "in flight", "cleanup": "pending"}
+  ],
+  "review": {
+    "reviewer": "grok (branch diff main...HEAD)",
+    "verdict": "no blocking findings",
+    "accepted": [
+      "clamp confidence to [0,1] in confidence_points",
+      "updates_today filters active theses only",
+      "shared confidence_series() helper (dedupe route/chart logic)",
+      "deterministic tiebreak on top_thesis/top_confidence subqueries",
+      ".num wrapper on topics 'N today' badge"
+    ],
+    "declined": [
+      {"finding": "today_changes shows quiet lines for topics absent from the report (failed topics)", "reason": "only signal is parsing full_markdown headings (fragile); proper fix is persisting per-topic run outcomes = schema change out of spec scope; logged as known limitation in PR + TODO backlog"},
+      {"finding": "updates_today uses date('now') while strip uses report_date", "reason": "by design: badge copy says 'today' (calendar); strip is anchored to the report date"},
+      {"finding": "flat confidence series stroked as rise (>=)", "reason": "flat-endpoints case is rare; teal reads as 'held'; third stroke state not worth the branch"}
+    ]
+  },
   "validation": [
-    {
-      "command": "PYTHONPATH=$PWD/src .venv/bin/python -m pytest tests/test_web_routes.py tests/test_web_queries.py tests/test_web_actions.py -q",
-      "result": "baseline",
-      "detail": "2 passed, 45 errors — all errors are the missing 'client' fixture (pre-existing)."
-    }
+    {"command": "PYTHONPATH=$PWD/src pytest tests/test_web_routes.py tests/test_web_queries.py tests/test_web_actions.py -q", "result": "57 passed (baseline was 2 passed, 45 errors on missing fixtures)"},
+    {"command": "ruff check src", "result": "passed"},
+    {"command": "python -m compileall src", "result": "passed"},
+    {"command": "live smoke: serve create_app on seeded DB, curl 10 routes", "result": "all 200; strip/timeline/markdown-dossier markers asserted in real HTML"},
+    {"command": "visual light/dark artifact", "result": "https://claude.ai/code/artifact/77504d82-7d8c-4077-b1fc-6d9ad7438a39"}
   ],
-  "commits": [],
-  "reviews": []
+  "commits": ["28948f5", "80a9c3a", "1ca80bb", "a669f0d", "441c698", "12e731f", "82bd836"],
+  "reviews": [
+    {"name": "grok-branch-review", "result": "processed", "detail": "5/8 findings accepted into T7; 3 declined with technical reasons recorded above."}
+  ]
 }
