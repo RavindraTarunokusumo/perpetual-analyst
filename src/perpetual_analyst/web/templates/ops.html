@@ -3,33 +3,39 @@
 <h1>Ops</h1>
 <section class="card">
   <div class="label">Item status</div>
-  {% for k, v in ov.status_counts.items() %}<span>{{ k }}: {{ v }} &nbsp;</span>{% endfor %}
-  <div>Undelivered reports: {{ ov.undelivered }}</div>
+  <div class="btn-group" style="flex-wrap: wrap">
+    {% for k, v in ov.status_counts.items() %}<span class="badge">{{ k }}: {{ v }}</span>{% endfor %}
+    <span class="badge {{ 'badge-warn' if ov.undelivered else 'badge-ok' }}">undelivered reports: {{ ov.undelivered }}</span>
+  </div>
 </section>
 <section class="card">
   <div class="label">Sources</div>
-  <table>
-    <tr><th>Name</th><th>Type</th><th>Active</th><th>Last fetched</th><th>Errors</th></tr>
-    {% for s in ov.sources %}
-    <tr>
-      <td>{{ s.name }}</td><td>{{ s.type }}</td>
-      <td>{{ 'yes' if s.active else 'no' }}</td>
-      <td>{{ s.last_fetched_at or '—' }}</td>
-      <td>{{ s.fetch_error_count }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+  <div class="table-wrap" style="box-shadow: none; border: none">
+    <table>
+      <tr><th>Name</th><th>Type</th><th>Active</th><th>Last fetched</th><th>Errors</th></tr>
+      {% for s in ov.sources %}
+      <tr>
+        <td>{{ s.name }}</td><td>{{ s.type }}</td>
+        <td>{% if s.active %}<span class="badge badge-ok">yes</span>{% else %}<span class="badge">no</span>{% endif %}</td>
+        <td>{{ s.last_fetched_at or '—' }}</td>
+        <td>{% if s.fetch_error_count %}<span class="badge badge-warn">{{ s.fetch_error_count }}</span>{% else %}0{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
 </section>
 <section class="card">
   <div class="label">Daily run</div>
   <div id="run-state">state: {{ run_status.state }}{% if run_status.error %} ({{ run_status.error }}){% endif %}</div>
-  <form method="post" action="{{ url_for('action_run') }}" class="inline">
-    <button class="btn" type="submit">Trigger run</button>
-  </form>
-  <form method="post" action="{{ url_for('action_run') }}" class="inline">
-    <input type="hidden" name="dry_run" value="1">
-    <button class="btn" type="submit">Trigger dry-run</button>
-  </form>
+  <div class="btn-group" style="margin-top: 12px">
+    <form method="post" action="{{ url_for('action_run') }}" class="inline">
+      <button class="btn" type="submit">Trigger run</button>
+    </form>
+    <form method="post" action="{{ url_for('action_run') }}" class="inline">
+      <input type="hidden" name="dry_run" value="1">
+      <button class="btn btn-secondary" type="submit">Trigger dry-run</button>
+    </form>
+  </div>
 </section>
 <script>
   async function poll() {

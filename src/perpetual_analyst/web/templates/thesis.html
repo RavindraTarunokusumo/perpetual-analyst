@@ -5,6 +5,8 @@
 <p>Status: {{ thesis.status }} · confidence {{ '%.2f'|format(thesis.confidence or 0) }}</p>
 {% if thesis.rationale %}<p class="muted">{{ thesis.rationale }}</p>{% endif %}
 <h2>Update history</h2>
+{% if updates %}
+<div class="table-wrap">
 <table>
   <tr><th>When</th><th>Before → After</th><th>Change</th></tr>
   {% for u in updates %}
@@ -14,8 +16,10 @@
         → {{ '%.2f'|format(u.confidence_after) if u.confidence_after is not none else '—' }}</td>
     <td>{{ u.change }}</td>
   </tr>
-  {% else %}
-  <tr><td colspan="3" class="empty">No history.</td></tr>
   {% endfor %}
 </table>
+</div>
+{% else %}
+<p class="empty">No history.</p>
+{% endif %}
 {% endblock %}
