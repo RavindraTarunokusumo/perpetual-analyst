@@ -8,11 +8,9 @@ import sqlite3
 import threading
 from datetime import UTC, datetime
 
-from perpetual_analyst.analyst.agent import make_client
-from perpetual_analyst.config import load_settings
-from perpetual_analyst.daily_run import force_utf8_stdout, run_daily
+from perpetual_analyst import daily_run
 from perpetual_analyst.delivery.telegram import retry_undelivered
-from perpetual_analyst.store.db import init_db, insert_item
+from perpetual_analyst.store.db import insert_item
 
 
 class NoInboxSource(Exception):
@@ -84,13 +82,9 @@ def _now() -> str:
 
 def _run_worker(db_path: str, dry_run: bool) -> None:
     try:
-        force_utf8_stdout()
-        conn = init_db(db_path)
-        try:
-            client = None if dry_run else make_client()
-            run_daily(conn, client, load_settings(), dry_run=dry_run)
-        finally:
-            conn.close()
+        # daily_run.main() opens its own conn/client from ANALYST_DB_PATH + env.
+        os.environ["ANALYST_DB_PATH"] = db_path
+        daily_run.main(dry_run=dry_run)
         _run_status.update(state="done", finished_at=_now())
     except Exception as exc:  # secret hygiene: type name only
         _run_status.update(state="error", finished_at=_now(), error=type(exc).__name__)

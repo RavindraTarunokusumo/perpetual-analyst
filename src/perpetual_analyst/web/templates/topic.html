@@ -11,10 +11,10 @@
 <section class="card">
   <div class="label">Active theses ({{ theses|length }} / 7)</div>
   {% for t in theses %}
-  <div>
-    <a href="{{ url_for('thesis', slug=topic.slug, thesis_id=t.id) }}">{{ t.statement }}</a>
-    — conf {{ '%.2f'|format(t.confidence or 0) }}
-    <span class="bar-track"><span class="bar" style="width:{{ ((t.confidence or 0) * 90)|int }}px"></span></span>
+  <div class="row">
+    <span class="grow"><a href="{{ url_for('thesis', slug=topic.slug, thesis_id=t.id) }}">{{ t.statement }}</a></span>
+    <span class="muted">{{ '%.2f'|format(t.confidence or 0) }}</span>
+    <span class="bar-track"><span class="bar" style="width:{{ ((t.confidence or 0) * 100)|int }}%"></span></span>
   </div>
   {% else %}
   <p class="empty">No active theses.</p>
@@ -24,7 +24,10 @@
 <section class="card">
   <div class="label">Recent observations</div>
   {% for o in observations %}
-  <div>● {{ o.kind }} — {{ o.content }} <span class="muted">imp {{ o.importance }} · {{ o.source_item_ids or '' }}</span></div>
+  <div class="row">
+    <span class="grow">{{ o.content }}</span>
+    <span class="muted">{{ o.kind }} · imp {{ o.importance }}{% if o.source_item_ids %} · {{ o.source_item_ids }}{% endif %}</span>
+  </div>
   {% else %}
   <p class="empty">No observations.</p>
   {% endfor %}
@@ -33,7 +36,11 @@
 <section class="card">
   <div class="label">Recent items</div>
   {% for i in items %}
-  <div>{{ i.title or '(untitled)' }} <span class="muted">{{ '%.2f'|format(i.triage_score or 0) }} · {{ i.status }}</span></div>
+  <div class="row">
+    <span class="grow">{{ i.title or '(untitled)' }}</span>
+    <span class="muted">{{ '%.2f'|format(i.triage_score or 0) }}</span>
+    <span class="badge">{{ i.status }}</span>
+  </div>
   {% else %}
   <p class="empty">No items.</p>
   {% endfor %}

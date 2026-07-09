@@ -9,11 +9,12 @@
 <body>
   <nav class="nav">
     <span class="brand">perpetual-analyst</span>
-    <a href="{{ url_for('today') }}">Today</a>
-    <a href="{{ url_for('topics') }}">Topics</a>
-    <a href="{{ url_for('reports') }}">Reports</a>
-    <a href="{{ url_for('items') }}">Items</a>
-    <a href="{{ url_for('ops') }}">Ops</a>
+    {% set ep = request.endpoint %}
+    <a href="{{ url_for('today') }}" class="{{ 'active' if ep == 'today' }}">Today</a>
+    <a href="{{ url_for('topics') }}" class="{{ 'active' if ep in ['topics', 'topic', 'thesis'] }}">Topics</a>
+    <a href="{{ url_for('reports') }}" class="{{ 'active' if ep in ['reports', 'report_detail'] }}">Reports</a>
+    <a href="{{ url_for('items') }}" class="{{ 'active' if ep == 'items' }}">Items</a>
+    <a href="{{ url_for('ops') }}" class="{{ 'active' if ep == 'ops' }}">Ops</a>
     <span class="spacer"></span>
     <form method="post" action="{{ url_for('reading_toggle') }}" class="inline">
       <button class="btn" type="submit">

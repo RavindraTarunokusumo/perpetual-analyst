@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from urllib.parse import urlparse
 
@@ -19,7 +20,6 @@ from flask import (
     url_for,
 )
 
-from perpetual_analyst.report.render import render_citations
 from perpetual_analyst.web import queries
 
 
@@ -58,10 +58,10 @@ def create_app(db_path: str) -> Flask:
         if not full_markdown:
             return ""
         # Source is analyst-controlled markdown stored locally; rendered with |safe
-        # and no HTML sanitization (loopback-only single-user tool).
-        # render_citations is a no-op when no [item:N] tags remain (idempotent).
-        text = render_citations(full_markdown, get_conn())
-        return md.markdown(text, extensions=["fenced_code", "tables", "footnotes"])
+        # and no HTML sanitization (loopback-only single-user tool). The [item:N]
+        # citation path is retired (provenance lives in Postgres claim_evidence),
+        # so report markdown renders directly.
+        return md.markdown(full_markdown, extensions=["fenced_code", "tables", "footnotes"])
 
     @app.route("/")
     def today():
@@ -199,3 +199,9 @@ def create_app(db_path: str) -> Flask:
         return resp
 
     return app
+
+
+def serve_dashboard(host: str = "127.0.0.1", port: int = 8765) -> None:
+    """Run the local dashboard against ANALYST_DB_PATH (default data/analyst.db)."""
+    db_path = os.environ.get("ANALYST_DB_PATH", "data/analyst.db")
+    create_app(db_path).run(host=host, port=port)

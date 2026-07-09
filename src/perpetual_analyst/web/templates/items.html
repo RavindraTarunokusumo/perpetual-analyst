@@ -4,15 +4,18 @@
 {% if inbox_sources %}
 <form method="post" action="{{ url_for('action_inbox') }}" class="card">
   <div class="label">Add inbox item</div>
-  <select name="topic_id">
-    {% for t in topics %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
-  </select>
-  <input name="title" placeholder="title (optional)">
-  <input name="url" placeholder="url (optional)">
-  <input name="text" placeholder="paste text" required>
-  <button class="btn" type="submit">Add</button>
+  <div class="form-grid">
+    <select name="topic_id">
+      {% for t in topics %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+    </select>
+    <input name="title" placeholder="title (optional)">
+    <input name="url" placeholder="url (optional)">
+    <input name="text" placeholder="paste text" required>
+    <button class="btn" type="submit">Add</button>
+  </div>
 </form>
 {% endif %}
+<div class="toolbar">
 <form method="get" class="inline">
   <select name="status" onchange="this.form.submit()">
     <option value="">all statuses</option>
@@ -21,7 +24,9 @@
     {% endfor %}
   </select>
 </form>
+</div>
 {% if items %}
+<div class="table-wrap">
 <table>
   <tr><th>Title</th><th>Source</th><th>Score</th><th>Status</th></tr>
   {% for i in items %}
@@ -29,10 +34,11 @@
     <td>{% if i.url %}<a href="{{ i.url }}">{{ i.title or '(untitled)' }}</a>{% else %}{{ i.title or '(untitled)' }}{% endif %}</td>
     <td>{{ i.source_name or '—' }}</td>
     <td>{{ '%.2f'|format(i.triage_score) if i.triage_score is not none else '—' }}</td>
-    <td>{{ i.status }}</td>
+    <td><span class="badge">{{ i.status }}</span></td>
   </tr>
   {% endfor %}
 </table>
+</div>
 {% else %}
 <p class="empty">No items{% if status %} with status {{ status }}{% endif %}.</p>
 {% endif %}

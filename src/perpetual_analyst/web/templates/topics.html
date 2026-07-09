@@ -2,6 +2,7 @@
 {% block content %}
 <h1>Topics</h1>
 {% if topics %}
+<div class="table-wrap">
 <table>
   <tr><th>Topic</th><th>Active theses</th></tr>
   {% for t in topics %}
@@ -11,6 +12,7 @@
   </tr>
   {% endfor %}
 </table>
+</div>
 {% else %}
 <p class="empty">No topics configured.</p>
 {% endif %}
