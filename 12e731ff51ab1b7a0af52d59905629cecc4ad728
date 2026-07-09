@@ -1,0 +1,5 @@
+Task: feat(web): SVG confidence step-chart on thesis page
+Summary: web-ui-refresh session task; see docs/specs/2026-07-09-web-ui-refresh.md
+Docs: docs/changelog.md, docs/specs/2026-07-09-web-ui-refresh.md
+TODO: Active session — Web UI refresh (2026-07-09)
+Validation: ruff, web pytest files (58 passed), compileall, live serve+curl smoke
