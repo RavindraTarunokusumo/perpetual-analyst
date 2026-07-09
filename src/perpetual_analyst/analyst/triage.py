@@ -1,4 +1,4 @@
-"""Relevance triage pass via the configured cheap model (settings.triage.id). See SPEC §4.
+"""Relevance triage pass via the configured cheap model (settings.triage.id). See SPEC §4."""
 
 from __future__ import annotations
 
@@ -37,8 +37,7 @@ def triage_items(
         return []
 
     items_payload = "\n".join(
-        f"item_id={item.id} title={item.title or '(untitled)'} "
-        f"text={(item.raw_text or '')[:300]}"
+        f"item_id={item.id} title={item.title or '(untitled)'} text={(item.raw_text or '')[:300]}"
         for item in items
     )
     user_message = f"Topic brief: {topic_brief}\n\nItems:\n{items_payload}"
