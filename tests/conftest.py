@@ -123,6 +123,11 @@ def _seed(path: str) -> None:
         "(2, 1, 'new MoE evidence', 0.50, 0.62, 1, '2026-06-12 00:00:00')"
     )
     conn.execute(
+        "INSERT INTO thesis_updates (id, thesis_id, change, confidence_before, "
+        "confidence_after, triggered_by_item_id, created_at) VALUES "
+        "(3, 1, 'scaling checkpoint', 0.62, 0.68, 1, '2026-06-13 00:00:00')"
+    )
+    conn.execute(
         "INSERT INTO observations (id, topic_id, kind, content, importance, "
         "source_item_ids, status, created_at) VALUES "
         "(1, 1, 'signal', 'New MoE checkpoint released', 3, '[1]', 'active', '2026-06-12 00:00:00')"

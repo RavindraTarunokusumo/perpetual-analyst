@@ -38,7 +38,7 @@ def test_topic_detail_missing(seeded_conn):
 def test_thesis_detail_includes_update_history(seeded_conn):
     detail = queries.thesis_detail(seeded_conn, 1)
     assert detail["thesis"]["statement"] == "Open-weight reaches parity"
-    assert [u["confidence_after"] for u in detail["updates"]] == [0.50, 0.62]
+    assert [u["confidence_after"] for u in detail["updates"]] == [0.50, 0.62, 0.68]
 
 
 def test_thesis_detail_missing(seeded_conn):
@@ -76,3 +76,23 @@ def test_all_dossiers(seeded_conn):
     assert len(rows) == 1
     assert rows[0]["slug"] == "ai-labs"
     assert rows[0]["content"].startswith("## State of play")
+
+
+def test_today_changes_returns_seeded_delta(seeded_conn):
+    rows = queries.today_changes(seeded_conn, "2026-06-13")
+    assert len(rows) == 1
+    topic = rows[0]
+    assert topic["slug"] == "ai-labs"
+    assert topic["quiet"] is False
+    assert len(topic["deltas"]) == 1
+    assert topic["deltas"][0]["before"] == 0.62
+    assert topic["deltas"][0]["after"] == 0.68
+    assert topic["deltas"][0]["statement"] == "Open-weight reaches parity"
+
+
+def test_today_changes_quiet_when_no_updates(seeded_conn):
+    rows = queries.today_changes(seeded_conn, "1999-01-01")
+    assert len(rows) == 1
+    assert rows[0]["quiet"] is True
+    assert rows[0]["deltas"] == []
+    assert rows[0]["new_observations"] == 0

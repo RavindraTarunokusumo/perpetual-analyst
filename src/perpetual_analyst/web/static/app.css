@@ -171,6 +171,47 @@ form.inline { display: inline; }
 }
 .flash-error { background: var(--fall-soft); border-color: var(--line-strong); color: var(--fall); }
 
+/* Today changes strip */
+.changes { max-width: 720px; margin-bottom: 28px; }
+.changes-topic { margin-bottom: 14px; }
+.changes-topic > a { font-weight: 600; text-decoration: none; }
+.changes-topic > a:hover { text-decoration: underline; }
+.changes-row {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-top: 6px; min-width: 0;
+}
+.changes-statement {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: var(--muted); font-size: 14px;
+}
+.delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 10px; border-radius: 999px; font-size: 13px;
+  white-space: nowrap; flex-shrink: 0;
+  background: var(--bg); color: var(--muted);
+}
+.delta.rise { background: var(--rise-soft); color: var(--rise); }
+.delta.fall { background: var(--fall-soft); color: var(--fall); }
+.changes-obs { margin: 4px 0 0; font-size: 13px; }
+.changes-quiet { margin: 0 0 6px; font-size: 14px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes changes-fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .changes > * {
+    animation: changes-fade-up 360ms ease both;
+  }
+  .changes > *:nth-child(1) { animation-delay: 0ms; }
+  .changes > *:nth-child(2) { animation-delay: 60ms; }
+  .changes > *:nth-child(3) { animation-delay: 120ms; }
+  .changes > *:nth-child(4) { animation-delay: 180ms; }
+  .changes > *:nth-child(5) { animation-delay: 240ms; }
+  .changes > *:nth-child(6) { animation-delay: 300ms; }
+  .changes > :nth-child(n+7) { animation-delay: 300ms; }
+}
+
 /* Report / reading prose */
 .report, .reading article { max-width: 720px; }
 .report h1, .report h2 { letter-spacing: -.01em; }

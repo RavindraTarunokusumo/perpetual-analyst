@@ -3,12 +3,15 @@ def test_today_route_renders_latest_report(client):
     assert resp.status_code == 200
     assert b"New report" in resp.data
     assert b"perpetual-analyst" in resp.data
+    assert b"What changed" in resp.data
+    assert b"\xe2\x96\xb2" in resp.data  # ▲ rise arrow for seeded delta
 
 
 def test_today_route_empty_state(empty_client):
     resp = empty_client.get("/")
     assert resp.status_code == 200
     assert b"No report yet" in resp.data
+    assert b"What changed" not in resp.data
 
 
 def test_reports_list_route(client):

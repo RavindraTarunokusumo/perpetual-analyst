@@ -71,8 +71,11 @@ def create_app(db_path: str) -> Flask:
         if request.cookies.get("reading") == "1":
             return redirect(url_for("reading"))
         report = queries.latest_report(get_conn())
+        changes = queries.today_changes(get_conn(), report["report_date"]) if report else []
         report_html = render_markdown(report["full_markdown"]) if report else ""
-        return render_template("today.html", report=report, report_html=report_html)
+        return render_template(
+            "today.html", report=report, report_html=report_html, changes=changes
+        )
 
     @app.route("/reports")
     def reports():

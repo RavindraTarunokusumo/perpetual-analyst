@@ -10,6 +10,57 @@ def latest_report(conn: sqlite3.Connection) -> dict | None:
     return dict(row) if row else None
 
 
+def today_changes(conn: sqlite3.Connection, report_date: str) -> list[dict]:
+    topics = conn.execute(
+        "SELECT id, slug, name FROM topics WHERE active = 1 ORDER BY name"
+    ).fetchall()
+    delta_rows = conn.execute(
+        """SELECT th.topic_id, tu.thesis_id, th.statement,
+                  tu.confidence_before AS before, tu.confidence_after AS after,
+                  tu.change
+           FROM thesis_updates tu
+           JOIN theses th ON th.id = tu.thesis_id
+           JOIN topics t ON t.id = th.topic_id
+           WHERE t.active = 1 AND th.status = 'active'
+             AND date(tu.created_at) = ?
+           ORDER BY th.topic_id, tu.created_at""",
+        (report_date,),
+    ).fetchall()
+    obs_rows = conn.execute(
+        """SELECT topic_id, COUNT(*) AS n FROM observations
+           WHERE date(created_at) = ? GROUP BY topic_id""",
+        (report_date,),
+    ).fetchall()
+    deltas_by_topic: dict[int, list[dict]] = {}
+    for row in delta_rows:
+        deltas_by_topic.setdefault(row["topic_id"], []).append(
+            {
+                "thesis_id": row["thesis_id"],
+                "statement": row["statement"],
+                "before": row["before"],
+                "after": row["after"],
+                "change": row["change"],
+            }
+        )
+    obs_by_topic = {row["topic_id"]: row["n"] for row in obs_rows}
+    result = []
+    for topic in topics:
+        tid = topic["id"]
+        deltas = deltas_by_topic.get(tid, [])
+        new_obs = obs_by_topic.get(tid, 0)
+        result.append(
+            {
+                "slug": topic["slug"],
+                "name": topic["name"],
+                "deltas": deltas,
+                "new_observations": new_obs,
+                "quiet": not deltas and new_obs == 0,
+            }
+        )
+    result.sort(key=lambda row: (row["quiet"], -len(row["deltas"])))
+    return result
+
+
 def report_list(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
         "SELECT id, report_date, delivered_at, created_at FROM reports ORDER BY report_date DESC"
