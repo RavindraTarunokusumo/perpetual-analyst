@@ -31,6 +31,10 @@ Branch: `web-ui-refresh` · Implementer: Grok junior handoff (one ephemeral sess
 - [ ] **Test suite does not collect on `main`.** Pre-existing refactor rot, unrelated to the UI work: `test_search` imports the deleted `retrieval` module; `test_smoke` imports missing `agent.run_topic`; `test_web_actions` imports removed `daily_run` symbols (`force_utf8_stdout`/`run_daily`); `test_web_queries`/`test_web_routes` depend on a removed `seeded_conn` fixture. Needs a dedicated cleanup to restore/remove these tests so `pytest` runs green.
 - [ ] **`docs/commands.md` dashboard port is stale.** Line ~91 says default `http://127.0.0.1:8080`; the real default is `8765` (`cli.web` / `serve_dashboard`). One-line doc fix.
 
+### From the Web UI refresh (2026-07-09)
+
+- [ ] **Persist per-topic daily-run outcomes.** The Today strip's "nothing significant" line cannot distinguish a quiet topic from one whose analysis failed that day (`topic_analyses` only holds successes; the report markdown is the sole signal). Needs a small per-topic run-status table or column; then `today_changes` can scope quiet lines to analyzed topics.
+
 ### Pre-existing
 
 - [ ] Web UI: source-candidate approval flow (approve/dismiss discovered candidates; SSRF/validation on approved-URL fetch), source/quality dashboard. Supersedes the deferred Telegram approval buttons.
