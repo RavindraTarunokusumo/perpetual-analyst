@@ -2,6 +2,30 @@
 
 Record reusable lessons from completed sessions.
 
+## 2026-07-09 — Web UI refresh (Grok-delegated, 7-task session)
+
+### Workflow / harness lessons
+
+**A 6-task feature fits cleanly into 6 sequential Grok handoffs when each prompt is fully self-contained.** Every handoff embedded the exact file scope, exact CSS token values / SQL shape / helper signature, the validation commands to run, and the "final report" format to return. Zero correction loops across 7 handoffs (6 tasks + 1 fix batch) — the cost of writing a precise prompt was paid once and saved a full review-reject-redo cycle every time.
+
+**Deleted test fixtures are often recoverable from git history, not just rewritable from scratch.** The web test suite's `client`/`seeded_conn`/`db_path` fixtures were silently dropped in a later refactor. `git show <commit>:tests/conftest.py` on the commit that first added them (found via `git log -S "def db_path"`) recovered the original block verbatim; the Grok handoff only had to adapt it to schema drift (`init_db` now pre-seeds user id 1, so the seed's `INSERT` needed `OR REPLACE`). Cheaper and more faithful than reinventing fixture semantics from the failing tests alone.
+
+**Grok's own trailing-newline discipline is inconsistent — check every diff for `\ No newline at end of file`.** Despite explicit prompt instructions ("files end with exactly one trailing newline") in every task, 3 of 6 handoffs (T4, T5, T6) still stripped the final newline on template files. `git diff --check` catches it immediately; fix with one `printf '\n' >>` before validating and committing. Don't rely on the instruction alone — verify.
+
+**A Grok session sometimes "simulates" the implementation via internal reasoning rather than actually invoking file-edit tools, but still produces a correct diff.** The T2 (CSS) session's `thought` trace showed it reasoning through what the file *should* contain rather than narrating tool calls — worth noting only because it means the "final report" prose can't always be trusted as evidence of what happened; the git diff is the only ground truth. Always diff-review before trusting a Grok "complete" report, regardless of how confident the prose reads.
+
+**Cross-file consistency bugs (the kind a single-task review can't see) are exactly what a whole-branch review catches.** The Grok branch review caught two real inconsistencies invisible to any individual task's own tests: `topic_list.updates_today` didn't filter by thesis status while `today_changes` did (T6 vs. T4 drift), and confidence-series extraction was duplicated between `confidence_points` and the thesis route (T5) with no shared source of truth. Per-task validation was green throughout; only the full-diff pass surfaced the drift. Confirms the Phase-4 lesson: a whole-branch review earns its keep even when every task passed individually.
+
+**Not every review finding is a bug — triage explicitly, and record the "no" with a reason.** Of 8 branch-review findings, 3 were declined (a UI limitation with no cheap fix in scope, an intentional date-basis difference, a low-value edge case) and recorded with technical reasoning in `session_ledger.json` rather than silently dropped or blindly applied. The `receiving-code-review` skill's verify-before-implementing stance applies to agent-generated review findings exactly as much as to a human reviewer's.
+
+**A live-rendered-page visual artifact (not screenshots) is a fast, faithful way to sanity-check both themes before merge.** Serving `create_app` on a seeded temp DB, curl-fetching each real route, and embedding the actual HTML (CSS inlined, script tags stripped) into light/dark iframes in one Artifact caught nothing wrong here but would have caught a dark-mode token miss immediately — cheaper than spinning up a real browser, and it's the true rendered output, not a description of it.
+
+### Patterns established this session
+
+- Grok task prompts for this repo should always specify: exact file scope (with an explicit "touch nothing else"), exact values/shapes for anything visual or structural (don't leave palette/geometry to the implementer's judgment), the literal validation commands, and the final-report shape.
+- After every Grok handoff: `git diff --check` (trailing newline), diff read (don't trust the prose report), targeted pytest + ruff, then commit — in that order, every time, no batching multiple tasks before review.
+- Session ledger `handoffs` list should record `sessionId` + result + cleanup status per task as it happens, not reconstructed at wrap-up — made the archive doc trivial to write.
+
 ## 2026-07-09 — Workflow hardening (CI gate + rule promotion)
 
 ### Workflow / harness lessons

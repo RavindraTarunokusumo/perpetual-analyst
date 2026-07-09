@@ -5,19 +5,6 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
-## Active session — Web UI refresh (2026-07-09)
-
-Spec: `docs/specs/2026-07-09-web-ui-refresh.md` · Plan: `docs/specs/2026-07-09-web-ui-refresh-plan.md`
-Branch: `web-ui-refresh` · Implementer: Grok junior handoff (one ephemeral session per task)
-
-- [x] T1 — Test enablement: restore `client`/seeded-DB fixtures so `tests/test_web_routes.py` + `tests/test_web_queries.py` collect and pass (no production changes) — `80a9c3a`
-- [x] T2 — CSS tokens: ink-on-paper palette, semantic rise/fall colors, dark mode, mono tabular numerals, nav overflow, Reading view toggle — `1ca80bb`
-- [x] T3 — Dossiers render as markdown (shared Jinja filter) on topic + reading pages — `a669f0d`
-- [x] T4 — Today "what changed" strip: thesis delta chips, new-observation counts, quiet nothing-significant lines, single load animation — `441c698`
-- [x] T5 — Thesis page: inline SVG confidence timeline from `thesis_updates` — `12e731f`
-- [x] T6 — Topics index enrichment + Ops status pill + actionable empty states + link hygiene — `82bd836`
-- [ ] T7 — Accepted review fixes: confidence clamp, active-only updates_today, shared confidence_series, top-thesis tiebreak, .num badge
-
 ## Future Backlog
 
 ### From the PA ↔ Nexus integration (2026-07-08)
@@ -53,3 +40,4 @@ Branch: `web-ui-refresh` · Implementer: Grok junior handoff (one ephemeral sess
 - Firecrawl source extraction — `docs/iterations/archive/2026-07-08-firecrawl-source-extraction.md` (PR #10 / `b982ab9`)
 - Web UI polish + run-blocker fixes — `docs/iterations/archive/2026-07-09-web-ui-polish.md` (PR #11 / `f3eab3b`)
 - Workflow hardening (CI gate + rules) — `docs/iterations/archive/2026-07-09-workflow-hardening.md` (PR #12 / `79ed66e`)
+- Web UI refresh (confidence in motion) — `docs/iterations/archive/2026-07-09-web-ui-refresh.md` (PR #13 / `e19b8a7`)
