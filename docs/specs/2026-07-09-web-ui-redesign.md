@@ -61,5 +61,12 @@ image.
 
 ## 7. Unresolved questions
 
-None blocking. Grok CLI and GitNexus MCP are unavailable in this environment — recorded
-fallbacks: senior-direct implementation, direct source reads.
+None blocking. GitNexus MCP is not exposed in this environment — fallback: direct
+caller/source reads.
+
+## 8. Session state (2026-07-09, paused)
+
+Planning complete and pushed; implementation not started (T1–T7 all open). Environment
+notes for resumption: `.venv` created at repo root with `pip install -e ".[dev]"` — a
+fresh remote container must recreate it. No API keys are present in the environment;
+the seed script (T1) is the data source.

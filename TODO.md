@@ -8,8 +8,9 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 ## Active Session — Web UI Redesign (2026-07-09)
 
 **Spec:** `docs/specs/2026-07-09-web-ui-redesign.md` · **Branch:** `claude/web-ui-redesign-vfwtlg`
-**Fallbacks recorded:** Grok CLI not installed in this remote container → senior-direct
-implementation per task. GitNexus MCP not exposed for this repo → direct caller/source reads.
+**Status:** planning pushed to `main`; implementation (T1–T7) not started — session paused,
+to be resumed on branch `claude/web-ui-redesign-vfwtlg`. GitNexus MCP not exposed for this
+repo → direct caller/source reads.
 
 - [ ] T1 — `theses.horizon` migration + `scripts/seed_demo_data.py` (deterministic 90-day demo dataset; user-approved mock data, no API keys in session)
 - [ ] T2 — dashboard view-model queries in `web/queries.py`
