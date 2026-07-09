@@ -23,6 +23,7 @@ Cross-session environment traps, collected so they aren't re-learned. Add here (
 - `gh pr create` has no `--json`; capture the URL from stdout.
 - `gh pr view --json baseRefOid` is unavailable on some `gh` versions; use `headRefOid` + merge-base diff collection.
 - Pushing over an HTTPS remote with no credential helper fails ("could not read Username"); run `gh auth setup-git` first (SSH remotes push directly).
+- **Adding or editing a `.github/workflows/*` file is rejected** ("refusing to allow an OAuth App to create or update workflow … without `workflow` scope") unless the `gh` token has the `workflow` scope. Grant it once with `gh auth refresh -s workflow` (interactive), then push. The whole branch is blocked until the workflow-touching commit can push, even for later non-workflow commits.
 - Build any review/API JSON payload with `json.dumps`, never hand-concatenation.
 
 ## Auto-mode boundaries
