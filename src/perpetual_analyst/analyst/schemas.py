@@ -7,7 +7,7 @@ clamping field_validators instead, which correct out-of-range model output witho
 into the JSON schema.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class SourceProfileOut(BaseModel):

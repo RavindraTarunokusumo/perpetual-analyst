@@ -4,7 +4,7 @@ import ipaddress
 import socket
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urljoin, urlparse
 
 from perpetual_analyst.store.models import SourceCandidate
@@ -166,7 +166,7 @@ def approve_source_candidate(
         return existing_source_id
 
     fetcher(candidate.url, resolver=resolver)
-    reviewed_at = datetime.now(timezone.utc).isoformat()
+    reviewed_at = datetime.now(UTC).isoformat()
 
     with conn:
         source_id = _existing_topic_source(conn, candidate.topic_id, candidate.url)
@@ -203,7 +203,7 @@ def dismiss_source_candidate(
     if candidate.status == "approved":
         raise CandidateApprovalError("Approved candidates cannot be dismissed")
 
-    reviewed_at = datetime.now(timezone.utc).isoformat()
+    reviewed_at = datetime.now(UTC).isoformat()
     with conn:
         conn.execute(
             """UPDATE source_candidates

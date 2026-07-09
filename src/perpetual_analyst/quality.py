@@ -61,9 +61,7 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
             source_id = next(iter(source_ids))
             unique_report_counts[source_id] = unique_report_counts.get(source_id, 0) + 1
 
-        published_values = [
-            row["published_at"] for row in rows_for_report if row["published_at"]
-        ]
+        published_values = [row["published_at"] for row in rows_for_report if row["published_at"]]
         if published_values:
             earliest = min(published_values)
             lead_sources = {
@@ -103,14 +101,10 @@ def compute_source_quality(conn: sqlite3.Connection) -> list[SourceQuality]:
         citation_rate = min(row["cited"] / total, 1.0)
         cited_reports = cited_report_counts.get(row["source_id"], 0)
         uniqueness_rate = (
-            unique_report_counts.get(row["source_id"], 0) / cited_reports
-            if cited_reports
-            else 0.0
+            unique_report_counts.get(row["source_id"], 0) / cited_reports if cited_reports else 0.0
         )
         freshness_lead_rate = (
-            freshness_lead_counts.get(row["source_id"], 0) / cited_reports
-            if cited_reports
-            else 0.0
+            freshness_lead_counts.get(row["source_id"], 0) / cited_reports if cited_reports else 0.0
         )
         # citation/uniqueness/freshness weights retired (citations table unpopulated post-Nexus); reserved for a third-party source-rating API — see TODO backlog  # noqa: E501
         score = round(hit_rate, 4)

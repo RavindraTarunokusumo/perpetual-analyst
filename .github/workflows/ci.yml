@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Merge gate. The point of this workflow is that broken code cannot reach `main`
+# even when a contributor's local checks are skipped or blocked. `compileall`
+# alone would have blocked the four committed SyntaxErrors that reached `main`
+# before this gate existed (see docs/insights.md 2026-07-09).
+#
+# pytest is intentionally NOT a gate yet: the suite does not collect on `main`
+# (retired `retrieval` module, drifted agent/schema APIs, missing `seeded_conn`
+# fixture — see TODO.md "Test suite does not collect on main"). Add a pytest job
+# here once that backlog item is resolved, then widen the ruff scope to `.`.
+jobs:
+  lint-and-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff==0.15.20
+      - name: ruff lint (src)
+        run: ruff check src
+      - name: ruff format check (src)
+        run: ruff format --check src
+      - name: compile all sources
+        run: python -m compileall -q src

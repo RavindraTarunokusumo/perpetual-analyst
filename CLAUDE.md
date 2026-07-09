@@ -17,6 +17,7 @@ Any change made to `AGENTS.md` must also be applied to `CLAUDE.md`.
 - Agent Harness: [docs/agent-harness.md](docs/agent-harness.md)
 - Spec Workflow: [docs/specs/README.md](docs/specs/README.md)
 - Insights: [docs/insights.md](docs/insights.md)
+- Environment Gotchas: [docs/environment-gotchas.md](docs/environment-gotchas.md)
 - Full Index: [docs/index.md](docs/index.md)
 
 ## Core Invariants
@@ -42,10 +43,11 @@ Rules:
 - Use the graph as a snapshot, not a live source of truth.
 - Query the graph first, then read files directly.
 - If the MCP registry does not expose this repo, record that blocker and fall back to direct caller/source reads.
+- If the graph index predates the current branch's base commit, skip impact analysis and read callers directly — say so explicitly. Acting on a stale graph is worse than reading source. (Recurring across multi-phase efforts; do not treat the impact step as mandatory when the index is stale.)
 
 ## Workflow
 
-1. **Preamble** — Work in a dedicated local branch or worktree. Activate the project environment from `.venv` at the repo root. Confirm repo status before editing. Read `docs/insights.md` and the Workflow Rules. Identify the active accepted spec path under `docs/specs/`.
+1. **Preamble** — Work in a dedicated local branch or worktree. Activate the project environment from `.venv` at the repo root. Confirm repo status before editing. Read `docs/insights.md` and the Workflow Rules. Identify the active accepted spec path under `docs/specs/`. **In a worktree, run `pip install -e .` from the worktree before running any test or import check** — the shared `.venv` editable install otherwise resolves `perpetual_analyst` to the *main* checkout, not the worktree, so edits silently have no effect. Verify with `python -c "import perpetual_analyst;print(perpetual_analyst.__file__)"` (or set `PYTHONPATH=$PWD/src`).
 
 2. **Repo Map / GitNexus** — Read the GitNexus section at the start of every session. Run or query the available code graph/index if present. Use docs and graph output to understand the areas named by the active spec.
 
@@ -83,7 +85,11 @@ Rules:
 9. When pre-commit fails only on untouched files, note it as pre-existing.
 10. After context compaction, run `git status` first.
 11. Commit any files written by subagents/doc-updater/security-review immediately.
-12. `gitnexus_impact` requires the exact symbol name.
+12. `gitnexus_impact` requires the exact symbol name; skip it when the index predates the branch base (read callers directly instead).
+13. When merging an approved PR, use a merge commit (`gh pr merge --merge`), never squash — archive docs cite per-commit SHAs, which squash destroys.
+14. Anticipate auto-mode boundaries: an agent cannot merge its own PR (hand the merge to the user) and cannot run unscoped destructive DB ops (scope with a filter, e.g. `WHERE slug LIKE 'scratch-%'`). Plan the handoff up front; never bypass a denial by pushing to `main` directly.
+15. Any new external-provider call shape or model-facing behavior gets a live smoke test with realistic input before PR — mocks validate wiring, not the provider contract or cost/latency.
+16. CI (`.github/workflows/ci.yml`) is the durable merge gate; never merge a PR with red CI, even when local checks were skipped or blocked.
 
 ## Grok Build Implementation/Review Handoff
 
@@ -100,6 +106,8 @@ pre-commit run --all-files
 
 (If tools are missing, report clearly and record in session_ledger.json.)
 
+Cleanup findings from `/code-review` or `/simplify` are **candidates, not mandates**: apply only behavior-preserving, in-scope changes; log the rest with a one-line reason rather than ballooning the diff before PR. Local checks can be skipped or blocked (read-only fs, missing deps, worktree path issues) — the CI gate is the durable backstop, so a green local run is necessary but not sufficient.
+
 ## GitNexus — Code Intelligence
 
 (The full GitNexus section from the previous perpetual-analyst AGENTS.md is retained here, including the table of MCP endpoints, Always Do / Never Do rules, and CLI skill references.)
@@ -107,3 +115,5 @@ pre-commit run --all-files
 ## Reflection
 
 After every completed session, record useful workflow lessons in `docs/insights.md`. Do not include feature-specific implementation details. Cover commands executed, tools used, skills invoked, MCPs accessed, scripts created, workflow improvements, recurring failure modes, and skills worth adding or improving. Report the reflection to the user in chat and wait for explicit permission before deleting the worktree and branch.
+
+**Close the loop:** when a lesson appears in `docs/insights.md` for the *second* time, promote it the same session into an enforced mechanism — a Workflow Rule, a hook, `pre-commit`, or CI — instead of leaving it as advisory prose. Recurring lessons that stay advisory get re-learned every session (see `docs/environment-gotchas.md` for the collected one-offs).
