@@ -63,12 +63,10 @@ def test_retry_all_calls_delivery(db_path, monkeypatch):
 def test_trigger_run_lock_rejects_concurrent(db_path, monkeypatch):
     gate = threading.Event()
 
-    def fake_run_daily(conn, client, settings, dry_run=False):
+    def fake_main(dry_run=False):
         gate.wait(timeout=5)
 
-    monkeypatch.setattr(actions, "run_daily", fake_run_daily)
-    monkeypatch.setattr(actions, "make_client", lambda: None)
-    monkeypatch.setattr(actions, "load_settings", lambda: None)
+    monkeypatch.setattr(actions.daily_run, "main", fake_main)
 
     actions.reset_run_status()
     assert actions.trigger_run(db_path, dry_run=True) is True
