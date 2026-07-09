@@ -1,0 +1,5 @@
+Task: Code review fixes for Task 9 (config)
+Summary: Loaders return [] on missing files, blanket-deactivation documented + warned, key_column assert, name->url key-switch behavior pinned (self-healing duplicate)
+Docs: N/A
+TODO: Task 8.5 (review hardening)
+Validation: 9 config tests, 91 full suite passing, pre-commit green

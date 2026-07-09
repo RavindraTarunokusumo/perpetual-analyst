@@ -1,0 +1,5 @@
+Task: PR review fixes (Opus substitute review, Copilot down)
+Summary: Unknown thesis_id now logged and skipped instead of FK-aborting the whole memory bundle; triage UPDATE guarded to status=new so analyzed items can never be demoted to skipped
+Docs: N/A
+TODO: PR #6 review findings
+Validation: both bugs reproduced via failing tests first; 101 passed + 1 deselected; pre-commit green

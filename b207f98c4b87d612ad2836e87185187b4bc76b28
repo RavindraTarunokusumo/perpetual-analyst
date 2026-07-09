@@ -1,0 +1,5 @@
+Task: Report assembly (TODO 9.1 + 9.4 - Task 9 complete)
+Summary: SPEC s9 template merge with nothing_significant one-liners, todays-thesis-updates fragments, one DigestOutput call with mechanical fallback, citation rendering, INSERT-only persist + data/reports file
+Docs: N/A
+TODO: Task 9 sub-items 1 and 4 crossed (Task 9 fully done)
+Validation: 8 new tests; full suite passing; pre-commit green

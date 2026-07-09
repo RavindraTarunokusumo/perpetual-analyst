@@ -1,0 +1,5 @@
+Task: Task 1 — DB layer
+Summary: Full SQLite DDL, FTS5 virtual tables + sync triggers, dataclass row models, Settings loader
+Docs: docs/database.md
+TODO: Phase 1 Task 1
+Validation: ruff, ruff-format, pytest tests/test_store.py

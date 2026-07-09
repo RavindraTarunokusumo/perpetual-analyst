@@ -1,0 +1,5 @@
+Task: Grok Build workflow handoff
+Summary: Update the agent workflow so ChatGPT/Claude keep planning and review responsibilities while Grok Build owns all implementation edits.
+Docs: AGENTS.md, CLAUDE.md, docs/insights.md
+TODO: N/A - workflow documentation update
+Validation: pre-commit run --all-files passed; gitnexus_detect_changes reported low risk and no affected execution flows

@@ -1,0 +1,5 @@
+Task: Phase 2 handoff items (extension)
+Summary: Topic-scoped select_analyst_items in triage.py (single definition shared by smoke test and the upcoming orchestrator); sync_config resets fetch_error_count when reactivating a previously-inactive source
+Docs: N/A
+TODO: Task 10 extension sub-item crossed
+Validation: 4 new tests; full suite passing; pre-commit green

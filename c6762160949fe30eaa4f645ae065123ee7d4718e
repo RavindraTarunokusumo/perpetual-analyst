@@ -1,0 +1,5 @@
+Task: Code review fixes for Tasks 2-3
+Summary: Scoped UPDATE with WHERE topic_id, typed _insert_thesis helper, exact-line render assertion, multi-thesis render test
+Docs: N/A
+TODO: Task 6 (review hardening)
+Validation: 13 tests passing; pre-commit green

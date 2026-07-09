@@ -1,0 +1,2 @@
+Task: Code review fixes
+Summary: Explicit RuntimeError on missing OPENROUTER_API_KEY; per-item raw_text cap in assemble_context; build_memory_context truncates oversized obs instead of dropping; new theses always start active; remove dead make_client monkeypatch; improve token fallback estimate

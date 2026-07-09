@@ -1,0 +1,5 @@
+Task: Final-review fix - empty-items analyst call (Invariant 1)
+Summary: run_topic returns synthetic nothing_significant without an LLM call when items is empty; closes the failed-persist same-day double-call path and removes the routine wasted call on quiet topics
+Docs: N/A
+TODO: PR review findings
+Validation: reproduced wasted call first; full suite passing; pre-commit green

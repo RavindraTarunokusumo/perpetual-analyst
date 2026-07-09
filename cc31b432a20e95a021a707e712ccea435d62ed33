@@ -1,0 +1,5 @@
+Task: Code review fixes for Task 7 (search)
+Summary: TypeError guard on non-int exclude_ids (NULL would void NOT IN), typed test helpers, clarifying comments on term cap and recency tie-break
+Docs: N/A
+TODO: Task 8 (review hardening)
+Validation: 9 search tests, full suite passing, pre-commit green

@@ -1,0 +1,8 @@
+@
+Task: RSS fetcher (TODO 7.1)
+Summary: httpx-fetched feedparser parsing, trafilatura full-text with summary fallback, insert_item dedupe path, error counting with deactivation at 5
+Docs: N/A
+TODO: Task 7 sub-item 1 crossed
+Validation: 7 new tests; full suite 57/57 passing; pre-commit green
+Deviation: feed_ok fixture changed fetch_url lambda from constant "<html>stub</html>" to url-keyed f"<html>{url}</html>" — prescribed form produced identical hashes for both entries, causing second INSERT OR IGNORE to silently dedupe; fix is minimal and preserves all test intent
+@

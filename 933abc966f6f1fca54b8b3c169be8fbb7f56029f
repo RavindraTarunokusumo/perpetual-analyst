@@ -1,0 +1,5 @@
+Task: Thesis lifecycle regression tests (TODO 6.1, 6.2)
+Summary: Pinned create/revise/retire audit-trail and <=7 active thesis invariants with regression tests; no production code changed
+Docs: N/A
+TODO: Task 6 sub-items 1-2 crossed
+Validation: pytest tests/test_theses.py 4 passed; full suite passing; pre-commit green

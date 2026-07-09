@@ -1,0 +1,5 @@
+Task: CLI commands (TODO 8.5.2)
+Summary: typer commands appending to YAML then re-syncing; duplicate slug exits 1; unknown topic surfaces sync ValueError as exit 1; yaml.safe_dump comment-loss caveat documented
+Docs: N/A
+TODO: Task 8.5 sub-item 2 crossed
+Validation: 4 new tests; full suite passing (95/95); pre-commit green

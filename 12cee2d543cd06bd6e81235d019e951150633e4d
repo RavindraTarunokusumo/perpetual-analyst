@@ -1,0 +1,4 @@
+Task: Task 4 — Analyst agent
+Summary: assemble_context builds prompt in caching order; run_topic calls OpenRouter with adaptive thinking flag; dry_run prints without API call; apply_all_memory_writes commits transactionally
+TODO: Phase 1 Task 4
+Validation: ruff, ruff-format, pytest tests/test_agent.py

@@ -1,0 +1,5 @@
+Task: Task 7 — ingestion/rss.py + analyst/triage.py
+Summary: fetch_rss() parses feeds via feedparser, filters by last_fetched_at, extracts full text with trafilatura, deduplicates on content_hash, and deactivates sources after 5 errors. triage_items() sends a single batch API call to the triage model, writes scores/summaries to DB, and returns only relevant items.
+Docs: N/A
+TODO: Phase 2 / Task 7
+Validation: ruff (passed), pytest 10/10

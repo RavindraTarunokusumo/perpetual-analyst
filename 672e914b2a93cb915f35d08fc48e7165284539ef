@@ -1,0 +1,2 @@
+Task: Task 1 fix — dedupe invariant
+Summary: Added insert_item() helper with INSERT OR IGNORE; split test to cover both helper and plain-INSERT contract

@@ -1,0 +1,5 @@
+Task: Task 2 — Memory module
+Summary: CRUD for dossier, observations, theses; audit trail; 7-thesis limit; budget-truncating context builder; atomic apply_all_memory_writes
+Docs: docs/database.md
+TODO: Phase 1 Task 2
+Validation: ruff, ruff-format, pytest tests/test_memory.py

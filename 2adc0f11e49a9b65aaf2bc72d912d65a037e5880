@@ -1,0 +1,5 @@
+Task: Final-review fix - mid-tag truncation trap
+Summary: _balance_html drops a dangling partial tag and closes unclosed <b>/<i> after paragraph truncation, preventing permanent auto-retrying delivery failure on a >3000-char digest with a straddling tag
+Docs: N/A
+TODO: PR review findings
+Validation: balance unit tests; full suite passing; pre-commit green

@@ -1,0 +1,5 @@
+Task: fix Opus final review findings
+Summary: Wire fetch_rss+triage_items into pipeline, guard digest content=None, reorder doc-first delivery
+Docs: N/A
+TODO: N/A
+Validation: ruff pass, 89 pytest pass

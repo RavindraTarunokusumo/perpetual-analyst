@@ -1,0 +1,5 @@
+Task: Task 9 — report/assemble.py + report/render.py + analyst/prompts/digest.md
+Summary: Implemented citation rendering (render_citations) and report assembly (assemble_report). render_citations replaces [item:N] tags with [^N] footnote refs, looking up title/url from DB. assemble_report joins per-topic markdown sections, generates digest HTML via OpenRouter, upserts to reports table, and writes brief-{date}.md. Updated digest.md system prompt per spec.
+Docs: N/A
+TODO: Phase 3 / Task 9
+Validation: ruff (passed), pytest 61/61

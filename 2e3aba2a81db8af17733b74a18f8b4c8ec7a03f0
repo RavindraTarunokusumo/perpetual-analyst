@@ -1,0 +1,5 @@
+Task: Config loaders + sync (TODO 8.5.1)
+Summary: TopicConfig/SourceConfig dataclasses, YAML loaders, idempotent sync_config (slug/url-keyed upserts, link rebuild, deactivation of YAML-absent rows with inbox exemption, runtime columns untouched)
+Docs: N/A
+TODO: Task 8.5 sub-item 1 crossed
+Validation: 7 new tests; full suite passing; pre-commit green

@@ -1,0 +1,5 @@
+Task: get_stale_theses (TODO 6.3 query half)
+Summary: Stale-flagging query with COALESCE(updated_at, created_at) boundary; 5 boundary tests
+Docs: N/A
+TODO: Task 6 sub-item 3 (query half; wiring pending Task 4)
+Validation: pytest tests/test_theses.py passing; full suite passing; pre-commit green

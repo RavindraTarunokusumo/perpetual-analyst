@@ -1,0 +1,6 @@
+Task: FTS5 retrieval helpers (TODO 8.1 + 8.2)
+Summary: related_observations/related_items with bm25 ranking, multiplicative 1.5 recency boost (bm25 is negative), term-quoting injection guard, topic isolation via topic_sources, exclude_ids for current batch
+Docs: N/A
+TODO: Task 8 sub-items 1-2 crossed
+Validation: 8 new tests; full suite passing (77/77); pre-commit green
+Deviations: (1) WHERE alias form "WHERE f MATCH ?" fails on this SQLite build — using full table name form "WHERE observations_fts MATCH ?" / "WHERE items_fts MATCH ?" and bm25(observations_fts)/bm25(items_fts) throughout. (2) "NOT IN (NULL)" silently filters all rows in SQL — replaced with conditional clause omission when exclude_ids is empty.

@@ -1,0 +1,5 @@
+Task: /simplify pass
+Summary: Dedup _get_or_create_inbox_source (cli+daily_run → inbox.py), batch citation lookups in render_citations, single-query stale detection in render_thesis_fragment, fix triage f-string space, extract _mock_telegram() test helper
+Docs: N/A
+TODO: Session phase-2-cli-and-ingestion Task 5
+Validation: ruff, ruff-format, pytest (89 passed)

@@ -1,0 +1,5 @@
+Task: Live smoke test (TODO 8.5.4)
+Summary: Full pipeline against scratch DB: sync_config -> fetch_rss (3 live feeds) -> triage (deepseek-flash) -> one analyst run; deselected by default via addopts
+Docs: N/A
+TODO: Task 8.5 sub-item 4 crossed
+Validation: deselected by default (95 passed, 1 deselected); live run result reported separately

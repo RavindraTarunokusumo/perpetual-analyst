@@ -1,0 +1,5 @@
+Task: Code review fixes for Task 6 (triage)
+Summary: JSON-array extraction tolerant of LLM preamble prose, duplicate item_id first-wins guard, return-contract documented (skipped items included), capped retry error text, empty-input test
+Docs: N/A
+TODO: Task 7 (review hardening)
+Validation: 11 triage tests, full suite passing, pre-commit green

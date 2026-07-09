@@ -1,0 +1,5 @@
+Task: Live dry-run validation fix (Task 6 follow-up)
+Summary: Bounded live dry-run caught UnicodeEncodeError - piped/scheduled stdout on Windows defaults to cp1252 and prompts contain unicode (>=, em-dash); force_utf8_stdout() reconfigures stdout at daily_run.main and cli run entry points; revalidated live (full prompt printed, 30 items, no reports row, exit 0)
+Docs: N/A
+TODO: Task 10.3 (validation hardening)
+Validation: live bounded dry-run green after fix; 128 passed + 1 deselected; pre-commit green

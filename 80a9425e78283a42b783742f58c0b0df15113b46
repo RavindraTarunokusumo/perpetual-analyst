@@ -1,0 +1,5 @@
+Task: Fix Opus Phase 2+3 review findings
+Summary: 6 fixes from Opus 4.8 review: unauthorized conn.commit in triage_items, NULL user_id in reports, string-compare datetime bug in fetch_rss since-filter, unguarded send_report in daily_run, HTML mid-tag truncation in digest, missing delivery tests (happy-path + token-leak)
+Docs: N/A
+TODO: Session phase-2-cli-and-ingestion Task 5
+Validation: ruff, ruff-format, pytest (89 passed)
