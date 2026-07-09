@@ -17,8 +17,31 @@ def test_report_by_date_returns_markdown(seeded_conn):
 def test_topic_list(seeded_conn):
     rows = queries.topic_list(seeded_conn)
     assert len(rows) == 1
-    assert rows[0]["slug"] == "ai-labs"
-    assert rows[0]["active_theses"] == 1  # the retired thesis is excluded
+    row = rows[0]
+    assert row["slug"] == "ai-labs"
+    assert row["active_theses"] == 1  # the retired thesis is excluded
+    assert row["top_thesis"] == "Open-weight reaches parity"
+    assert row["top_confidence"] == 0.62
+    assert row["dossier_updated_at"] == "2026-06-12 09:00:00"
+    assert row["updates_today"] == 0
+
+    seeded_conn.execute(
+        "INSERT INTO thesis_updates (id, thesis_id, change, confidence_before, "
+        "confidence_after, triggered_by_item_id, created_at) "
+        "VALUES (99, 1, 'today bump', 0.68, 0.70, 1, datetime('now'))"
+    )
+    seeded_conn.commit()
+    rows = queries.topic_list(seeded_conn)
+    assert rows[0]["updates_today"] == 1
+
+    seeded_conn.execute(
+        "INSERT INTO theses (id, topic_id, statement, rationale, confidence, status) "
+        "VALUES (3, 1, 'Tied confidence thesis', 'tie', 0.62, 'active')"
+    )
+    seeded_conn.commit()
+    rows = queries.topic_list(seeded_conn)
+    assert rows[0]["top_thesis"] == "Open-weight reaches parity"
+    assert rows[0]["top_confidence"] == 0.62
 
 
 def test_topic_detail_bundles_memory(seeded_conn):
@@ -38,7 +61,7 @@ def test_topic_detail_missing(seeded_conn):
 def test_thesis_detail_includes_update_history(seeded_conn):
     detail = queries.thesis_detail(seeded_conn, 1)
     assert detail["thesis"]["statement"] == "Open-weight reaches parity"
-    assert [u["confidence_after"] for u in detail["updates"]] == [0.50, 0.62]
+    assert [u["confidence_after"] for u in detail["updates"]] == [0.50, 0.62, 0.68]
 
 
 def test_thesis_detail_missing(seeded_conn):
@@ -76,3 +99,67 @@ def test_all_dossiers(seeded_conn):
     assert len(rows) == 1
     assert rows[0]["slug"] == "ai-labs"
     assert rows[0]["content"].startswith("## State of play")
+
+
+def test_today_changes_returns_seeded_delta(seeded_conn):
+    rows = queries.today_changes(seeded_conn, "2026-06-13")
+    assert len(rows) == 1
+    topic = rows[0]
+    assert topic["slug"] == "ai-labs"
+    assert topic["quiet"] is False
+    assert len(topic["deltas"]) == 1
+    assert topic["deltas"][0]["before"] == 0.62
+    assert topic["deltas"][0]["after"] == 0.68
+    assert topic["deltas"][0]["statement"] == "Open-weight reaches parity"
+
+
+def test_today_changes_quiet_when_no_updates(seeded_conn):
+    rows = queries.today_changes(seeded_conn, "1999-01-01")
+    assert len(rows) == 1
+    assert rows[0]["quiet"] is True
+    assert rows[0]["deltas"] == []
+    assert rows[0]["new_observations"] == 0
+
+
+def test_confidence_points_empty_updates():
+    assert queries.confidence_points([]) == ""
+
+
+def test_confidence_points_single_step():
+    updates = [{"confidence_before": 0.5, "confidence_after": 0.62}]
+    points = queries.confidence_points(updates)
+    pairs = [tuple(map(float, p.split(","))) for p in points.split()]
+    assert len(pairs) == 4
+    assert pairs[0][1] == pairs[1][1]  # horizontal hold before step
+    assert pairs[2][1] == pairs[3][1]  # horizontal hold after step
+    assert pairs[1][0] == pairs[2][0]  # vertical step at same x
+
+
+def test_confidence_points_skips_none_confidences():
+    updates = [
+        {"confidence_before": None, "confidence_after": 0.5},
+        {"confidence_before": 0.5, "confidence_after": 0.62},
+    ]
+    points = queries.confidence_points(updates)
+    assert points != ""
+
+
+def test_confidence_points_all_none_returns_empty():
+    updates = [{"confidence_before": None, "confidence_after": None}]
+    assert queries.confidence_points(updates) == ""
+
+
+def test_confidence_points_y_inverts_confidence():
+    updates = [{"confidence_before": 1.0, "confidence_after": 0.0}]
+    points = queries.confidence_points(updates)
+    pairs = [tuple(map(float, p.split(","))) for p in points.split()]
+    assert pairs[0][1] == 6.0  # confidence 1.0 → top (pad)
+    assert pairs[-1][1] == 90.0  # confidence 0.0 → bottom
+
+
+def test_confidence_points_clamps_out_of_range():
+    updates = [{"confidence_before": 0.5, "confidence_after": 1.7}]
+    points = queries.confidence_points(updates)
+    pairs = [tuple(map(float, p.split(","))) for p in points.split()]
+    assert pairs[-1][1] == 6.0
+    assert all(y >= 6.0 for _, y in pairs)

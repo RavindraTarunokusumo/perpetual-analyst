@@ -23,6 +23,16 @@ from flask import (
 from perpetual_analyst.web import queries
 
 
+def render_markdown(text: str | None) -> str:
+    if not text:
+        return ""
+    # Source is analyst-controlled markdown stored locally; rendered with |safe
+    # and no HTML sanitization (loopback-only single-user tool). The [item:N]
+    # citation path is retired (provenance lives in Postgres claim_evidence),
+    # so report markdown renders directly.
+    return md.markdown(text, extensions=["fenced_code", "tables", "footnotes"])
+
+
 def create_app(db_path: str) -> Flask:
     app = Flask(__name__)
     # Local single-user tool: this key only signs flash cookies, guards nothing.
@@ -54,22 +64,18 @@ def create_app(db_path: str) -> Flask:
         if origin is not None and urlparse(origin).netloc != request.host:
             abort(403)
 
-    def render_report_html(full_markdown: str | None) -> str:
-        if not full_markdown:
-            return ""
-        # Source is analyst-controlled markdown stored locally; rendered with |safe
-        # and no HTML sanitization (loopback-only single-user tool). The [item:N]
-        # citation path is retired (provenance lives in Postgres claim_evidence),
-        # so report markdown renders directly.
-        return md.markdown(full_markdown, extensions=["fenced_code", "tables", "footnotes"])
+    app.jinja_env.filters["markdown"] = render_markdown
 
     @app.route("/")
     def today():
         if request.cookies.get("reading") == "1":
             return redirect(url_for("reading"))
         report = queries.latest_report(get_conn())
-        report_html = render_report_html(report["full_markdown"]) if report else ""
-        return render_template("today.html", report=report, report_html=report_html)
+        changes = queries.today_changes(get_conn(), report["report_date"]) if report else []
+        report_html = render_markdown(report["full_markdown"]) if report else ""
+        return render_template(
+            "today.html", report=report, report_html=report_html, changes=changes
+        )
 
     @app.route("/reports")
     def reports():
@@ -100,7 +106,7 @@ def create_app(db_path: str) -> Flask:
         report = queries.report_by_date(get_conn(), report_date)
         if report is None:
             abort(404)
-        report_html = render_report_html(report["full_markdown"])
+        report_html = render_markdown(report["full_markdown"])
         return render_template("report_detail.html", report=report, report_html=report_html)
 
     @app.route("/topics")
@@ -121,7 +127,17 @@ def create_app(db_path: str) -> Flask:
         topic_id = queries.topic_id_for_slug(conn, slug)
         if detail is None or topic_id is None or detail["thesis"]["topic_id"] != topic_id:
             abort(404)
-        return render_template("thesis.html", slug=slug, **detail)
+        updates = detail["updates"]
+        points = queries.confidence_points(updates)
+        values = queries.confidence_series(updates)
+        rising = len(values) >= 2 and values[-1] >= values[0]
+        return render_template(
+            "thesis.html",
+            slug=slug,
+            points=points,
+            rising=rising,
+            **detail,
+        )
 
     @app.route("/items")
     def items():

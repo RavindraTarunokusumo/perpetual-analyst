@@ -2,6 +2,26 @@
 
 Record notable behavior, architecture, API, persistence, or workflow changes.
 
+## 2026-07-09 — Web UI refresh (confidence in motion)
+
+Summary:
+
+- What changed: Dashboard restyle — ink-on-paper tokens, semantic rise/fall
+  colors, dark mode, mono tabular numerals. New features: "what changed" strip
+  on Today (`queries.today_changes`), SVG confidence step-chart on thesis pages
+  (`queries.confidence_series`/`confidence_points`), enriched topics index,
+  dossiers rendered as markdown via a shared `markdown` Jinja filter, ops run
+  status pill, actionable empty states. Restored the web test fixtures
+  (`db_path`/`seeded_conn`/`client`/`empty_client`) in `tests/conftest.py`.
+- Why: Make the analyst's evolving judgment legible at a glance; hackathon
+  polish per `docs/specs/2026-07-09-web-ui-refresh.md`.
+- User-visible impact: All dashboard pages; no CLI, pipeline, schema, or
+  delivery changes. No new dependencies or external assets.
+- Known limitation: the Today strip lists every active topic; a topic whose
+  analysis failed that day shows as "nothing significant" because per-topic
+  run outcomes are not persisted (backlogged).
+- Related PR/commit: web-ui-refresh branch
+
 ## 2026-07-08 — Harness alignment and backlog
 
 Summary:

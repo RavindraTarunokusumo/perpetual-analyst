@@ -3,12 +3,17 @@ def test_today_route_renders_latest_report(client):
     assert resp.status_code == 200
     assert b"New report" in resp.data
     assert b"perpetual-analyst" in resp.data
+    assert b"What changed" in resp.data
+    assert b"\xe2\x96\xb2" in resp.data  # ▲ rise arrow for seeded delta
 
 
 def test_today_route_empty_state(empty_client):
     resp = empty_client.get("/")
     assert resp.status_code == 200
     assert b"No report yet" in resp.data
+    assert b"What changed" not in resp.data
+    assert b'href="/ops"' in resp.data
+    assert b"run the pipeline from Ops" in resp.data
 
 
 def test_reports_list_route(client):
@@ -38,6 +43,7 @@ def test_topics_route(client):
     resp = client.get("/topics")
     assert resp.status_code == 200
     assert b"AI Frontier Labs" in resp.data
+    assert b"Open-weight reaches parity" in resp.data
 
 
 def test_topic_detail_route(client):
@@ -45,6 +51,20 @@ def test_topic_detail_route(client):
     assert resp.status_code == 200
     assert b"State of play" in resp.data
     assert b"Open-weight reaches parity" in resp.data
+
+
+def test_topic_detail_renders_dossier_markdown(client, seeded_conn):
+    seeded_conn.execute(
+        "UPDATE dossiers SET content = ? WHERE topic_id = 1",
+        ("## State of play\n\n- First point\n- Second point",),
+    )
+    seeded_conn.commit()
+    resp = client.get("/topics/ai-labs")
+    assert resp.status_code == 200
+    assert b"<h2>State of play</h2>" in resp.data
+    assert b"<li>First point</li>" in resp.data
+    assert b"## State of play" not in resp.data
+    assert b"- First point" not in resp.data
 
 
 def test_topic_detail_404(client):
@@ -55,6 +75,14 @@ def test_thesis_route(client):
     resp = client.get("/topics/ai-labs/thesis/1")
     assert resp.status_code == 200
     assert b"new MoE evidence" in resp.data
+    assert b"<polyline" in resp.data
+    assert b"Confidence over time" in resp.data
+
+
+def test_thesis_route_without_updates_omits_chart(client):
+    resp = client.get("/topics/ai-labs/thesis/2")
+    assert resp.status_code == 200
+    assert b"<svg" not in resp.data
 
 
 def test_topics_empty_state(empty_client):
@@ -67,6 +95,7 @@ def test_items_route(client):
     resp = client.get("/items")
     assert resp.status_code == 200
     assert b"Scaling laws" in resp.data
+    assert b'rel="noopener"' in resp.data
 
 
 def test_items_route_status_filter(client):
@@ -80,6 +109,7 @@ def test_ops_route(client):
     resp = client.get("/ops")
     assert resp.status_code == 200
     assert b"arXiv cs.LG" in resp.data
+    assert b"status-pill" in resp.data
 
 
 def test_items_empty_state(empty_client):
@@ -92,6 +122,20 @@ def test_reading_route_lists_dossiers(client):
     resp = client.get("/reading")
     assert resp.status_code == 200
     assert b"State of play" in resp.data
+
+
+def test_reading_route_renders_dossier_markdown(client, seeded_conn):
+    seeded_conn.execute(
+        "UPDATE dossiers SET content = ? WHERE topic_id = 1",
+        ("## State of play\n\n- First point\n- Second point",),
+    )
+    seeded_conn.commit()
+    resp = client.get("/reading")
+    assert resp.status_code == 200
+    assert b"<h2>State of play</h2>" in resp.data
+    assert b"<li>First point</li>" in resp.data
+    assert b"## State of play" not in resp.data
+    assert b"- First point" not in resp.data
 
 
 def test_reading_toggle_sets_cookie_and_redirects_home(client):

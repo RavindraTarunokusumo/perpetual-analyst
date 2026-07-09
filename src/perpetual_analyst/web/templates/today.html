@@ -3,8 +3,35 @@
 <h1>Today</h1>
 {% if report %}
   <p class="meta">{{ report.report_date }}{% if not report.delivered_at %} · <span class="badge badge-warn">undelivered</span>{% endif %}</p>
+  <section class="changes">
+    <div class="label">What changed</div>
+    {% for topic in changes %}
+      {% if topic.quiet %}
+        <p class="changes-quiet muted">{{ topic.name }} — nothing significant</p>
+      {% else %}
+        <div class="changes-topic">
+          <a href="{{ url_for('topic', slug=topic.slug) }}">{{ topic.name }}</a>
+          {% for d in topic.deltas %}
+            <div class="changes-row">
+              {% if d.before is not none and d.after is not none and d.after > d.before %}
+                <span class="delta rise"><span class="num">{{ '%.2f'|format(d.before) }}</span> → <span class="num">{{ '%.2f'|format(d.after) }}</span> ▲</span>
+              {% elif d.before is not none and d.after is not none and d.after < d.before %}
+                <span class="delta fall"><span class="num">{{ '%.2f'|format(d.before) }}</span> → <span class="num">{{ '%.2f'|format(d.after) }}</span> ▼</span>
+              {% else %}
+                <span class="delta"><span class="num">{{ '%.2f'|format(d.before) if d.before is not none else '—' }}</span> → <span class="num">{{ '%.2f'|format(d.after) if d.after is not none else '—' }}</span></span>
+              {% endif %}
+              <span class="changes-statement">{{ d.statement }}</span>
+            </div>
+          {% endfor %}
+          {% if topic.new_observations > 0 %}
+            <p class="changes-obs muted">+<span class="num">{{ topic.new_observations }}</span> observations</p>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </section>
   <article class="report">{{ report_html|safe }}</article>
 {% else %}
-  <p class="empty">No report yet — run the pipeline from Ops.</p>
+  <p class="empty">No report yet — <a href="{{ url_for('ops') }}">run the pipeline from Ops</a>.</p>
 {% endif %}
 {% endblock %}

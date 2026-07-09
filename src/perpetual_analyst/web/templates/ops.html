@@ -26,24 +26,35 @@
 </section>
 <section class="card">
   <div class="label">Daily run</div>
-  <div id="run-state">state: {{ run_status.state }}{% if run_status.error %} ({{ run_status.error }}){% endif %}</div>
+  <div id="run-state">
+    <span class="status-pill status-pill-{{ run_status.state }}">
+      {% if run_status.state == 'running' %}<span class="dot"></span>{% endif %}
+      {{ run_status.state }}
+    </span>
+    {% if run_status.error and run_status.state == 'error' %}
+    <span class="status-pill-error-text">{{ run_status.error }}</span>
+    {% endif %}
+  </div>
+  {% if run_status.started_at %}<div class="muted">Started <span class="num">{{ run_status.started_at }}</span></div>{% endif %}
+  {% if run_status.finished_at %}<div class="muted">Finished <span class="num">{{ run_status.finished_at }}</span></div>{% endif %}
   <div class="btn-group" style="margin-top: 12px">
     <form method="post" action="{{ url_for('action_run') }}" class="inline">
-      <button class="btn" type="submit">Trigger run</button>
+      <button class="btn" type="submit" {% if run_status.state == 'running' %}disabled{% endif %}>Trigger run</button>
     </form>
     <form method="post" action="{{ url_for('action_run') }}" class="inline">
       <input type="hidden" name="dry_run" value="1">
-      <button class="btn btn-secondary" type="submit">Trigger dry-run</button>
+      <button class="btn btn-secondary" type="submit" {% if run_status.state == 'running' %}disabled{% endif %}>Trigger dry-run</button>
     </form>
   </div>
 </section>
 <script>
+  let prevState = "{{ run_status.state }}";
   async function poll() {
     try {
       const r = await fetch("{{ url_for('action_run_status') }}");
       const s = await r.json();
-      document.getElementById("run-state").textContent =
-        "state: " + s.state + (s.error ? " (" + s.error + ")" : "");
+      if (prevState === "running" && s.state !== "running") { location.reload(); return; }
+      prevState = s.state;
       if (s.state === "running") setTimeout(poll, 2000);
     } catch (e) {}
   }

@@ -5,9 +5,107 @@ from __future__ import annotations
 import sqlite3
 
 
+def confidence_series(updates: list[dict]) -> list[float]:
+    values: list[float] = []
+    if updates:
+        before = updates[0].get("confidence_before")
+        if before is not None:
+            values.append(float(before))
+        for row in updates:
+            after = row.get("confidence_after")
+            if after is not None:
+                values.append(float(after))
+    return values
+
+
+def confidence_points(
+    updates: list[dict],
+    width: int = 560,
+    height: int = 96,
+    pad: int = 6,
+) -> str:
+    """Return an SVG polyline points string for a step chart of confidence history."""
+    values = confidence_series(updates)
+    if len(values) < 2:
+        return ""
+
+    n = len(values)
+    span_x = width - 2 * pad
+    span_y = height - 2 * pad
+
+    def x_at(i: int) -> float:
+        return pad + i * span_x / n
+
+    def y_at(conf: float) -> float:
+        clamped = min(1.0, max(0.0, conf))
+        return pad + (1.0 - clamped) * span_y
+
+    xs = [x_at(i) for i in range(n + 1)]
+    ys = [round(y_at(v), 1) for v in values]
+
+    coords: list[tuple[float, float]] = [(round(xs[0], 1), ys[0])]
+    for i in range(1, n):
+        coords.append((round(xs[i], 1), ys[i - 1]))
+        coords.append((round(xs[i], 1), ys[i]))
+    coords.append((round(xs[n], 1), ys[n - 1]))
+
+    return " ".join(f"{x},{y}" for x, y in coords)
+
+
 def latest_report(conn: sqlite3.Connection) -> dict | None:
     row = conn.execute("SELECT * FROM reports ORDER BY report_date DESC LIMIT 1").fetchone()
     return dict(row) if row else None
+
+
+def today_changes(conn: sqlite3.Connection, report_date: str) -> list[dict]:
+    topics = conn.execute(
+        "SELECT id, slug, name FROM topics WHERE active = 1 ORDER BY name"
+    ).fetchall()
+    delta_rows = conn.execute(
+        """SELECT th.topic_id, tu.thesis_id, th.statement,
+                  tu.confidence_before AS before, tu.confidence_after AS after,
+                  tu.change
+           FROM thesis_updates tu
+           JOIN theses th ON th.id = tu.thesis_id
+           JOIN topics t ON t.id = th.topic_id
+           WHERE t.active = 1 AND th.status = 'active'
+             AND date(tu.created_at) = ?
+           ORDER BY th.topic_id, tu.created_at""",
+        (report_date,),
+    ).fetchall()
+    obs_rows = conn.execute(
+        """SELECT topic_id, COUNT(*) AS n FROM observations
+           WHERE date(created_at) = ? GROUP BY topic_id""",
+        (report_date,),
+    ).fetchall()
+    deltas_by_topic: dict[int, list[dict]] = {}
+    for row in delta_rows:
+        deltas_by_topic.setdefault(row["topic_id"], []).append(
+            {
+                "thesis_id": row["thesis_id"],
+                "statement": row["statement"],
+                "before": row["before"],
+                "after": row["after"],
+                "change": row["change"],
+            }
+        )
+    obs_by_topic = {row["topic_id"]: row["n"] for row in obs_rows}
+    result = []
+    for topic in topics:
+        tid = topic["id"]
+        deltas = deltas_by_topic.get(tid, [])
+        new_obs = obs_by_topic.get(tid, 0)
+        result.append(
+            {
+                "slug": topic["slug"],
+                "name": topic["name"],
+                "deltas": deltas,
+                "new_observations": new_obs,
+                "quiet": not deltas and new_obs == 0,
+            }
+        )
+    result.sort(key=lambda row: (row["quiet"], -len(row["deltas"])))
+    return result
 
 
 def report_list(conn: sqlite3.Connection) -> list[dict]:
@@ -26,7 +124,18 @@ def topic_list(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
         """SELECT t.id, t.slug, t.name, t.brief,
                   (SELECT COUNT(*) FROM theses
-                   WHERE topic_id = t.id AND status = 'active') AS active_theses
+                   WHERE topic_id = t.id AND status = 'active') AS active_theses,
+                  (SELECT updated_at FROM dossiers WHERE topic_id = t.id) AS dossier_updated_at,
+                  (SELECT statement FROM theses
+                   WHERE topic_id = t.id AND status = 'active'
+                   ORDER BY confidence DESC, id LIMIT 1) AS top_thesis,
+                  (SELECT confidence FROM theses
+                   WHERE topic_id = t.id AND status = 'active'
+                   ORDER BY confidence DESC, id LIMIT 1) AS top_confidence,
+                  (SELECT COUNT(*) FROM thesis_updates tu
+                   JOIN theses th ON th.id = tu.thesis_id
+                   WHERE th.topic_id = t.id AND th.status = 'active'
+                     AND date(tu.created_at) = date('now')) AS updates_today
            FROM topics t WHERE t.active = 1 ORDER BY t.name"""
     ).fetchall()
     return [dict(r) for r in rows]

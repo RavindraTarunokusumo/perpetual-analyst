@@ -24,6 +24,6 @@
 </table>
 </div>
 {% else %}
-<p class="empty">No reports yet — run the pipeline from Ops.</p>
+<p class="empty">No reports yet — <a href="{{ url_for('ops') }}">run the pipeline from Ops</a>.</p>
 {% endif %}
 {% endblock %}

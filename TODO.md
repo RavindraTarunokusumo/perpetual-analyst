@@ -5,6 +5,19 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
+## Active session — Web UI refresh (2026-07-09)
+
+Spec: `docs/specs/2026-07-09-web-ui-refresh.md` · Plan: `docs/specs/2026-07-09-web-ui-refresh-plan.md`
+Branch: `web-ui-refresh` · Implementer: Grok junior handoff (one ephemeral session per task)
+
+- [x] T1 — Test enablement: restore `client`/seeded-DB fixtures so `tests/test_web_routes.py` + `tests/test_web_queries.py` collect and pass (no production changes) — `80a9c3a`
+- [x] T2 — CSS tokens: ink-on-paper palette, semantic rise/fall colors, dark mode, mono tabular numerals, nav overflow, Reading view toggle — `1ca80bb`
+- [x] T3 — Dossiers render as markdown (shared Jinja filter) on topic + reading pages — `a669f0d`
+- [x] T4 — Today "what changed" strip: thesis delta chips, new-observation counts, quiet nothing-significant lines, single load animation — `441c698`
+- [x] T5 — Thesis page: inline SVG confidence timeline from `thesis_updates` — `12e731f`
+- [x] T6 — Topics index enrichment + Ops status pill + actionable empty states + link hygiene — `82bd836`
+- [ ] T7 — Accepted review fixes: confidence clamp, active-only updates_today, shared confidence_series, top-thesis tiebreak, .num badge
+
 ## Future Backlog
 
 ### From the PA ↔ Nexus integration (2026-07-08)
@@ -17,6 +30,10 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 - [ ] **Test suite does not collect on `main`.** Pre-existing refactor rot, unrelated to the UI work: `test_search` imports the deleted `retrieval` module; `test_smoke` imports missing `agent.run_topic`; `test_web_actions` imports removed `daily_run` symbols (`force_utf8_stdout`/`run_daily`); `test_web_queries`/`test_web_routes` depend on a removed `seeded_conn` fixture. Needs a dedicated cleanup to restore/remove these tests so `pytest` runs green.
 - [ ] **`docs/commands.md` dashboard port is stale.** Line ~91 says default `http://127.0.0.1:8080`; the real default is `8765` (`cli.web` / `serve_dashboard`). One-line doc fix.
+
+### From the Web UI refresh (2026-07-09)
+
+- [ ] **Persist per-topic daily-run outcomes.** The Today strip's "nothing significant" line cannot distinguish a quiet topic from one whose analysis failed that day (`topic_analyses` only holds successes; the report markdown is the sole signal). Needs a small per-topic run-status table or column; then `today_changes` can scope quiet lines to analyzed topics.
 
 ### Pre-existing
 
