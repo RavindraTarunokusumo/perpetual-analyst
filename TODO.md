@@ -5,6 +5,25 @@ Completed sessions must be moved to `docs/iterations/archive/`.
 
 ---
 
+## Active Session — Web UI Redesign (2026-07-09)
+
+**Spec:** `docs/specs/2026-07-09-web-ui-redesign.md` · **Branch:** `claude/web-ui-redesign-vfwtlg`
+**Fallbacks recorded:** Grok CLI not installed in this remote container → senior-direct
+implementation per task. GitNexus MCP not exposed for this repo → direct caller/source reads.
+
+- [ ] T1 — `theses.horizon` migration + `scripts/seed_demo_data.py` (deterministic 90-day demo dataset; user-approved mock data, no API keys in session)
+- [ ] T2 — dashboard view-model queries in `web/queries.py`
+- [ ] T3 — design system: `base.html` + `app.css` rewrite (dark terminal tokens)
+- [ ] T4 — dashboard page: hero + KPIs + signal chart (`dashboard.html`, `dashboard.js`, routes)
+- [ ] T5 — section pages restyled (topics/topic/thesis/sources/memory/reports/predictions/settings)
+- [ ] T6 — route map + web tests updated
+- [ ] T7 — validation: compileall/ruff/pytest, live smoke, screenshot vs reference
+
+Backlog created by this session:
+- [ ] Wire the header date-range picker to re-scope dashboard queries (chrome-only in v1)
+- [ ] `⌘K` command palette over topics/sources/entities (search field is chrome in v1)
+- [ ] Real entity extraction to replace the title-token heuristic behind Memory & Insights
+
 ## Future Backlog
 
 ### From the PA ↔ Nexus integration (2026-07-08)
