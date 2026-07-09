@@ -34,6 +34,15 @@ def test_topic_list(seeded_conn):
     rows = queries.topic_list(seeded_conn)
     assert rows[0]["updates_today"] == 1
 
+    seeded_conn.execute(
+        "INSERT INTO theses (id, topic_id, statement, rationale, confidence, status) "
+        "VALUES (3, 1, 'Tied confidence thesis', 'tie', 0.62, 'active')"
+    )
+    seeded_conn.commit()
+    rows = queries.topic_list(seeded_conn)
+    assert rows[0]["top_thesis"] == "Open-weight reaches parity"
+    assert rows[0]["top_confidence"] == 0.62
+
 
 def test_topic_detail_bundles_memory(seeded_conn):
     detail = queries.topic_detail(seeded_conn, "ai-labs")
@@ -146,3 +155,11 @@ def test_confidence_points_y_inverts_confidence():
     pairs = [tuple(map(float, p.split(","))) for p in points.split()]
     assert pairs[0][1] == 6.0  # confidence 1.0 → top (pad)
     assert pairs[-1][1] == 90.0  # confidence 0.0 → bottom
+
+
+def test_confidence_points_clamps_out_of_range():
+    updates = [{"confidence_before": 0.5, "confidence_after": 1.7}]
+    points = queries.confidence_points(updates)
+    pairs = [tuple(map(float, p.split(","))) for p in points.split()]
+    assert pairs[-1][1] == 6.0
+    assert all(y >= 6.0 for _, y in pairs)

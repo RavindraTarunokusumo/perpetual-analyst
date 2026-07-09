@@ -5,13 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 
-def confidence_points(
-    updates: list[dict],
-    width: int = 560,
-    height: int = 96,
-    pad: int = 6,
-) -> str:
-    """Return an SVG polyline points string for a step chart of confidence history."""
+def confidence_series(updates: list[dict]) -> list[float]:
     values: list[float] = []
     if updates:
         before = updates[0].get("confidence_before")
@@ -21,6 +15,17 @@ def confidence_points(
             after = row.get("confidence_after")
             if after is not None:
                 values.append(float(after))
+    return values
+
+
+def confidence_points(
+    updates: list[dict],
+    width: int = 560,
+    height: int = 96,
+    pad: int = 6,
+) -> str:
+    """Return an SVG polyline points string for a step chart of confidence history."""
+    values = confidence_series(updates)
     if len(values) < 2:
         return ""
 
@@ -32,7 +37,8 @@ def confidence_points(
         return pad + i * span_x / n
 
     def y_at(conf: float) -> float:
-        return pad + (1.0 - conf) * span_y
+        clamped = min(1.0, max(0.0, conf))
+        return pad + (1.0 - clamped) * span_y
 
     xs = [x_at(i) for i in range(n + 1)]
     ys = [round(y_at(v), 1) for v in values]
@@ -122,13 +128,13 @@ def topic_list(conn: sqlite3.Connection) -> list[dict]:
                   (SELECT updated_at FROM dossiers WHERE topic_id = t.id) AS dossier_updated_at,
                   (SELECT statement FROM theses
                    WHERE topic_id = t.id AND status = 'active'
-                   ORDER BY confidence DESC LIMIT 1) AS top_thesis,
+                   ORDER BY confidence DESC, id LIMIT 1) AS top_thesis,
                   (SELECT confidence FROM theses
                    WHERE topic_id = t.id AND status = 'active'
-                   ORDER BY confidence DESC LIMIT 1) AS top_confidence,
+                   ORDER BY confidence DESC, id LIMIT 1) AS top_confidence,
                   (SELECT COUNT(*) FROM thesis_updates tu
                    JOIN theses th ON th.id = tu.thesis_id
-                   WHERE th.topic_id = t.id
+                   WHERE th.topic_id = t.id AND th.status = 'active'
                      AND date(tu.created_at) = date('now')) AS updates_today
            FROM topics t WHERE t.active = 1 ORDER BY t.name"""
     ).fetchall()

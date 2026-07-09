@@ -9,7 +9,7 @@
   <tr>
     <td>
       <a href="{{ url_for('topic', slug=t.slug) }}">{{ t.name }}</a>
-      {% if t.updates_today > 0 %}<span class="delta rise">{{ t.updates_today }} today</span>{% endif %}
+      {% if t.updates_today > 0 %}<span class="delta rise"><span class="num">{{ t.updates_today }}</span> today</span>{% endif %}
     </td>
     <td>
       {% if t.top_thesis %}
